@@ -1,23 +1,35 @@
 export const theme = {
   colors: {
-    primary: '#0088c2',
-    primaryDark: '#0047c2',
-    primaryLight: '#33A3D4',
+    // Primary - Vert croix de pharmacie
+    primary: '#009B72',      // Vert officinal
+    primaryDark: '#007A5A',
+    primaryLight: '#44B77B',
     
-    dark: '#3e3e3e',
-    darkLight: '#E1E1E1',
-    gray: '#E3E3E3',
+    // Secondary - Bleu médical
+    secondary: '#2E7D8F',
+    secondaryDark: '#1F5A6A',
+    secondaryLight: '#5BA4B8',
     
-    text: '#494949',
-    textLight: '#7C7C7C',
-    textDark: '#1D1D1D',
+    // Neutrals
+    dark: '#2D3748',
+    darkLight: '#E2E8F0',
+    gray: '#CBD5E0',
     
-    rose: '#EF4444',
-    roseLight: '#f87171',
+    text: '#2D3748',
+    textLight: '#718096',
+    textDark: '#1A202C',
     
-    background: '#FFFFFF',
+    // Status
+    rose: '#E53E3E',
+    roseLight: '#FC8181',
+    success: '#38A169',
+    warning: '#DD6B20',
+    
+    // UI
+    background: '#F5F7FA',
+    backgroundDark: '#EDF2F7',
     card: '#FFFFFF',
-    border: '#E3E3E3',
+    border: '#E2E8F0',
   },
   fonts: {
     medium: '500',
