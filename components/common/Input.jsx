@@ -1,10 +1,9 @@
 import { StyleSheet, TextInput, View } from 'react-native'
 import React from 'react'
-import { useTheme } from '../../contexts/ThemeContext'
+import { theme } from '../../constants/theme';
 import { hp } from '../../helpers/common'
 
 const Input = (props) => {
-  const { theme } = useTheme();
 
   return (
     <View style={[
