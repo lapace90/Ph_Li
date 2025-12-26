@@ -2,6 +2,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { Text, TextInput } from 'react-native';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import LoadingScreen from '../components/common/LoadingScreen';
 import {
   useFonts,
   Montserrat_400Regular,
@@ -14,13 +15,10 @@ import * as SplashScreen from 'expo-splash-screen';
 
 SplashScreen.preventAutoHideAsync();
 
-// Force Montserrat sur tous les Text et TextInput
 const setDefaultFont = () => {
   const defaultFont = 'Montserrat_400Regular';
-
   Text.defaultProps = Text.defaultProps || {};
   Text.defaultProps.style = { fontFamily: defaultFont };
-
   TextInput.defaultProps = TextInput.defaultProps || {};
   TextInput.defaultProps.style = { fontFamily: defaultFont };
 };
@@ -43,14 +41,19 @@ const MainLayout = () => {
     } else if (session && profile?.first_name && (inAuth || isWelcome)) {
       router.replace('/(tabs)/home');
     }
-  }, [user, profile, loading, segments]);
+  }, [session, profile, loading, segments]);
+
+  // ← ICI : Afficher le LoadingScreen pendant le chargement
+  if (loading) {
+    return <LoadingScreen />;
+  }
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="welcome" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
-      <Stack.Screen name = "(screens)" />
+      <Stack.Screen name="(screens)" />
     </Stack>
   );
 };
@@ -71,6 +74,7 @@ export default function RootLayout() {
     }
   }, [fontsLoaded]);
 
+  // Attendre que les fonts soient chargées
   if (!fontsLoaded) {
     return null;
   }
