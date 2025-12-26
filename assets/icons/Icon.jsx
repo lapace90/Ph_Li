@@ -9,7 +9,7 @@ const iconMap = {
   user: { lib: 'feather', name: 'user' },
   users: { lib: 'feather', name: 'users' },
   phone: { lib: 'feather', name: 'phone' },
-  
+
   // Navigation
   arrowLeft: { lib: 'feather', name: 'arrow-left' },
   arrowRight: { lib: 'feather', name: 'arrow-right' },
@@ -17,7 +17,7 @@ const iconMap = {
   chevronRight: { lib: 'feather', name: 'chevron-right' },
   chevronDown: { lib: 'feather', name: 'chevron-down' },
   chevronUp: { lib: 'feather', name: 'chevron-up' },
-  
+
   // Actions
   check: { lib: 'feather', name: 'check' },
   x: { lib: 'feather', name: 'x' },
@@ -26,45 +26,45 @@ const iconMap = {
   trash: { lib: 'feather', name: 'trash-2' },
   send: { lib: 'feather', name: 'send' },
   search: { lib: 'feather', name: 'search' },
-  
+
   // Status & Info
   info: { lib: 'feather', name: 'info' },
   alertCircle: { lib: 'feather', name: 'alert-circle' },
   checkCircle: { lib: 'feather', name: 'check-circle' },
-  
+
   // Calendar & Time
   calendar: { lib: 'feather', name: 'calendar' },
   clock: { lib: 'feather', name: 'clock' },
-  
+
   // Chat & Messages
   messageCircle: { lib: 'feather', name: 'message-circle' },
   messageSquare: { lib: 'feather', name: 'message-square' },
-  
+
   // Settings
   settings: { lib: 'feather', name: 'settings' },
   logout: { lib: 'feather', name: 'log-out' },
-  
+
   // Location
   location: { lib: 'feather', name: 'map-pin' },
   mapPin: { lib: 'feather', name: 'map-pin' },
   map: { lib: 'feather', name: 'map' },
-  
+
   // Matching & Social
   heart: { lib: 'feather', name: 'heart' },
   thumbsUp: { lib: 'feather', name: 'thumbs-up' },
   thumbsDown: { lib: 'feather', name: 'thumbs-down' },
   star: { lib: 'feather', name: 'star' },
-  
+
   // Files & Documents
   file: { lib: 'feather', name: 'file' },
   fileText: { lib: 'feather', name: 'file-text' },
   clipboard: { lib: 'feather', name: 'clipboard' },
-  
+
   // Media
   camera: { lib: 'feather', name: 'camera' },
   image: { lib: 'feather', name: 'image' },
   mic: { lib: 'feather', name: 'mic' },
-  
+
   // Misc
   home: { lib: 'feather', name: 'home' },
   book: { lib: 'feather', name: 'book' },
@@ -77,7 +77,9 @@ const iconMap = {
   refresh: { lib: 'feather', name: 'rotate-ccw' },
   filter: { lib: 'feather', name: 'filter' },
   sliders: { lib: 'feather', name: 'sliders' },
-  
+  eye: { lib: 'feather', name: 'eye' },
+  clock: { lib: 'feather', name: 'clock' },
+
   // Material Icons (per icone non disponibili in Feather)
   school: { lib: 'material', name: 'school' },
   class: { lib: 'material', name: 'class' },
@@ -86,28 +88,28 @@ const iconMap = {
 
 const Icon = ({ name, size = 24, color = '#000', style }) => {
   const iconConfig = iconMap[name];
-  
+
   if (!iconConfig) {
     console.warn(`Icon "${name}" not found`);
     return null;
   }
-  
+
   if (iconConfig.lib === 'material') {
     return (
-      <MaterialIcons 
-        name={iconConfig.name} 
-        size={size} 
-        color={color} 
+      <MaterialIcons
+        name={iconConfig.name}
+        size={size}
+        color={color}
         style={style}
       />
     );
   }
-  
+
   return (
-    <Feather 
-      name={iconConfig.name} 
-      size={size} 
-      color={color} 
+    <Feather
+      name={iconConfig.name}
+      size={size}
+      color={color}
       style={style}
     />
   );

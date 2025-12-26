@@ -69,13 +69,13 @@ export const AuthProvider = ({ children }) => {
     if (error) return { data: null, error };
 
     // Créer l'utilisateur dans public.users
-    if (data?.user) {
-      try {
-        await userService.create(data.user.id, email);
-      } catch (err) {
-        console.error('Error creating user record:', err);
-      }
-    }
+    // if (data?.user) {
+    //   try {
+    //     await userService.create(data.user.id, email);
+    //   } catch (err) {
+    //     console.error('Error creating user record:', err);
+    //   }
+    // }
 
     return { data, error: null };
   };

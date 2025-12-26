@@ -44,7 +44,10 @@ const Login = () => {
 
         <View style={styles.header}>
           <Text style={styles.title}>Bienvenue sur</Text>
-          <Text style={styles.titleBrand}>PharmaLink 💊</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.titlePharma}>Pharma</Text>
+            <Text style={styles.titleLink}>Link</Text>
+          </View>
           <Text style={styles.subtitle}>Connectez-vous pour continuer</Text>
         </View>
 
@@ -64,10 +67,10 @@ const Login = () => {
             onChangeText={(value) => (passwordRef.current = value)}
           />
 
-          <Button 
-            title="Se connecter" 
-            loading={loading} 
-            onPress={onSubmit} 
+          <Button
+            title="Se connecter"
+            loading={loading}
+            onPress={onSubmit}
           />
         </View>
 
@@ -99,10 +102,19 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontFamily: theme.fonts.medium,
   },
-  titleBrand: {
-    fontSize: hp(3.5),
+  titleRow: {
+    flexDirection: 'row',
+  },
+  titlePharma: {
+    fontSize: hp(4),
+    fontFamily: theme.fonts.extraBold,
     color: theme.colors.primary,
+  },
+  titleLink: {
+    fontSize: hp(4),
     fontFamily: theme.fonts.bold,
+    color: theme.colors.secondary,
+    // fontStyle: 'italic',
   },
   subtitle: {
     fontSize: hp(1.8),

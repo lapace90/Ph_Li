@@ -8,6 +8,8 @@ const CONTRACT_TYPES = {
     { value: 'CDD', label: 'CDD' },
     { value: 'vacation', label: 'Vacation' },
     { value: 'remplacement', label: 'Remplacement' },
+    { value: 'temps-plein', label: 'Temps plein' },
+    { value: 'temps-partiel', label: 'Temps partiel' },
   ],
   student: [
     { value: 'stage', label: 'Stage' },

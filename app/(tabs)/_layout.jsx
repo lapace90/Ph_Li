@@ -17,7 +17,7 @@ export default function TabsLayout() {
           paddingTop: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
         },
       }}
     >
@@ -33,9 +33,18 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="search"
         options={{
-          title: 'Recherche',
+          title: 'Emplois',
           tabBarIcon: ({ color, size }) => (
             <Icon name="search" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="marketplace"
+        options={{
+          title: 'Pharmacies',
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="briefcase" size={size} color={color} />
           ),
         }}
       />

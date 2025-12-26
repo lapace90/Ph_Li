@@ -52,6 +52,8 @@ export default function Profile() {
             remplacement: 'Remplacement',
             stage: 'Stage',
             alternance: 'Alternance',
+            'temps-plein': 'Temps plein',
+            'temps-partiel': 'Temps partiel',
         };
 
         return profile.preferred_contract_types
@@ -91,7 +93,7 @@ export default function Profile() {
                         style={styles.editHeaderButton}
                         onPress={() => router.push('/(screens)/editProfile')}
                     >
-                        <Icon name="edit" size={20} color={theme.colors.primary} />
+                        <Icon name="edit" size={20} color={theme.colors.secondary} />
                     </Pressable>
                 </View>
 
@@ -279,7 +281,7 @@ const styles = StyleSheet.create({
     },
     editHeaderButton: {
         padding: hp(1),
-        backgroundColor: theme.colors.primary + '15',
+        backgroundColor: theme.colors.secondary + '15',
         borderRadius: theme.radius.md,
     },
     profileCard: {

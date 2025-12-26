@@ -26,12 +26,17 @@ const CityAutocomplete = ({ value, onSelect, placeholder = "Rechercher une ville
   const searchCities = async (search) => {
     setLoading(true);
     try {
-      // API adresse.data.gouv.fr (gratuite, française)
       const response = await fetch(
         `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(search)}&type=municipality&limit=5`
       );
       const data = await response.json();
-      
+
+      // Ajouter cette vérification
+      if (!data.features || !Array.isArray(data.features)) {
+        setSuggestions([]);
+        return;
+      }
+
       const cities = data.features.map((feature) => ({
         city: feature.properties.city || feature.properties.name,
         postcode: feature.properties.postcode,
@@ -41,7 +46,7 @@ const CityAutocomplete = ({ value, onSelect, placeholder = "Rechercher une ville
         longitude: feature.geometry.coordinates[0],
         label: `${feature.properties.city || feature.properties.name} - ${feature.properties.context.split(', ').pop()}`,
       }));
-      
+
       setSuggestions(cities);
       setShowSuggestions(true);
     } catch (error) {
