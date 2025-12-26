@@ -1,107 +1,126 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { userService } from '../services/userService';
+import { profileService } from '../services/profileService';
+import { privacyService } from '../services/privacyService';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
+  const [session, setSession] = useState(null);
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [privacy, setPrivacy] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check session au démarrage
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+      setSession(session);
       if (session?.user) {
-        loadProfile(session.user.id);
+        loadUserData(session.user.id);
       } else {
         setLoading(false);
       }
     });
 
-    // Écoute les changements d'auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      setSession(session);
       if (session?.user) {
-        loadProfile(session.user.id);
+        loadUserData(session.user.id);
       } else {
-        setProfile(null);
-        setLoading(false);
+        clearUserData();
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const loadProfile = async (userId) => {
+  const loadUserData = async (userId) => {
+    console.log('Loading user data for:', userId);
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      const [userData, profileData, privacyData] = await Promise.all([
+        userService.getById(userId).catch(err => {
+          console.log('User not found:', err);
+          return null;
+        }),
+        profileService.getById(userId).catch(err => {
+          console.log('Profile not found:', err);
+          return null;
+        }),
+        privacyService.getByUserId(userId).catch(err => {
+          console.log('Privacy not found:', err);
+          return null;
+        }),
+      ]);
 
-      if (error) throw error;
-      setProfile(data);
+      console.log('Loaded data:', { userData, profileData, privacyData });
+      setUser(userData);
+      setProfile(profileData);
+      setPrivacy(privacyData);
     } catch (error) {
-      console.error('Error loading profile:', error);
+      console.error('Error loading user data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const signUp = async (email, password, userData) => {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: userData
-        }
-      });
+  const clearUserData = () => {
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+    setPrivacy(null);
+    setLoading(false);
+  };
 
-      if (error) throw error;
-      return { data, error: null };
-    } catch (error) {
-      return { data: null, error };
+  const signUp = async (email, password) => {
+    const { data, error } = await supabase.auth.signUp({ email, password });
+
+    if (error) return { data: null, error };
+
+    // Créer l'utilisateur dans public.users
+    if (data?.user) {
+      try {
+        await userService.create(data.user.id, email);
+      } catch (err) {
+        console.error('Error creating user record:', err);
+      }
     }
+
+    return { data, error: null };
   };
 
   const signIn = async (email, password) => {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) throw error;
-      return { data, error: null };
-    } catch (error) {
-      return { data: null, error };
-    }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    return { data, error };
   };
 
   const signOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      setUser(null);
-      setProfile(null);
-    } catch (error) {
-      console.error('Error signing out:', error);
+    await supabase.auth.signOut();
+    clearUserData();
+  };
+
+  const refreshUserData = () => {
+    if (session?.user?.id) {
+      return loadUserData(session.user.id);
     }
   };
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      profile,
-      loading,
-      signUp,
-      signIn,
-      signOut,
-      refreshProfile: () => loadProfile(user?.id)
-    }}>
+    <AuthContext.Provider
+      value={{
+        session,
+        user,
+        profile,
+        privacy,
+        loading,
+        isAuthenticated: !!session,
+        isProfileComplete: !!profile?.first_name,
+        signUp,
+        signIn,
+        signOut,
+        refreshUserData,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

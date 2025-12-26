@@ -1,7 +1,7 @@
 export const theme = {
   colors: {
     // Primary - Vert croix de pharmacie
-    primary: '#009B72',      // Vert officinal
+    primary: '#009B72',
     primaryDark: '#007A5A',
     primaryLight: '#44B77B',
     
@@ -32,10 +32,11 @@ export const theme = {
     border: '#E2E8F0',
   },
   fonts: {
-    medium: '500',
-    semiBold: '600',
-    bold: '700',
-    extraBold: '800',
+    regular: 'Montserrat_400Regular',
+    medium: 'Montserrat_500Medium',
+    semiBold: 'Montserrat_600SemiBold',
+    bold: 'Montserrat_700Bold',
+    extraBold: 'Montserrat_800ExtraBold',
   },
   radius: {
     xs: 10,

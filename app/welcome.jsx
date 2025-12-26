@@ -109,13 +109,14 @@ const styles = StyleSheet.create({
   },
   titlePharma: {
     fontSize: hp(4),
-    fontWeight: theme.fonts.bold,
+    fontFamily: theme.fonts.extraBold,
     color: theme.colors.primary,
   },
   titleLink: {
     fontSize: hp(4),
-    fontWeight: theme.fonts.bold,
+    fontFamily: theme.fonts.bold,
     color: theme.colors.secondary,
+    // fontStyle: 'italic',
   },
   subtitle: {
     fontSize: hp(1.8),
@@ -123,7 +124,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: hp(1),
     paddingHorizontal: wp(4),
-    lineHeight: hp(2.6),
+    lineHeight: hp(2),
+    fontFamily: theme.fonts.semiBold,
   },
   features: {
     gap: hp(2),
@@ -152,7 +154,7 @@ const styles = StyleSheet.create({
   },
   featureTitle: {
     fontSize: hp(1.9),
-    fontWeight: theme.fonts.semiBold,
+    fontFamily: theme.fonts.semiBold,
     color: theme.colors.text,
     marginBottom: hp(0.3),
   },
@@ -176,6 +178,6 @@ const styles = StyleSheet.create({
   loginLink: {
     fontSize: hp(1.8),
     color: theme.colors.primary,
-    fontWeight: theme.fonts.semiBold,
+    fontFamily: theme.fonts.semiBold,
   },
 });

@@ -97,12 +97,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: hp(3),
     color: theme.colors.text,
-    fontWeight: theme.fonts.medium,
+    fontFamily: theme.fonts.medium,
   },
   titleBrand: {
     fontSize: hp(3.5),
     color: theme.colors.primary,
-    fontWeight: theme.fonts.bold,
+    fontFamily: theme.fonts.bold,
   },
   subtitle: {
     fontSize: hp(1.8),
@@ -124,6 +124,6 @@ const styles = StyleSheet.create({
   footerLink: {
     fontSize: hp(1.8),
     color: theme.colors.primary,
-    fontWeight: theme.fonts.semiBold,
+    fontFamily: theme.fonts.semiBold,
   },
 });

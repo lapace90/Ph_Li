@@ -36,7 +36,7 @@ const Button = ({
       {loading ? (
         <ActivityIndicator size="small" color="white" />
       ) : (
-        <Text style={[styles.text, { fontWeight: theme.fonts.bold }, textStyle]}>
+        <Text style={[styles.text, { fontFamily: theme.fonts.bold }, textStyle]}>
           {title}
         </Text>
       )}

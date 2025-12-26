@@ -8,6 +8,7 @@ const iconMap = {
   lock: { lib: 'feather', name: 'lock' },
   user: { lib: 'feather', name: 'user' },
   users: { lib: 'feather', name: 'users' },
+  phone: { lib: 'feather', name: 'phone' },
   
   // Navigation
   arrowLeft: { lib: 'feather', name: 'arrow-left' },
