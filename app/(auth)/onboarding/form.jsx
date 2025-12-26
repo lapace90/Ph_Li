@@ -15,7 +15,7 @@ import Icon from '../../../assets/icons/Icon';
 import CityAutocomplete from '../../../components/common/CityAutocomplete';
 import RadiusSlider from '../../../components/common/RadiusSlider';
 import AvailabilityPicker from '../../../components/common/AvailabilityPicker';
-import ContractTypePicker from '../../../components/common/ContractTypePicker';
+import ContractTypePicker from '../../../components/common/ContractTypePicker.jsx';
 import RelocationToggle from '../../../components/common/RelocationToggle';
 
 const GENDERS = [
@@ -67,7 +67,7 @@ export default function OnboardingForm() {
     // Availability
     availability: null, // 'immediate' ou date ISO
     searchRadius: 50,
-    contractType: null,
+    contractTypes: [],
     willingToRelocate: false,
   });
 
@@ -136,7 +136,7 @@ export default function OnboardingForm() {
         specializations: formData.specializations.length > 0 ? formData.specializations : null,
         availability_date: formData.availability === 'immediate' ? new Date().toISOString().split('T')[0] : formData.availability,
         search_radius_km: formData.searchRadius === -1 ? null : formData.searchRadius,
-        preferred_contract_type: formData.contractType,
+        preferred_contract_types: formData.contractTypes.length > 0 ? formData.contractTypes : null,
         willing_to_relocate: formData.willingToRelocate,
       });
 
@@ -326,14 +326,25 @@ export default function OnboardingForm() {
           </View>
         )}
 
-        {/* Disponibilité (candidats) */}
+        {/* Recherche (candidats) */}
         {isCandidate && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Disponibilité</Text>
+            <Text style={styles.sectionTitle}>Recherche</Text>
+
+            <ContractTypePicker
+              value={formData.contractTypes}
+              onChange={(v) => updateField('contractTypes', v)}
+              userType={role}
+            />
 
             <AvailabilityPicker
               value={formData.availability}
               onChange={(v) => updateField('availability', v)}
+            />
+
+            <RelocationToggle
+              value={formData.willingToRelocate}
+              onChange={(v) => updateField('willingToRelocate', v)}
             />
           </View>
         )}

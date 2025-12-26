@@ -50,7 +50,7 @@ const MainLayout = () => {
       <Stack.Screen name="welcome" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
-      <Stack.Screen name = "(screen)" />
+      <Stack.Screen name = "(screens)" />
     </Stack>
   );
 };

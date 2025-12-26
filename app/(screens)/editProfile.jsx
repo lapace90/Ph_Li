@@ -13,8 +13,8 @@ import Button from '../../components/common/Button';
 import Icon from '../../assets/icons/Icon';
 import CityAutocomplete from '../../components/common/CityAutocomplete';
 import RadiusSlider from '../../components/common/RadiusSlider';
-import ContractTypePicker from '../../../components/common/ContractTypePicker';
-import RelocationToggle from '../../../components/common/RelocationToggle';
+import ContractTypePicker from '../../components/common/ContractTypePicker';
+import RelocationToggle from '../../components/common/RelocationToggle';
 import AvailabilityPicker from '../../components/common/AvailabilityPicker';
 
 const SPECIALIZATIONS = [
@@ -42,7 +42,7 @@ export default function EditProfile() {
         specializations: [],
         availability: null,
         searchRadius: 50,
-        contractType: null,
+        contractTypes: [],
         willingToRelocate: false,
     });
 
@@ -65,7 +65,7 @@ export default function EditProfile() {
                 specializations: profile.specializations || [],
                 availability: profile.availability_date || null,
                 searchRadius: profile.search_radius_km || -1,
-                contractType: profile.preferred_contract_type || null,
+                contractTypes: profile.preferred_contract_type || [],
                 willingToRelocate: profile.willing_to_relocate ?? false,
             });
         }
@@ -111,6 +111,8 @@ export default function EditProfile() {
                     ? new Date().toISOString().split('T')[0]
                     : formData.availability,
                 search_radius_km: formData.searchRadius === -1 ? null : formData.searchRadius,
+                preferred_contract_types: formData.contractTypes.length > 0 ? formData.contractTypes : null,
+                willing_to_relocate: formData.willingToRelocate,
             });
 
             await refreshUserData();
@@ -227,8 +229,9 @@ export default function EditProfile() {
                         <Text style={styles.sectionTitle}>Recherche</Text>
 
                         <ContractTypePicker
-                            value={formData.contractType}
-                            onChange={(v) => updateField('contractType', v)}
+                            value={formData.contractTypes}
+                            onChange={(v) => updateField('contractTypes', v)}
+                            userType={user?.user_type}
                         />
 
                         <AvailabilityPicker
