@@ -12,7 +12,7 @@ export const userService = {
     return data;
   },
 
-  async create(userId, email, userType = null) {
+  async create(userId, email, userType) {
     const { data, error } = await supabase
       .from('users')
       .insert({

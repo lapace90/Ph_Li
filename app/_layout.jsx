@@ -17,16 +17,16 @@ SplashScreen.preventAutoHideAsync();
 // Force Montserrat sur tous les Text et TextInput
 const setDefaultFont = () => {
   const defaultFont = 'Montserrat_400Regular';
-  
+
   Text.defaultProps = Text.defaultProps || {};
   Text.defaultProps.style = { fontFamily: defaultFont };
-  
+
   TextInput.defaultProps = TextInput.defaultProps || {};
   TextInput.defaultProps.style = { fontFamily: defaultFont };
 };
 
 const MainLayout = () => {
-  const { user, profile, loading } = useAuth();
+  const { session, user, profile, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
@@ -36,11 +36,11 @@ const MainLayout = () => {
     const inAuth = segments[0] === '(auth)';
     const isWelcome = segments[0] === 'welcome';
 
-    if (!user && !inAuth && !isWelcome) {
+    if (!session && !inAuth && !isWelcome) {
       router.replace('/welcome');
-    } else if (user && !profile?.first_name && !segments.includes('onboarding')) {
+    } else if (session && !profile?.first_name && !segments.includes('onboarding')) {
       router.replace('/(auth)/onboarding');
-    } else if (user && profile?.first_name && (inAuth || isWelcome)) {
+    } else if (session && profile?.first_name && (inAuth || isWelcome)) {
       router.replace('/(tabs)/home');
     }
   }, [user, profile, loading, segments]);
@@ -50,6 +50,7 @@ const MainLayout = () => {
       <Stack.Screen name="welcome" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name = "(screen)" />
     </Stack>
   );
 };

@@ -12,11 +12,16 @@ import BackButton from '../../../components/common/BackButton';
 import Input from '../../../components/common/Input';
 import Button from '../../../components/common/Button';
 import Icon from '../../../assets/icons/Icon';
+import CityAutocomplete from '../../../components/common/CityAutocomplete';
+import RadiusSlider from '../../../components/common/RadiusSlider';
+import AvailabilityPicker from '../../../components/common/AvailabilityPicker';
+import ContractTypePicker from '../../../components/common/ContractTypePicker';
+import RelocationToggle from '../../../components/common/RelocationToggle';
 
 const GENDERS = [
-  { value: 'male', label: 'Homme', icon: 'user' },
-  { value: 'female', label: 'Femme', icon: 'user' },
-  { value: 'other', label: 'Autre', icon: 'user' },
+  { value: 'male', label: 'Homme' },
+  { value: 'female', label: 'Femme' },
+  { value: 'other', label: 'Autre' },
 ];
 
 const SPECIALIZATIONS = [
@@ -43,22 +48,27 @@ export default function OnboardingForm() {
   const router = useRouter();
   const { role } = useLocalSearchParams();
   const { session } = useAuth();
-  
+
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     gender: null,
     phone: '',
-    city: '',
-    region: '',
+    // Location
+    city: null, // Objet complet de CityAutocomplete
+    // Experience
     experienceYears: '',
     specializations: [],
     rppsNumber: '',
+    // Student
     studyLevel: '',
     school: '',
-    availabilityDate: '',
-    searchRadius: '50',
+    // Availability
+    availability: null, // 'immediate' ou date ISO
+    searchRadius: 50,
+    contractType: null,
+    willingToRelocate: false,
   });
 
   const updateField = (field, value) => {
@@ -74,6 +84,10 @@ export default function OnboardingForm() {
     }));
   };
 
+  const handleCitySelect = (city) => {
+    updateField('city', city);
+  };
+
   const isCandidate = role !== 'titulaire';
   const isStudent = role === 'etudiant';
   const canHaveRPPS = role === 'preparateur' || role === 'titulaire';
@@ -87,8 +101,8 @@ export default function OnboardingForm() {
       Alert.alert('Erreur', 'Veuillez sélectionner votre genre');
       return false;
     }
-    if (!formData.city.trim()) {
-      Alert.alert('Erreur', 'Veuillez renseigner votre ville');
+    if (!formData.city) {
+      Alert.alert('Erreur', 'Veuillez sélectionner votre ville');
       return false;
     }
     if (isStudent && !formData.studyLevel) {
@@ -103,22 +117,27 @@ export default function OnboardingForm() {
 
     setLoading(true);
     try {
-      // Créer le profil
+      // 1. Créer l'entrée users avec le rôle
+      await userService.create(session.user.id, session.user.email, role);
+
+      // 2. Créer le profil
       await profileService.upsert(session.user.id, {
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
+        gender: formData.gender,
         phone: formData.phone.trim() || null,
-        current_city: formData.city.trim(),
-        current_region: formData.region.trim() || null,
+        current_city: formData.city.city,
+        current_postal_code: formData.city.postcode,
+        current_region: formData.city.region,
+        current_department: formData.city.department,
+        current_latitude: formData.city.latitude,
+        current_longitude: formData.city.longitude,
         experience_years: formData.experienceYears ? parseInt(formData.experienceYears) : null,
         specializations: formData.specializations.length > 0 ? formData.specializations : null,
-        availability_date: formData.availabilityDate || null,
-        search_radius_km: parseInt(formData.searchRadius) || 50,
-      });
-
-      // Mettre à jour le type utilisateur
-      await userService.update(session.user.id, {
-        user_type: role,
+        availability_date: formData.availability === 'immediate' ? new Date().toISOString().split('T')[0] : formData.availability,
+        search_radius_km: formData.searchRadius === -1 ? null : formData.searchRadius,
+        preferred_contract_type: formData.contractType,
+        willing_to_relocate: formData.willingToRelocate,
       });
 
       // Passer à l'étape confidentialité
@@ -140,6 +159,7 @@ export default function OnboardingForm() {
         style={styles.container}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <BackButton router={router} />
 
@@ -154,7 +174,7 @@ export default function OnboardingForm() {
         {/* Identité */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Identité</Text>
-          
+
           <Input
             icon={<Icon name="user" size={22} color={theme.colors.textLight} />}
             placeholder="Prénom *"
@@ -200,30 +220,19 @@ export default function OnboardingForm() {
         </View>
 
         {/* Localisation */}
-        <View style={styles.section}>
+        <View style={[styles.section, { zIndex: 100 }]}>
           <Text style={styles.sectionTitle}>Localisation</Text>
 
-          <Input
-            icon={<Icon name="mapPin" size={22} color={theme.colors.textLight} />}
-            placeholder="Ville *"
-            value={formData.city}
-            onChangeText={(v) => updateField('city', v)}
-          />
-
-          <Input
-            icon={<Icon name="map" size={22} color={theme.colors.textLight} />}
-            placeholder="Région"
-            value={formData.region}
-            onChangeText={(v) => updateField('region', v)}
+          <CityAutocomplete
+            value={formData.city?.label}
+            onSelect={handleCitySelect}
+            placeholder="Rechercher votre ville *"
           />
 
           {isCandidate && (
-            <Input
-              icon={<Icon name="search" size={22} color={theme.colors.textLight} />}
-              placeholder="Rayon de recherche (km)"
-              keyboardType="numeric"
+            <RadiusSlider
               value={formData.searchRadius}
-              onChangeText={(v) => updateField('searchRadius', v)}
+              onChange={(v) => updateField('searchRadius', v)}
             />
           )}
         </View>
@@ -322,11 +331,9 @@ export default function OnboardingForm() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Disponibilité</Text>
 
-            <Input
-              icon={<Icon name="calendar" size={22} color={theme.colors.textLight} />}
-              placeholder="Date de disponibilité (JJ/MM/AAAA)"
-              value={formData.availabilityDate}
-              onChangeText={(v) => updateField('availabilityDate', v)}
+            <AvailabilityPicker
+              value={formData.availability}
+              onChange={(v) => updateField('availability', v)}
             />
           </View>
         )}

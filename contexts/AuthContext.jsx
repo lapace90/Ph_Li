@@ -17,7 +17,7 @@ export const AuthProvider = ({ children }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        loadUserData(session.user.id);
+        loadUserData(session.user.id, session.user.email);
       } else {
         setLoading(false);
       }
@@ -26,7 +26,7 @@ export const AuthProvider = ({ children }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session?.user) {
-        loadUserData(session.user.id);
+        loadUserData(session.user.id, session.user.email);
       } else {
         clearUserData();
       }
@@ -35,22 +35,13 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const loadUserData = async (userId) => {
+  const loadUserData = async (userId, email) => {
     console.log('Loading user data for:', userId);
     try {
       const [userData, profileData, privacyData] = await Promise.all([
-        userService.getById(userId).catch(err => {
-          console.log('User not found:', err);
-          return null;
-        }),
-        profileService.getById(userId).catch(err => {
-          console.log('Profile not found:', err);
-          return null;
-        }),
-        privacyService.getByUserId(userId).catch(err => {
-          console.log('Privacy not found:', err);
-          return null;
-        }),
+        userService.getById(userId).catch(() => null),
+        profileService.getById(userId).catch(() => null),
+        privacyService.getByUserId(userId).catch(() => null),
       ]);
 
       console.log('Loaded data:', { userData, profileData, privacyData });
@@ -101,7 +92,7 @@ export const AuthProvider = ({ children }) => {
 
   const refreshUserData = () => {
     if (session?.user?.id) {
-      return loadUserData(session.user.id);
+      return loadUserData(session.user.id, session.user.email);
     }
   };
 

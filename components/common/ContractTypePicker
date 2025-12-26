@@ -1,0 +1,79 @@
+import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { theme } from '../../constants/theme';
+import { hp, wp } from '../../helpers/common';
+
+const CONTRACT_TYPES = [
+  { value: 'CDI', label: 'CDI' },
+  { value: 'CDD', label: 'CDD' },
+  { value: 'vacation', label: 'Vacation' },
+  { value: 'remplacement', label: 'Remplacement' },
+  { value: 'stage', label: 'Stage' },
+  { value: 'alternance', label: 'Alternance' },
+];
+
+const ContractTypePicker = ({ value, onChange }) => {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.label}>Type de contrat recherché</Text>
+      <View style={styles.options}>
+        {CONTRACT_TYPES.map((contract) => (
+          <Pressable
+            key={contract.value}
+            style={[
+              styles.option,
+              value === contract.value && styles.optionSelected,
+            ]}
+            onPress={() => onChange(contract.value)}
+          >
+            <Text style={[
+              styles.optionText,
+              value === contract.value && styles.optionTextSelected,
+            ]}>
+              {contract.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+};
+
+export default ContractTypePicker;
+
+export { CONTRACT_TYPES };
+
+const styles = StyleSheet.create({
+  container: {
+    gap: hp(1),
+  },
+  label: {
+    fontSize: hp(1.7),
+    color: theme.colors.text,
+    fontFamily: theme.fonts.medium,
+  },
+  options: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: hp(1),
+  },
+  option: {
+    paddingVertical: hp(1.2),
+    paddingHorizontal: wp(4),
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.card,
+  },
+  optionSelected: {
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primary,
+  },
+  optionText: {
+    fontSize: hp(1.5),
+    color: theme.colors.text,
+  },
+  optionTextSelected: {
+    color: 'white',
+    fontFamily: theme.fonts.medium,
+  },
+});
