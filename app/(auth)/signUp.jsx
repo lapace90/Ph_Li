@@ -67,7 +67,7 @@ const SignUp = () => {
 
         <View style={styles.header}>
           <Text style={styles.title}>Créer un compte</Text>
-          <Text style={styles.subtitle}>Rejoignez la communauté Pharma Link</Text>
+          <Text style={styles.subtitle}>Rejoignez la communauté PharmaLink</Text>
         </View>
 
         <View style={styles.form}>

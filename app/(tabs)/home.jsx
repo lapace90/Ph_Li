@@ -15,7 +15,7 @@ export default function Home() {
             Bonjour {profile?.first_name} 👋
           </Text>
           <Text style={styles.subtitle}>
-            Bienvenue sur Pharma Link
+            Bienvenue sur PharmaLink
           </Text>
         </View>
 

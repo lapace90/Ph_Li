@@ -44,7 +44,7 @@ const Login = () => {
 
         <View style={styles.header}>
           <Text style={styles.title}>Bienvenue sur</Text>
-          <Text style={styles.titleBrand}>Pharma Link 💊</Text>
+          <Text style={styles.titleBrand}>PharmaLink 💊</Text>
           <Text style={styles.subtitle}>Connectez-vous pour continuer</Text>
         </View>
 

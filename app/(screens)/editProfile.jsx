@@ -16,6 +16,8 @@ import RadiusSlider from '../../components/common/RadiusSlider';
 import ContractTypePicker from '../../components/common/ContractTypePicker';
 import RelocationToggle from '../../components/common/RelocationToggle';
 import AvailabilityPicker from '../../components/common/AvailabilityPicker';
+import ImagePickerBox from '../../components/common/ImagePickerBox';
+import { storageService } from '../../services/storageService';
 
 const SPECIALIZATIONS = [
     'Orthopédie',
@@ -33,6 +35,8 @@ export default function EditProfile() {
     const { session, user, profile, refreshUserData } = useAuth();
 
     const [loading, setLoading] = useState(false);
+    const [avatarLoading, setAvatarLoading] = useState(false);
+    const [avatarUri, setAvatarUri] = useState(profile?.avatar_url || null);
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
@@ -44,6 +48,7 @@ export default function EditProfile() {
         searchRadius: 50,
         contractTypes: [],
         willingToRelocate: false,
+
     });
 
     useEffect(() => {
@@ -64,15 +69,39 @@ export default function EditProfile() {
                 experienceYears: profile.experience_years?.toString() || '',
                 specializations: profile.specializations || [],
                 availability: profile.availability_date || null,
-                searchRadius: profile.search_radius_km || -1,
-                contractTypes: profile.preferred_contract_type || [],
+                searchRadius: profile.search_radius_km ?? -1,  // ← utiliser ?? pour gérer null
+                contractTypes: profile.preferred_contract_types || [], 
                 willingToRelocate: profile.willing_to_relocate ?? false,
             });
+            setAvatarUri(profile.avatar_url || null); 
         }
     }, [profile]);
 
     const updateField = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
+    };
+
+    // Fonction pour gérer le changement d'avatar
+    const handleAvatarChange = async (asset) => {
+        if (!asset) {
+            // Suppression de l'avatar
+            setAvatarUri(null);
+            return;
+        }
+
+        setAvatarLoading(true);
+        try {
+            const url = await storageService.uploadImage('avatars', session.user.id, asset);
+            setAvatarUri(url);
+
+            // Mettre à jour le profil immédiatement
+            await profileService.update(session.user.id, { avatar_url: url });
+        } catch (error) {
+            Alert.alert('Erreur', 'Impossible de télécharger la photo');
+            console.error(error);
+        } finally {
+            setAvatarLoading(false);
+        }
     };
 
     const toggleSpecialization = (spec) => {
@@ -139,6 +168,18 @@ export default function EditProfile() {
                     <BackButton router={router} />
                     <Text style={styles.title}>Modifier le profil</Text>
                     <View style={{ width: 36 }} />
+                </View>
+
+                {/* Photo de profil */}
+                <View style={styles.avatarSection}>
+                    <ImagePickerBox
+                        value={avatarUri}
+                        onChange={handleAvatarChange}
+                        shape="circle"
+                        size={wp(30)}
+                        placeholder="Photo de profil"
+                        loading={avatarLoading}
+                    />
                 </View>
 
                 {/* Identité */}
@@ -317,5 +358,14 @@ const styles = StyleSheet.create({
     },
     saveButton: {
         marginTop: hp(2),
+    },
+    avatarSection: {
+        alignItems: 'center',
+        gap: hp(1),
+        marginBottom: hp(2),
+    },
+    avatarHint: {
+        fontSize: hp(1.3),
+        color: theme.colors.textLight,
     },
 });

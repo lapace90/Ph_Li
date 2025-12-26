@@ -9,6 +9,7 @@ import Icon from '../../assets/icons/Icon';
 import RoleAvatar from '../../components/common/RoleAvatar';
 import RppsBadge from '../../components/common/RppsBadge';
 import ProfileInfoCard from '../../components/profile/ProfileInfoCard';
+import Avatar from '../../components/common/Avatar';
 
 export default function Profile() {
     const router = useRouter();
@@ -41,8 +42,9 @@ export default function Profile() {
         });
     };
 
-    const formatContractType = () => {
-        if (!profile?.preferred_contract_type) return null;
+    const formatContractTypes = () => {
+        if (!profile?.preferred_contract_types || profile.preferred_contract_types.length === 0) return null;
+
         const labels = {
             CDI: 'CDI',
             CDD: 'CDD',
@@ -51,7 +53,10 @@ export default function Profile() {
             stage: 'Stage',
             alternance: 'Alternance',
         };
-        return labels[profile.preferred_contract_type] || profile.preferred_contract_type;
+
+        return profile.preferred_contract_types
+            .map(type => labels[type] || type)
+            .join(', ');
     };
 
     const formatRelocation = () => {
@@ -92,11 +97,15 @@ export default function Profile() {
 
                 {/* Carte profil principale */}
                 <View style={styles.profileCard}>
-                    <RoleAvatar
-                        role={user?.user_type}
-                        gender={profile?.gender}
-                        size={wp(20)}
-                    />
+                    {profile?.avatar_url ? (
+                        <Avatar profile={profile} size={wp(20)} />
+                    ) : (
+                        <RoleAvatar
+                            role={user?.user_type}
+                            gender={profile?.gender}
+                            size={wp(20)}
+                        />
+                    )}
                     <View style={styles.profileInfo}>
                         <View style={styles.nameRow}>
                             <Text style={styles.name}>
@@ -151,7 +160,7 @@ export default function Profile() {
                         {
                             icon: 'fileText',
                             label: 'Contrat recherché',
-                            value: formatContractType(),
+                            value: formatContractTypes(),
                         },
                         {
                             icon: 'briefcase',
@@ -217,12 +226,12 @@ export default function Profile() {
                     <MenuItem
                         icon="settings"
                         label="Paramètres"
-                        onPress={() => { }}
+                        onPress={() => router.push('/(screens)/settings')}
                     />
                     <MenuItem
                         icon="info"
                         label="À propos"
-                        onPress={() => { }}
+                        onPress={() => router.push('/(screens)/about')}
                         showBorder={false}
                     />
                 </View>
