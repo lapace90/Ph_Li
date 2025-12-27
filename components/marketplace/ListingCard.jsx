@@ -12,12 +12,13 @@ const LISTING_TYPES = {
 };
 
 const ListingCard = ({ listing, onPress }) => {
-  const typeConfig = LISTING_TYPES[listing.listing_type] || LISTING_TYPES.vente;
+  const typeConfig = LISTING_TYPES[listing.type] || LISTING_TYPES.vente;
+  const characteristics = listing.characteristics || {};
 
   const formatPrice = () => {
-    if (listing.is_anonymous && !listing.show_exact_price) {
-      if (listing.price_min && listing.price_max) {
-        return `${formatNumber(listing.price_min)} - ${formatNumber(listing.price_max)} €`;
+    if (listing.anonymized && !listing.show_exact_price) {
+      if (characteristics.price_min && characteristics.price_max) {
+        return `${formatNumber(characteristics.price_min)} - ${formatNumber(characteristics.price_max)} €`;
       }
       return 'Prix sur demande';
     }
@@ -29,13 +30,14 @@ const ListingCard = ({ listing, onPress }) => {
   };
 
   const getLocation = () => {
-    if (listing.is_anonymous && !listing.show_exact_location) {
+    if (listing.anonymized) {
       return listing.region || 'France';
     }
     return listing.city || listing.region || 'France';
   };
 
-  const mainPhoto = listing.photos?.[0];
+  const photos = listing.photos || [];
+  const mainPhoto = photos[0];
 
   return (
     <Pressable style={styles.container} onPress={onPress}>
@@ -66,22 +68,22 @@ const ListingCard = ({ listing, onPress }) => {
 
         {/* Features */}
         <View style={styles.features}>
-          {listing.surface_m2 && (
+          {characteristics.surface_m2 && (
             <View style={styles.feature}>
               <Icon name="home" size={12} color={theme.colors.textLight} />
-              <Text style={styles.featureText}>{listing.surface_m2} m²</Text>
+              <Text style={styles.featureText}>{characteristics.surface_m2} m²</Text>
             </View>
           )}
-          {listing.staff_count && (
+          {characteristics.staff_count && (
             <View style={styles.feature}>
               <Icon name="users" size={12} color={theme.colors.textLight} />
-              <Text style={styles.featureText}>{listing.staff_count} pers.</Text>
+              <Text style={styles.featureText}>{characteristics.staff_count} pers.</Text>
             </View>
           )}
-          {listing.annual_revenue && (
+          {characteristics.annual_revenue && (
             <View style={styles.feature}>
               <Icon name="briefcase" size={12} color={theme.colors.textLight} />
-              <Text style={styles.featureText}>CA: {formatNumber(listing.annual_revenue / 1000)}k€</Text>
+              <Text style={styles.featureText}>CA: {formatNumber(characteristics.annual_revenue / 1000)}k€</Text>
             </View>
           )}
         </View>

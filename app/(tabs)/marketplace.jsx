@@ -23,7 +23,7 @@ export default function Marketplace() {
   const [activeFilter, setActiveFilter] = useState(null);
   
   const { listings, loading, refresh } = usePharmacyListings(
-    activeFilter ? { listing_type: activeFilter } : {}
+    activeFilter ? { type: activeFilter } : {}
   );
 
   const isTitulaire = user?.user_type === 'titulaire';

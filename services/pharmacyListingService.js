@@ -8,8 +8,8 @@ export const pharmacyListingService = {
       .eq('status', 'active')
       .order('created_at', { ascending: false });
 
-    if (filters.listing_type) {
-      query = query.eq('listing_type', filters.listing_type);
+    if (filters.type) {
+      query = query.eq('type', filters.type);
     }
     if (filters.region) {
       query = query.eq('region', filters.region);
