@@ -80,10 +80,18 @@ const iconMap = {
   eye: { lib: 'feather', name: 'eye' },
   clock: { lib: 'feather', name: 'clock' },
 
+  monitor: { lib: 'feather', name: 'monitor' },
+  eyeOff: { lib: 'feather', name: 'eye-off' },
+  download: { lib: 'feather', name: 'download' },
+  shield: { lib: 'feather', name: 'shield' },
+  award: { lib: 'feather', name: 'award' },
+
   // Material Icons (per icone non disponibili in Feather)
   school: { lib: 'material', name: 'school' },
   class: { lib: 'material', name: 'class' },
   work: { lib: 'material', name: 'work' },
+  laptop: { lib: 'material', name: 'laptop' },
+
 };
 
 const Icon = ({ name, size = 24, color = '#000', style }) => {

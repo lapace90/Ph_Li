@@ -1,8 +1,12 @@
-import { Alert, StyleSheet, Text, View, Pressable } from 'react-native';
+// app/(screens)/cvAdd.jsx
+
+import { Alert, StyleSheet, Text, View, Pressable, ScrollView } from 'react-native';
 import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import { decode } from 'base64-arraybuffer';
 import { hp, wp } from '../../helpers/common';
 import { theme } from '../../constants/theme';
 import { useAuth } from '../../contexts/AuthContext';
@@ -43,6 +47,7 @@ export default function CVAdd() {
         }
       }
     } catch (error) {
+      console.error('DocumentPicker error:', error);
       Alert.alert('Erreur', 'Impossible de sélectionner le fichier');
     }
   };
@@ -63,28 +68,51 @@ export default function CVAdd() {
 
     setLoading(true);
     try {
-      // Upload du fichier
-      const fileExt = 'pdf';
-      const fileName = `${session.user.id}/${Date.now()}.${fileExt}`;
-      
-      const response = await fetch(file.uri);
-      const blob = await response.blob();
+      const fileName = `${session.user.id}/${Date.now()}.pdf`;
 
+      // Vérifier que le fichier existe
+      const fileInfo = await FileSystem.getInfoAsync(file.uri);
+      if (!fileInfo.exists) {
+        throw new Error('Le fichier n\'existe pas');
+      }
+
+      // Lire le fichier en base64
+      const base64Data = await FileSystem.readAsStringAsync(file.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      if (!base64Data) {
+        throw new Error('Impossible de lire le fichier');
+      }
+
+      // Convertir en ArrayBuffer pour Supabase
+      const { decode } = await import('base64-arraybuffer');
+      const arrayBuffer = decode(base64Data);
+
+      // Upload vers Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('cvs')
-        .upload(fileName, blob, { contentType: 'application/pdf' });
+        .upload(fileName, arrayBuffer, {
+          contentType: 'application/pdf',
+          upsert: false,
+        });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
 
+      // Récupérer l'URL publique
       const { data: { publicUrl } } = supabase.storage
         .from('cvs')
         .getPublicUrl(fileName);
 
-      // Créer l'entrée CV
+      // Créer l'entrée CV en BDD
       const { error } = await createCV({
         title: title.trim(),
         file_url: publicUrl,
         visibility,
+        has_pdf: true,
       });
 
       if (error) throw error;
@@ -93,7 +121,8 @@ export default function CVAdd() {
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (error) {
-      Alert.alert('Erreur', error.message);
+      console.error('Submit error:', error);
+      Alert.alert('Erreur', error.message || 'Une erreur est survenue');
     } finally {
       setLoading(false);
     }
@@ -105,97 +134,112 @@ export default function CVAdd() {
       <View style={styles.container}>
         <View style={styles.header}>
           <BackButton router={router} />
-          <Text style={styles.title}>Ajouter un CV</Text>
+          <Text style={styles.title}>Importer un PDF</Text>
           <View style={{ width: 36 }} />
         </View>
 
-        <View style={styles.form}>
-          <Input
-            icon={<Icon name="fileText" size={22} color={theme.colors.textLight} />}
-            placeholder="Titre du CV (ex: CV Officine)"
-            value={title}
-            onChangeText={setTitle}
-          />
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <View style={styles.form}>
+            <Input
+              icon={<Icon name="fileText" size={22} color={theme.colors.textLight} />}
+              placeholder="Titre du CV (ex: CV Officine)"
+              value={title}
+              onChangeText={setTitle}
+            />
 
-          <Pressable style={styles.filePicker} onPress={handlePickDocument}>
-            <View style={styles.fileIcon}>
-              <Icon 
-                name={file ? 'check' : 'plus'} 
-                size={24} 
-                color={file ? theme.colors.success : theme.colors.primary} 
-              />
-            </View>
-            <View style={styles.fileInfo}>
-              <Text style={styles.fileLabel}>
-                {file ? 'Fichier sélectionné' : 'Sélectionner un PDF'}
-              </Text>
-              <Text style={styles.fileName}>
-                {file ? file.name : 'Maximum 5 Mo'}
-              </Text>
-            </View>
-            {file && (
-              <Pressable onPress={() => setFile(null)}>
-                <Icon name="x" size={20} color={theme.colors.textLight} />
-              </Pressable>
-            )}
-          </Pressable>
-
-          <View style={styles.visibilitySection}>
-            <Text style={styles.visibilityLabel}>Visibilité par défaut</Text>
-            <View style={styles.visibilityOptions}>
-              <Pressable
-                style={[
-                  styles.visibilityOption,
-                  visibility === 'anonymous' && styles.visibilityOptionSelected,
-                ]}
-                onPress={() => setVisibility('anonymous')}
-              >
-                <Icon 
-                  name="lock" 
-                  size={18} 
-                  color={visibility === 'anonymous' ? 'white' : theme.colors.text} 
+            <Pressable style={styles.filePicker} onPress={handlePickDocument}>
+              <View style={[
+                styles.fileIcon,
+                file && { backgroundColor: theme.colors.success + '15' }
+              ]}>
+                <Icon
+                  name={file ? 'check' : 'plus'}
+                  size={24}
+                  color={file ? theme.colors.success : theme.colors.primary}
                 />
-                <Text style={[
-                  styles.visibilityText,
-                  visibility === 'anonymous' && styles.visibilityTextSelected,
-                ]}>
-                  Anonyme
+              </View>
+              <View style={styles.fileInfo}>
+                <Text style={styles.fileLabel}>
+                  {file ? 'Fichier sélectionné' : 'Sélectionner un PDF'}
                 </Text>
-              </Pressable>
+                <Text style={styles.fileName} numberOfLines={1}>
+                  {file ? file.name : 'Maximum 5 Mo'}
+                </Text>
+              </View>
+              {file && (
+                <Pressable
+                  style={styles.removeFile}
+                  onPress={() => setFile(null)}
+                >
+                  <Icon name="x" size={20} color={theme.colors.textLight} />
+                </Pressable>
+              )}
+            </Pressable>
 
-              <Pressable
-                style={[
-                  styles.visibilityOption,
-                  visibility === 'public' && styles.visibilityOptionSelected,
-                ]}
-                onPress={() => setVisibility('public')}
-              >
-                <Icon 
-                  name="globe" 
-                  size={18} 
-                  color={visibility === 'public' ? 'white' : theme.colors.text} 
-                />
-                <Text style={[
-                  styles.visibilityText,
-                  visibility === 'public' && styles.visibilityTextSelected,
-                ]}>
-                  Public
-                </Text>
-              </Pressable>
+            <View style={styles.visibilitySection}>
+              <Text style={styles.visibilityLabel}>Visibilité du PDF</Text>
+              <View style={styles.visibilityOptions}>
+                <Pressable
+                  style={[
+                    styles.visibilityOption,
+                    visibility === 'anonymous' && styles.visibilityOptionSelected,
+                  ]}
+                  onPress={() => setVisibility('anonymous')}
+                >
+                  <Icon
+                    name="eyeOff"
+                    size={18}
+                    color={visibility === 'anonymous' ? 'white' : theme.colors.text}
+                  />
+                  <Text style={[
+                    styles.visibilityText,
+                    visibility === 'anonymous' && styles.visibilityTextSelected,
+                  ]}>
+                    Après match
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={[
+                    styles.visibilityOption,
+                    visibility === 'public' && styles.visibilityOptionSelected,
+                  ]}
+                  onPress={() => setVisibility('public')}
+                >
+                  <Icon
+                    name="eye"
+                    size={18}
+                    color={visibility === 'public' ? 'white' : theme.colors.text}
+                  />
+                  <Text style={[
+                    styles.visibilityText,
+                    visibility === 'public' && styles.visibilityTextSelected,
+                  ]}>
+                    Public
+                  </Text>
+                </Pressable>
+              </View>
+              <Text style={styles.visibilityHint}>
+                {visibility === 'anonymous'
+                  ? 'Le PDF ne sera visible qu\'après un match mutuel'
+                  : 'Le PDF sera visible par tous les recruteurs'}
+              </Text>
             </View>
-            <Text style={styles.visibilityHint}>
-              {visibility === 'anonymous' 
-                ? 'Vos informations personnelles seront masquées' 
-                : 'Votre CV sera visible en intégralité'}
-            </Text>
           </View>
-        </View>
+        </ScrollView>
 
-        <Button
-          title="Ajouter le CV"
-          loading={loading}
-          onPress={handleSubmit}
-        />
+        <View style={styles.footer}>
+          <Button
+            title="Enregistrer le CV"
+            loading={loading}
+            onPress={handleSubmit}
+            disabled={!file || !title.trim()}
+          />
+        </View>
       </View>
     </ScreenWrapper>
   );
@@ -204,23 +248,28 @@ export default function CVAdd() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: wp(5),
     paddingTop: hp(2),
-    paddingBottom: hp(4),
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: hp(3),
+    paddingHorizontal: wp(5),
+    marginBottom: hp(2),
   },
   title: {
     fontSize: hp(2.2),
     fontFamily: theme.fonts.semiBold,
     color: theme.colors.text,
   },
-  form: {
+  scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: wp(5),
+    paddingBottom: hp(4),
+  },
+  form: {
     gap: hp(2),
   },
   filePicker: {
@@ -229,14 +278,14 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.card,
     borderRadius: theme.radius.xl,
     padding: hp(2),
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: theme.colors.border,
     borderStyle: 'dashed',
   },
   fileIcon: {
-    width: wp(12),
-    height: wp(12),
-    borderRadius: theme.radius.lg,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: theme.colors.primary + '15',
     justifyContent: 'center',
     alignItems: 'center',
@@ -246,7 +295,7 @@ const styles = StyleSheet.create({
     marginLeft: wp(3),
   },
   fileLabel: {
-    fontSize: hp(1.7),
+    fontSize: hp(1.6),
     fontFamily: theme.fonts.medium,
     color: theme.colors.text,
   },
@@ -255,13 +304,17 @@ const styles = StyleSheet.create({
     color: theme.colors.textLight,
     marginTop: hp(0.3),
   },
+  removeFile: {
+    padding: hp(0.5),
+  },
   visibilitySection: {
-    gap: hp(1),
+    marginTop: hp(1),
   },
   visibilityLabel: {
-    fontSize: hp(1.7),
+    fontSize: hp(1.6),
     fontFamily: theme.fonts.medium,
     color: theme.colors.text,
+    marginBottom: hp(1),
   },
   visibilityOptions: {
     flexDirection: 'row',
@@ -275,24 +328,32 @@ const styles = StyleSheet.create({
     gap: wp(2),
     paddingVertical: hp(1.5),
     borderRadius: theme.radius.lg,
+    backgroundColor: theme.colors.card,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.card,
   },
   visibilityOptionSelected: {
-    borderColor: theme.colors.primary,
     backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
   },
   visibilityText: {
-    fontSize: hp(1.6),
+    fontSize: hp(1.5),
+    fontFamily: theme.fonts.medium,
     color: theme.colors.text,
   },
   visibilityTextSelected: {
     color: 'white',
-    fontFamily: theme.fonts.medium,
   },
   visibilityHint: {
     fontSize: hp(1.3),
     color: theme.colors.textLight,
+    marginTop: hp(1),
+    textAlign: 'center',
+  },
+  footer: {
+    paddingHorizontal: wp(5),
+    paddingVertical: hp(2),
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
   },
 });

@@ -1,0 +1,89 @@
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
+import { generateCVHtml } from './cvPdfGenerator';
+
+/**
+ * Génère et partage un PDF du CV
+ * @param {Object} structuredData - Données du CV
+ * @param {Object} profile - Profil utilisateur
+ * @param {boolean} anonymous - Mode anonyme
+ * @param {string} title - Titre du fichier
+ * @returns {Promise<{success: boolean, uri?: string, error?: string}>}
+ */
+export const exportCVToPdf = async (structuredData, profile, anonymous = false, title = 'CV') => {
+  try {
+    // Générer le HTML
+    const html = generateCVHtml(structuredData, profile, anonymous);
+
+    // Générer le PDF
+    const { uri } = await Print.printToFileAsync({
+      html,
+      base64: false,
+    });
+
+    // Renommer le fichier avec un nom plus propre
+    const fileName = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_${anonymous ? 'anonyme' : 'complet'}.pdf`;
+    const newUri = `${FileSystem.documentDirectory}${fileName}`;
+
+    await FileSystem.moveAsync({
+      from: uri,
+      to: newUri,
+    });
+
+    return { success: true, uri: newUri };
+  } catch (error) {
+    console.error('Erreur export PDF:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Génère et ouvre le dialogue de partage
+ */
+export const shareCVPdf = async (structuredData, profile, anonymous = false, title = 'CV') => {
+  try {
+    const result = await exportCVToPdf(structuredData, profile, anonymous, title);
+    
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+
+    // Vérifier si le partage est disponible
+    const isAvailable = await Sharing.isAvailableAsync();
+    
+    if (!isAvailable) {
+      throw new Error('Le partage n\'est pas disponible sur cet appareil');
+    }
+
+    // Ouvrir le dialogue de partage
+    await Sharing.shareAsync(result.uri, {
+      mimeType: 'application/pdf',
+      dialogTitle: `Partager ${title}`,
+      UTI: 'com.adobe.pdf',
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Erreur partage PDF:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Prévisualise le PDF (impression)
+ */
+export const previewCVPdf = async (structuredData, profile, anonymous = false) => {
+  try {
+    const html = generateCVHtml(structuredData, profile, anonymous);
+    
+    await Print.printAsync({
+      html,
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Erreur preview PDF:', error);
+    return { success: false, error: error.message };
+  }
+};

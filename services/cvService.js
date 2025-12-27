@@ -1,6 +1,11 @@
+// services/cvService.js
+
 import { supabase } from '../lib/supabase';
 
 export const cvService = {
+  /**
+   * Récupère tous les CVs d'un utilisateur
+   */
   async getByUserId(userId) {
     const { data, error } = await supabase
       .from('cvs')
@@ -12,6 +17,9 @@ export const cvService = {
     return data || [];
   },
 
+  /**
+   * Récupère un CV par son ID
+   */
   async getById(cvId) {
     const { data, error } = await supabase
       .from('cvs')
@@ -23,6 +31,9 @@ export const cvService = {
     return data;
   },
 
+  /**
+   * Récupère le CV par défaut d'un utilisateur
+   */
   async getDefault(userId) {
     const { data, error } = await supabase
       .from('cvs')
@@ -35,6 +46,16 @@ export const cvService = {
     return data;
   },
 
+  /**
+   * Crée un nouveau CV
+   * @param {string} userId - ID de l'utilisateur
+   * @param {Object} cvData - Données du CV
+   * @param {string} cvData.title - Titre du CV
+   * @param {string} cvData.visibility - 'anonymous' | 'public' | 'hidden'
+   * @param {Object} cvData.structured_data - Données structurées (optionnel)
+   * @param {string} cvData.file_url - URL du PDF (optionnel)
+   * @param {string} cvData.pdf_visibility - Visibilité du PDF (optionnel)
+   */
   async create(userId, cvData) {
     // Si c'est le premier CV, le mettre par défaut
     const existingCvs = await this.getByUserId(userId);
@@ -45,8 +66,13 @@ export const cvService = {
       .insert({
         user_id: userId,
         is_default: isFirst,
-        visibility: 'anonymous',
-        ...cvData,
+        visibility: cvData.visibility || 'anonymous',
+        title: cvData.title || 'Mon CV',
+        file_url: cvData.file_url || null,
+        pdf_visibility: cvData.pdf_visibility || 'after_match',
+        structured_data: cvData.structured_data || null,
+        has_structured_cv: !!cvData.structured_data,
+        has_pdf: !!cvData.file_url,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -57,13 +83,27 @@ export const cvService = {
     return data;
   },
 
+  /**
+   * Met à jour un CV existant
+   */
   async update(cvId, updates) {
+    // Préparer les mises à jour
+    const updateData = {
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Mettre à jour les flags si nécessaire
+    if (updates.structured_data !== undefined) {
+      updateData.has_structured_cv = !!updates.structured_data;
+    }
+    if (updates.file_url !== undefined) {
+      updateData.has_pdf = !!updates.file_url;
+    }
+
     const { data, error } = await supabase
       .from('cvs')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', cvId)
       .select()
       .single();
@@ -72,7 +112,43 @@ export const cvService = {
     return data;
   },
 
+  /**
+   * Met à jour uniquement les données structurées d'un CV
+   */
+  async updateStructuredData(cvId, structuredData) {
+    return this.update(cvId, { structured_data: structuredData });
+  },
+
+  /**
+   * Met à jour la visibilité d'un CV
+   */
+  async updateVisibility(cvId, visibility) {
+    return this.update(cvId, { visibility });
+  },
+
+  /**
+   * Met à jour la visibilité du PDF
+   */
+  async updatePdfVisibility(cvId, pdfVisibility) {
+    return this.update(cvId, { pdf_visibility: pdfVisibility });
+  },
+
+  /**
+   * Supprime un CV
+   */
   async delete(cvId) {
+    // Récupérer le CV pour supprimer le fichier associé si besoin
+    const cv = await this.getById(cvId);
+    
+    if (cv?.file_url) {
+      // Extraire le chemin du fichier
+      const urlParts = cv.file_url.split('cvs/');
+      if (urlParts.length > 1) {
+        const filePath = urlParts[1];
+        await supabase.storage.from('cvs').remove([filePath]);
+      }
+    }
+
     const { error } = await supabase
       .from('cvs')
       .delete()
@@ -82,6 +158,9 @@ export const cvService = {
     return true;
   },
 
+  /**
+   * Définit un CV comme CV par défaut
+   */
   async setDefault(userId, cvId) {
     // Retirer le défaut des autres CV
     await supabase
@@ -93,8 +172,11 @@ export const cvService = {
     return this.update(cvId, { is_default: true });
   },
 
+  /**
+   * Upload un fichier PDF
+   */
   async uploadFile(userId, file) {
-    const fileExt = file.name.split('.').pop();
+    const fileExt = file.name?.split('.').pop() || 'pdf';
     const fileName = `${userId}/${Date.now()}.${fileExt}`;
 
     const { data, error } = await supabase.storage
@@ -108,5 +190,97 @@ export const cvService = {
       .getPublicUrl(fileName);
 
     return publicUrl;
+  },
+
+  /**
+   * Récupère les CVs avec données structurées (pour matching)
+   */
+  async getSearchableCVs(filters = {}) {
+    let query = supabase
+      .from('cvs')
+      .select(`
+        *,
+        profiles!inner (
+          id,
+          first_name,
+          current_region,
+          current_city
+        )
+      `)
+      .eq('has_structured_cv', true)
+      .eq('visibility', filters.visibility || 'anonymous');
+
+    if (filters.region) {
+      query = query.eq('profiles.current_region', filters.region);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Vérifie si l'utilisateur peut voir le PDF d'un CV
+   */
+  canViewPdf(cv, viewerUserId, matchStatus) {
+    if (!cv.has_pdf) return false;
+    
+    switch (cv.pdf_visibility) {
+      case 'hidden':
+        return false;
+      case 'public':
+        return true;
+      case 'after_match':
+        return matchStatus === 'matched';
+      case 'after_approval':
+        // Nécessite une logique d'approbation séparée
+        return false;
+      default:
+        return false;
+    }
+  },
+
+  /**
+   * Récupère la version anonymisée ou complète d'un CV selon le contexte
+   */
+  async getForViewer(cvId, viewerUserId, matchStatus = null) {
+    const cv = await this.getById(cvId);
+    if (!cv) return null;
+
+    const canSeeFull = matchStatus === 'matched' || cv.visibility === 'public';
+    const canSeePdf = this.canViewPdf(cv, viewerUserId, matchStatus);
+
+    return {
+      ...cv,
+      // Masquer les infos sensibles si pas de match
+      structured_data: canSeeFull ? cv.structured_data : this.anonymizeData(cv.structured_data),
+      file_url: canSeePdf ? cv.file_url : null,
+      _viewMode: canSeeFull ? 'full' : 'anonymous',
+      _canSeePdf: canSeePdf,
+    };
+  },
+
+  /**
+   * Version simplifiée de l'anonymisation côté service
+   * (La version complète est dans utils/cvAnonymizer.js)
+   */
+  anonymizeData(structuredData) {
+    if (!structuredData) return null;
+    
+    return {
+      ...structuredData,
+      // Anonymiser les expériences
+      experiences: structuredData.experiences?.map(exp => ({
+        ...exp,
+        company_name: null, // Masqué
+        city: null, // Masqué
+      })),
+      // Anonymiser les formations
+      formations: structuredData.formations?.map(form => ({
+        ...form,
+        school_name: null, // Masqué
+        school_city: null, // Masqué
+      })),
+    };
   },
 };

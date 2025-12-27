@@ -1,4 +1,4 @@
-import { Alert, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View, Pressable, TextInput } from 'react-native';
 import { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -6,6 +6,7 @@ import { hp, wp } from '../../helpers/common';
 import { theme } from '../../constants/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { profileService } from '../../services/profileService';
+import { storageService } from '../../services/storageService';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import BackButton from '../../components/common/BackButton';
 import Input from '../../components/common/Input';
@@ -17,7 +18,6 @@ import ContractTypePicker from '../../components/common/ContractTypePicker';
 import RelocationToggle from '../../components/common/RelocationToggle';
 import AvailabilityPicker from '../../components/common/AvailabilityPicker';
 import ImagePickerBox from '../../components/common/ImagePickerBox';
-import { storageService } from '../../services/storageService';
 
 const SPECIALIZATIONS = [
     'Orthopédie',
@@ -40,6 +40,7 @@ export default function EditProfile() {
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
+        bio: '',
         phone: '',
         city: null,
         experienceYears: '',
@@ -48,7 +49,6 @@ export default function EditProfile() {
         searchRadius: 50,
         contractTypes: [],
         willingToRelocate: false,
-
     });
 
     useEffect(() => {
@@ -56,6 +56,7 @@ export default function EditProfile() {
             setFormData({
                 firstName: profile.first_name || '',
                 lastName: profile.last_name || '',
+                bio: profile.bio || '',
                 phone: profile.phone || '',
                 city: profile.current_city ? {
                     city: profile.current_city,
@@ -69,11 +70,11 @@ export default function EditProfile() {
                 experienceYears: profile.experience_years?.toString() || '',
                 specializations: profile.specializations || [],
                 availability: profile.availability_date || null,
-                searchRadius: profile.search_radius_km ?? -1,  // ← utiliser ?? pour gérer null
-                contractTypes: profile.preferred_contract_types || [], 
+                searchRadius: profile.search_radius_km ?? -1,
+                contractTypes: profile.preferred_contract_types || [],
                 willingToRelocate: profile.willing_to_relocate ?? false,
             });
-            setAvatarUri(profile.avatar_url || null); 
+            setAvatarUri(profile.avatar_url || null);
         }
     }, [profile]);
 
@@ -81,10 +82,8 @@ export default function EditProfile() {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    // Fonction pour gérer le changement d'avatar
     const handleAvatarChange = async (asset) => {
         if (!asset) {
-            // Suppression de l'avatar
             setAvatarUri(null);
             return;
         }
@@ -93,8 +92,6 @@ export default function EditProfile() {
         try {
             const url = await storageService.uploadImage('avatars', session.user.id, asset);
             setAvatarUri(url);
-
-            // Mettre à jour le profil immédiatement
             await profileService.update(session.user.id, { avatar_url: url });
         } catch (error) {
             Alert.alert('Erreur', 'Impossible de télécharger la photo');
@@ -127,6 +124,7 @@ export default function EditProfile() {
             await profileService.update(session.user.id, {
                 first_name: formData.firstName.trim(),
                 last_name: formData.lastName.trim(),
+                bio: formData.bio.trim() || null,
                 phone: formData.phone.trim() || null,
                 current_city: formData.city?.city || null,
                 current_postal_code: formData.city?.postcode || null,
@@ -142,6 +140,7 @@ export default function EditProfile() {
                 search_radius_km: formData.searchRadius === -1 ? null : formData.searchRadius,
                 preferred_contract_types: formData.contractTypes.length > 0 ? formData.contractTypes : null,
                 willing_to_relocate: formData.willingToRelocate,
+                avatar_url: avatarUri,
             });
 
             await refreshUserData();
@@ -158,142 +157,187 @@ export default function EditProfile() {
     return (
         <ScreenWrapper bg={theme.colors.background}>
             <StatusBar style="dark" />
-            <ScrollView
-                style={styles.container}
-                contentContainerStyle={styles.content}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-            >
+            <View style={styles.container}>
                 <View style={styles.header}>
                     <BackButton router={router} />
                     <Text style={styles.title}>Modifier le profil</Text>
                     <View style={{ width: 36 }} />
                 </View>
 
-                {/* Photo de profil */}
-                <View style={styles.avatarSection}>
-                    <ImagePickerBox
-                        value={avatarUri}
-                        onChange={handleAvatarChange}
-                        shape="circle"
-                        size={wp(30)}
-                        placeholder="Photo de profil"
-                        loading={avatarLoading}
-                    />
-                </View>
-
-                {/* Identité */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Identité</Text>
-
-                    <Input
-                        icon={<Icon name="user" size={22} color={theme.colors.textLight} />}
-                        placeholder="Prénom *"
-                        value={formData.firstName}
-                        onChangeText={(v) => updateField('firstName', v)}
-                    />
-
-                    <Input
-                        icon={<Icon name="user" size={22} color={theme.colors.textLight} />}
-                        placeholder="Nom *"
-                        value={formData.lastName}
-                        onChangeText={(v) => updateField('lastName', v)}
-                    />
-
-                    <Input
-                        icon={<Icon name="phone" size={22} color={theme.colors.textLight} />}
-                        placeholder="Téléphone"
-                        keyboardType="phone-pad"
-                        value={formData.phone}
-                        onChangeText={(v) => updateField('phone', v)}
-                    />
-                </View>
-
-                {/* Localisation */}
-                <View style={[styles.section, { zIndex: 100 }]}>
-                    <Text style={styles.sectionTitle}>Localisation</Text>
-
-                    <CityAutocomplete
-                        value={formData.city?.label}
-                        onSelect={(city) => updateField('city', city)}
-                        placeholder="Rechercher votre ville"
-                    />
-
-                    {isCandidate && (
-                        <RadiusSlider
-                            value={formData.searchRadius}
-                            onChange={(v) => updateField('searchRadius', v)}
+                <ScrollView
+                    style={styles.scrollView}
+                    contentContainerStyle={styles.content}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {/* Photo de profil */}
+                    <View style={styles.avatarSection}>
+                        <ImagePickerBox
+                            value={avatarUri}
+                            onChange={handleAvatarChange}
+                            shape="circle"
+                            size={wp(28)}
+                            placeholder="Photo"
+                            loading={avatarLoading}
                         />
-                    )}
-                </View>
+                        <Text style={styles.avatarHint}>Touchez pour modifier</Text>
+                    </View>
 
-                {/* Expérience (pas pour étudiants) */}
-                {!isStudent && (
+                    {/* Identité */}
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Expérience</Text>
-
+                        <Text style={styles.sectionTitle}>Identité</Text>
+                        <View style={styles.row}>
+                            <View style={styles.halfInput}>
+                                <Input
+                                    placeholder="Prénom *"
+                                    value={formData.firstName}
+                                    onChangeText={(v) => updateField('firstName', v)}
+                                />
+                            </View>
+                            <View style={styles.halfInput}>
+                                <Input
+                                    placeholder="Nom *"
+                                    value={formData.lastName}
+                                    onChangeText={(v) => updateField('lastName', v)}
+                                />
+                            </View>
+                        </View>
                         <Input
-                            icon={<Icon name="briefcase" size={22} color={theme.colors.textLight} />}
-                            placeholder="Années d'expérience"
-                            keyboardType="numeric"
-                            value={formData.experienceYears}
-                            onChangeText={(v) => updateField('experienceYears', v)}
+                            icon={<Icon name="phone" size={20} color={theme.colors.textLight} />}
+                            placeholder="Téléphone (optionnel)"
+                            keyboardType="phone-pad"
+                            value={formData.phone}
+                            onChangeText={(v) => updateField('phone', v)}
                         />
+                    </View>
 
-                        <Text style={styles.label}>Spécialisations</Text>
-                        <View style={styles.tagsContainer}>
-                            {SPECIALIZATIONS.map((spec) => (
-                                <Pressable
-                                    key={spec}
-                                    style={[
-                                        styles.tag,
-                                        formData.specializations.includes(spec) && styles.tagSelected,
-                                    ]}
-                                    onPress={() => toggleSpecialization(spec)}
-                                >
-                                    <Text style={[
-                                        styles.tagText,
-                                        formData.specializations.includes(spec) && styles.tagTextSelected,
-                                    ]}>
-                                        {spec}
-                                    </Text>
-                                </Pressable>
-                            ))}
+                    {/* Bio */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Présentation</Text>
+                        <Text style={styles.sectionHint}>
+                            Décrivez-vous en quelques mots pour les recruteurs
+                        </Text>
+                        <View style={styles.bioContainer}>
+                            <TextInput
+                                style={styles.bioInput}
+                                placeholder="Ex: Préparatrice passionnée avec 5 ans d'expérience en officine, spécialisée en dermocosmétique et conseil personnalisé..."
+                                placeholderTextColor={theme.colors.textLight}
+                                value={formData.bio}
+                                onChangeText={(v) => updateField('bio', v)}
+                                multiline
+                                numberOfLines={4}
+                                maxLength={500}
+                                textAlignVertical="top"
+                            />
+                            <Text style={styles.bioCounter}>
+                                {formData.bio.length}/500
+                            </Text>
                         </View>
                     </View>
-                )}
 
-                {/* Disponibilité (candidats) */}
-                {/* Recherche (candidats) */}
-                {isCandidate && (
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Recherche</Text>
-
-                        <ContractTypePicker
-                            value={formData.contractTypes}
-                            onChange={(v) => updateField('contractTypes', v)}
-                            userType={user?.user_type}
+                    {/* Localisation */}
+                    <View style={[styles.section, { zIndex: 100 }]}>
+                        <Text style={styles.sectionTitle}>Localisation</Text>
+                        <CityAutocomplete
+                            value={formData.city?.label}
+                            onSelect={(city) => updateField('city', city)}
+                            placeholder="Rechercher votre ville"
                         />
-
-                        <AvailabilityPicker
-                            value={formData.availability}
-                            onChange={(v) => updateField('availability', v)}
-                        />
-
-                        <RelocationToggle
-                            value={formData.willingToRelocate}
-                            onChange={(v) => updateField('willingToRelocate', v)}
-                        />
+                        {isCandidate && (
+                            <View style={styles.radiusContainer}>
+                                <RadiusSlider
+                                    value={formData.searchRadius}
+                                    onChange={(v) => updateField('searchRadius', v)}
+                                />
+                            </View>
+                        )}
                     </View>
-                )}
 
-                <Button
-                    title="Enregistrer"
-                    loading={loading}
-                    onPress={handleSave}
-                    buttonStyle={styles.saveButton}
-                />
-            </ScrollView>
+                    {/* Disponibilité */}
+                    {isCandidate && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>Disponibilité</Text>
+                            <AvailabilityPicker
+                                value={formData.availability}
+                                onChange={(v) => updateField('availability', v)}
+                            />
+                        </View>
+                    )}
+
+                    {/* Contrats recherchés */}
+                    {isCandidate && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>Types de contrat recherchés</Text>
+                            <ContractTypePicker
+                                value={formData.contractTypes}
+                                onChange={(v) => updateField('contractTypes', v)}
+                                isStudent={isStudent}
+                            />
+                        </View>
+                    )}
+
+                    {/* Expérience (pas pour étudiants) */}
+                    {!isStudent && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>Expérience</Text>
+                            <Input
+                                icon={<Icon name="briefcase" size={20} color={theme.colors.textLight} />}
+                                placeholder="Années d'expérience"
+                                keyboardType="numeric"
+                                value={formData.experienceYears}
+                                onChangeText={(v) => updateField('experienceYears', v)}
+                            />
+                        </View>
+                    )}
+
+                    {/* Spécialisations */}
+                    {isCandidate && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>Spécialisations</Text>
+                            <Text style={styles.sectionHint}>Sélectionnez vos domaines d'expertise</Text>
+                            <View style={styles.specGrid}>
+                                {SPECIALIZATIONS.map((spec) => (
+                                    <Pressable
+                                        key={spec}
+                                        style={[
+                                            styles.specChip,
+                                            formData.specializations.includes(spec) && styles.specChipActive,
+                                        ]}
+                                        onPress={() => toggleSpecialization(spec)}
+                                    >
+                                        <Text style={[
+                                            styles.specChipText,
+                                            formData.specializations.includes(spec) && styles.specChipTextActive,
+                                        ]}>
+                                            {spec}
+                                        </Text>
+                                    </Pressable>
+                                ))}
+                            </View>
+                        </View>
+                    )}
+
+                    {/* Mobilité */}
+                    {isCandidate && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>Mobilité</Text>
+                            <RelocationToggle
+                                value={formData.willingToRelocate}
+                                onChange={(v) => updateField('willingToRelocate', v)}
+                            />
+                        </View>
+                    )}
+                </ScrollView>
+
+                {/* Footer fixe */}
+                <View style={styles.footer}>
+                    <Button
+                        title="Enregistrer"
+                        loading={loading}
+                        onPress={handleSave}
+                    />
+                </View>
+            </View>
         </ScreenWrapper>
     );
 }
@@ -302,70 +346,108 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    content: {
-        paddingHorizontal: wp(5),
-        paddingTop: hp(2),
-        paddingBottom: hp(4),
-        gap: hp(3),
-    },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        paddingHorizontal: wp(5),
+        paddingTop: hp(2),
+        paddingBottom: hp(1),
     },
     title: {
-        fontSize: hp(2.2),
-        fontFamily: theme.fonts.semiBold,
-        color: theme.colors.text,
-    },
-    section: {
-        gap: hp(1.5),
-    },
-    sectionTitle: {
         fontSize: hp(2),
-        color: theme.colors.text,
         fontFamily: theme.fonts.semiBold,
-    },
-    label: {
-        fontSize: hp(1.7),
-        color: theme.colors.textLight,
-        marginTop: hp(0.5),
-    },
-    tagsContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: hp(1),
-    },
-    tag: {
-        paddingVertical: hp(1),
-        paddingHorizontal: wp(3),
-        borderRadius: theme.radius.lg,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        backgroundColor: theme.colors.card,
-    },
-    tagSelected: {
-        borderColor: theme.colors.primary,
-        backgroundColor: theme.colors.primary + '15',
-    },
-    tagText: {
-        fontSize: hp(1.5),
         color: theme.colors.text,
     },
-    tagTextSelected: {
-        color: theme.colors.primary,
-        fontFamily: theme.fonts.medium,
+    scrollView: {
+        flex: 1,
     },
-    saveButton: {
-        marginTop: hp(2),
+    content: {
+        paddingHorizontal: wp(5),
+        paddingBottom: hp(4),
     },
     avatarSection: {
         alignItems: 'center',
-        gap: hp(1),
-        marginBottom: hp(2),
+        paddingVertical: hp(2),
     },
     avatarHint: {
         fontSize: hp(1.3),
         color: theme.colors.textLight,
+        marginTop: hp(1),
+    },
+    section: {
+        marginBottom: hp(2.5),
+        gap: hp(1.5),
+    },
+    sectionTitle: {
+        fontSize: hp(1.7),
+        fontFamily: theme.fonts.semiBold,
+        color: theme.colors.text,
+    },
+    sectionHint: {
+        fontSize: hp(1.3),
+        color: theme.colors.textLight,
+    },
+    row: {
+        flexDirection: 'row',
+        gap: wp(2),
+    },
+    halfInput: {
+        flex: 1,
+    },
+    bioContainer: {
+        backgroundColor: theme.colors.card,
+        borderRadius: theme.radius.lg,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        padding: hp(1.5),
+    },
+    bioInput: {
+        fontSize: hp(1.5),
+        fontFamily: theme.fonts.regular,
+        color: theme.colors.text,
+        minHeight: hp(10),
+        textAlignVertical: 'top',
+    },
+    bioCounter: {
+        fontSize: hp(1.2),
+        color: theme.colors.textLight,
+        textAlign: 'right',
+        marginTop: hp(0.5),
+    },
+    radiusContainer: {
+        marginTop: hp(1.5),
+    },
+    specGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: wp(2),
+    },
+    specChip: {
+        paddingHorizontal: wp(3),
+        paddingVertical: hp(0.8),
+        borderRadius: theme.radius.lg,
+        backgroundColor: theme.colors.card,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    specChipActive: {
+        backgroundColor: theme.colors.primary,
+        borderColor: theme.colors.primary,
+    },
+    specChipText: {
+        fontSize: hp(1.4),
+        color: theme.colors.text,
+    },
+    specChipTextActive: {
+        color: 'white',
+        fontFamily: theme.fonts.medium,
+    },
+    footer: {
+        paddingHorizontal: wp(5),
+        paddingVertical: hp(2),
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.border,
+        backgroundColor: theme.colors.background,
     },
 });
