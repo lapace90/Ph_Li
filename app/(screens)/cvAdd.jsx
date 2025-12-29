@@ -1,5 +1,3 @@
-// app/(screens)/cvAdd.jsx
-
 import { Alert, StyleSheet, Text, View, Pressable, ScrollView } from 'react-native';
 import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
