@@ -17,6 +17,7 @@ import { hp, wp } from '../../helpers/common';
 import { theme } from '../../constants/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCVs } from '../../hooks/useCVs';
+import { commonStyles } from '../../constants/styles';
 import {
     EMPTY_CV_STRUCTURE,
     ALL_SKILLS,
@@ -219,10 +220,10 @@ export default function CVCreate() {
         <View style={styles.stepContent}>
             <Text style={styles.stepTitle}>Informations générales</Text>
 
-            <View style={styles.field}>
-                <Text style={styles.label}>Titre du CV *</Text>
+            <View style={commonStyles.formGroup}>
+                <Text style={commonStyles.label}>Titre du CV *</Text>
                 <TextInput
-                    style={styles.input}
+                    style={commonStyles.input}
                     placeholder="Ex: CV Officine, CV Temps partiel..."
                     placeholderTextColor={theme.colors.textLight}
                     value={title}
@@ -230,8 +231,8 @@ export default function CVCreate() {
                 />
             </View>
 
-            <View style={styles.field}>
-                <Text style={styles.label}>Visibilité par défaut</Text>
+            <View style={commonStyles.formGroup}>
+                <Text style={commonStyles.label}>Visibilité par défaut</Text>
                 <View style={styles.visibilityRow}>
                     <Pressable
                         style={[styles.visibilityOption, visibility === 'anonymous' && styles.visibilityActive]}
@@ -260,10 +261,10 @@ export default function CVCreate() {
                 </View>
             </View>
 
-            <View style={styles.field}>
-                <Text style={styles.label}>Résumé / À propos</Text>
+            <View style={commonStyles.formGroup}>
+                <Text style={commonStyles.label}>Résumé / À propos</Text>
                 <TextInput
-                    style={[styles.input, styles.textArea]}
+                    style={[commonStyles.input, styles.textArea]}
                     placeholder="Présentez-vous en quelques lignes : votre parcours, vos points forts, ce que vous recherchez..."
                     placeholderTextColor={theme.colors.textLight}
                     value={cvData.summary}
@@ -402,17 +403,17 @@ export default function CVCreate() {
             const hasSelection = selectedItems.length > 0;
 
             return (
-                <View style={styles.accordionContainer}>
+                <View style={commonStyles.accordionContainer}>
                     <Pressable
-                        style={[styles.accordionHeader, isExpanded && styles.accordionHeaderExpanded]}
+                        style={[commonStyles.accordionHeader, isExpanded && commonStyles.accordionHeaderExpanded]}
                         onPress={() => toggleSection(id)}
                     >
-                        <View style={styles.accordionTitleRow}>
+                        <View style={commonStyles.accordionTitleRow}>
                             <Icon name={icon} size={20} color={theme.colors.primary} />
-                            <Text style={styles.accordionTitle}>{title}</Text>
+                            <Text style={commonStyles.accordionTitle}>{title}</Text>
                             {hasSelection && (
-                                <View style={styles.accordionBadge}>
-                                    <Text style={styles.accordionBadgeText}>{selectedItems.length}</Text>
+                                <View style={commonStyles.accordionBadge}>
+                                    <Text style={commonStyles.accordionBadgeText}>{selectedItems.length}</Text>
                                 </View>
                             )}
                         </View>
@@ -445,7 +446,7 @@ export default function CVCreate() {
 
                     {/* Contenu expandé */}
                     {isExpanded && (
-                        <View style={styles.accordionContent}>
+                        <View style={commonStyles.accordionContent}>
                             {content}
                         </View>
                     )}
@@ -467,19 +468,19 @@ export default function CVCreate() {
                     'skills',
                     'Compétences',
                     'star',
-                    <View style={styles.chipsContainer}>
+                    <View style={commonStyles.chipsContainer}>
                         {ALL_SKILLS.slice(0, 30).map((skill) => (
                             <Pressable
                                 key={skill}
                                 style={[
-                                    styles.chip,
-                                    cvData.skills?.includes(skill) && styles.chipActive,
+                                    commonStyles.chip,
+                                    cvData.skills?.includes(skill) && commonStyles.chipActive,
                                 ]}
                                 onPress={() => toggleArrayItem('skills', skill)}
                             >
                                 <Text style={[
-                                    styles.chipText,
-                                    cvData.skills?.includes(skill) && styles.chipTextActive,
+                                    commonStyles.chipText,
+                                    cvData.skills?.includes(skill) && commonStyles.chipTextActive,
                                 ]}>
                                     {skill}
                                 </Text>
@@ -494,19 +495,19 @@ export default function CVCreate() {
                     'software',
                     'Logiciels',
                     'laptop',
-                    <View style={styles.chipsContainer}>
+                    <View style={commonStyles.chipsContainer}>
                         {SOFTWARE_OPTIONS.map((soft) => (
                             <Pressable
                                 key={soft.value}
                                 style={[
-                                    styles.chip,
+                                    commonStyles.chip,
                                     cvData.software?.includes(soft.label) && styles.chipActiveSoftware,
                                 ]}
                                 onPress={() => toggleArrayItem('software', soft.label)}
                             >
                                 <Text style={[
-                                    styles.chipText,
-                                    cvData.software?.includes(soft.label) && styles.chipTextActive,
+                                    commonStyles.chipText,
+                                    cvData.software?.includes(soft.label) && commonStyles.chipTextActive,
                                 ]}>
                                     {soft.label}
                                 </Text>
@@ -521,14 +522,14 @@ export default function CVCreate() {
                     'certifications',
                     'Certifications',
                     'award',
-                    <View style={styles.chipsContainer}>
+                    <View style={commonStyles.chipsContainer}>
                         {CERTIFICATIONS.map((cert) => {
                             const isSelected = cvData.certifications?.some(c => c.name === cert.label);
                             return (
                                 <Pressable
                                     key={cert.value}
                                     style={[
-                                        styles.chip,
+                                        commonStyles.chip,
                                         isSelected && styles.chipActiveCert,
                                     ]}
                                     onPress={() => {
@@ -546,8 +547,8 @@ export default function CVCreate() {
                                     }}
                                 >
                                     <Text style={[
-                                        styles.chipText,
-                                        isSelected && styles.chipTextActive,
+                                        commonStyles.chipText,
+                                        isSelected && commonStyles.chipTextActive,
                                     ]}>
                                         {cert.label}
                                     </Text>
@@ -664,13 +665,13 @@ export default function CVCreate() {
         <ScreenWrapper bg={theme.colors.background}>
             <StatusBar style="dark" />
             <KeyboardAvoidingView
-                style={styles.container}
+                style={commonStyles.flex1}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
                 {/* Header */}
-                <View style={styles.header}>
+                <View style={commonStyles.headerNoBorder}>
                     <BackButton router={router} />
-                    <Text style={styles.headerTitle}>Créer un CV</Text>
+                    <Text style={commonStyles.headerTitle}>Créer un CV</Text>
                     <View style={{ width: 36 }} />
                 </View>
 
@@ -706,7 +707,7 @@ export default function CVCreate() {
                 </ScrollView>
 
                 {/* Footer navigation */}
-                <View style={styles.footer}>
+                <View style={[commonStyles.footer, { flexDirection: 'row', alignItems: 'center' }]}>
                     {currentStep > 0 && (
                         <Pressable style={styles.prevButton} onPress={prevStep}>
                             <Icon name="arrowLeft" size={20} color={theme.colors.text} />
@@ -793,22 +794,6 @@ export default function CVCreate() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: wp(5),
-        paddingTop: hp(2),
-        paddingBottom: hp(1),
-    },
-    headerTitle: {
-        fontSize: hp(2.2),
-        fontFamily: theme.fonts.semiBold,
-        color: theme.colors.text,
-    },
     stepsIndicator: {
         flexDirection: 'row',
         justifyContent: 'center',
@@ -836,9 +821,6 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.primary + '80',
         borderColor: theme.colors.primary + '80',
     },
-    scrollView: {
-        flex: 1,
-    },
     stepContent: {
         flex: 1,
         padding: wp(5),
@@ -862,31 +844,6 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.primary,
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    field: {
-        marginBottom: hp(2),
-    },
-    label: {
-        fontSize: hp(1.6),
-        fontFamily: theme.fonts.medium,
-        color: theme.colors.text,
-        marginBottom: hp(0.5),
-    },
-    hint: {
-        fontSize: hp(1.3),
-        color: theme.colors.textLight,
-        marginBottom: hp(1),
-    },
-    input: {
-        backgroundColor: theme.colors.card,
-        borderRadius: theme.radius.lg,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        paddingHorizontal: wp(4),
-        paddingVertical: hp(1.5),
-        fontSize: hp(1.6),
-        fontFamily: theme.fonts.regular,
-        color: theme.colors.text,
     },
     textArea: {
         minHeight: hp(12),
@@ -1020,26 +977,6 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
         gap: wp(2),
     },
-    chip: {
-        paddingHorizontal: wp(3),
-        paddingVertical: hp(0.7),
-        borderRadius: theme.radius.full,
-        backgroundColor: theme.colors.card,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    chipActive: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
-    },
-    chipText: {
-        fontSize: hp(1.3),
-        color: theme.colors.text,
-    },
-    chipTextActive: {
-        color: 'white',
-        fontFamily: theme.fonts.medium,
-    },
     chipSoftware: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -1118,15 +1055,6 @@ const styles = StyleSheet.create({
         flex: 1,
         marginTop: hp(1),
     },
-    footer: {
-        flexDirection: 'row',
-        gap: wp(3),
-        paddingHorizontal: wp(5),
-        paddingVertical: hp(2),
-        borderTopWidth: 1,
-        borderTopColor: theme.colors.border,
-        backgroundColor: theme.colors.background,
-    },
     prevButton: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -1163,48 +1091,6 @@ const styles = StyleSheet.create({
         color: theme.colors.textLight,
         marginBottom: hp(2),
     },
-    accordionContainer: {
-        backgroundColor: theme.colors.card,
-        borderRadius: theme.radius.xl,
-        marginBottom: hp(1.5),
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    accordionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: hp(2),
-    },
-    accordionHeaderExpanded: {
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.border,
-    },
-    accordionTitleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: wp(2),
-    },
-    accordionTitle: {
-        fontSize: hp(1.7),
-        fontFamily: theme.fonts.semiBold,
-        color: theme.colors.text,
-    },
-    accordionBadge: {
-        backgroundColor: theme.colors.primary,
-        borderRadius: 10,
-        minWidth: 20,
-        height: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: wp(1.5),
-    },
-    accordionBadgeText: {
-        fontSize: hp(1.1),
-        color: 'white',
-        fontFamily: theme.fonts.semiBold,
-    },
     accordionPreview: {
         paddingHorizontal: hp(2),
         paddingBottom: hp(1.5),
@@ -1228,10 +1114,6 @@ const styles = StyleSheet.create({
         fontSize: hp(1.2),
         color: theme.colors.textLight,
         alignSelf: 'center',
-    },
-    accordionContent: {
-        padding: hp(2),
-        paddingTop: hp(1),
     },
     chipActiveSoftware: {
         backgroundColor: theme.colors.secondary,

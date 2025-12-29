@@ -1,9 +1,12 @@
+// app/(screens)/editProfile.jsx
+
 import { Alert, ScrollView, StyleSheet, Text, View, Pressable, TextInput } from 'react-native';
 import { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { hp, wp } from '../../helpers/common';
 import { theme } from '../../constants/theme';
+import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { profileService } from '../../services/profileService';
 import { storageService } from '../../services/storageService';
@@ -157,16 +160,16 @@ export default function EditProfile() {
     return (
         <ScreenWrapper bg={theme.colors.background}>
             <StatusBar style="dark" />
-            <View style={styles.container}>
-                <View style={styles.header}>
+            <View style={commonStyles.flex1}>
+                <View style={commonStyles.headerNoBorder}>
                     <BackButton router={router} />
                     <Text style={styles.title}>Modifier le profil</Text>
-                    <View style={{ width: 36 }} />
+                    <View style={commonStyles.headerSpacer} />
                 </View>
 
                 <ScrollView
-                    style={styles.scrollView}
-                    contentContainerStyle={styles.content}
+                    style={commonStyles.flex1}
+                    contentContainerStyle={commonStyles.scrollContent}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
                 >
@@ -184,17 +187,17 @@ export default function EditProfile() {
                     </View>
 
                     {/* Identité */}
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Identité</Text>
+                    <View style={commonStyles.section}>
+                        <Text style={commonStyles.sectionTitle}>Identité</Text>
                         <View style={styles.row}>
-                            <View style={styles.halfInput}>
+                            <View style={commonStyles.formHalf}>
                                 <Input
                                     placeholder="Prénom *"
                                     value={formData.firstName}
                                     onChangeText={(v) => updateField('firstName', v)}
                                 />
                             </View>
-                            <View style={styles.halfInput}>
+                            <View style={commonStyles.formHalf}>
                                 <Input
                                     placeholder="Nom *"
                                     value={formData.lastName}
@@ -212,9 +215,9 @@ export default function EditProfile() {
                     </View>
 
                     {/* Bio */}
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Présentation</Text>
-                        <Text style={styles.sectionHint}>
+                    <View style={commonStyles.section}>
+                        <Text style={commonStyles.sectionTitle}>Présentation</Text>
+                        <Text style={commonStyles.sectionHint}>
                             Décrivez-vous en quelques mots pour les recruteurs
                         </Text>
                         <View style={styles.bioContainer}>
@@ -236,8 +239,8 @@ export default function EditProfile() {
                     </View>
 
                     {/* Localisation */}
-                    <View style={[styles.section, { zIndex: 100 }]}>
-                        <Text style={styles.sectionTitle}>Localisation</Text>
+                    <View style={[commonStyles.section, { zIndex: 100 }]}>
+                        <Text style={commonStyles.sectionTitle}>Localisation</Text>
                         <CityAutocomplete
                             value={formData.city?.label}
                             onSelect={(city) => updateField('city', city)}
@@ -255,8 +258,8 @@ export default function EditProfile() {
 
                     {/* Disponibilité */}
                     {isCandidate && (
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Disponibilité</Text>
+                        <View style={commonStyles.section}>
+                            <Text style={commonStyles.sectionTitle}>Disponibilité</Text>
                             <AvailabilityPicker
                                 value={formData.availability}
                                 onChange={(v) => updateField('availability', v)}
@@ -266,8 +269,8 @@ export default function EditProfile() {
 
                     {/* Contrats recherchés */}
                     {isCandidate && (
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Types de contrat recherchés</Text>
+                        <View style={commonStyles.section}>
+                            <Text style={commonStyles.sectionTitle}>Types de contrat recherchés</Text>
                             <ContractTypePicker
                                 value={formData.contractTypes}
                                 onChange={(v) => updateField('contractTypes', v)}
@@ -278,8 +281,8 @@ export default function EditProfile() {
 
                     {/* Expérience (pas pour étudiants) */}
                     {!isStudent && (
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Expérience</Text>
+                        <View style={commonStyles.section}>
+                            <Text style={commonStyles.sectionTitle}>Expérience</Text>
                             <Input
                                 icon={<Icon name="briefcase" size={20} color={theme.colors.textLight} />}
                                 placeholder="Années d'expérience"
@@ -292,22 +295,22 @@ export default function EditProfile() {
 
                     {/* Spécialisations */}
                     {isCandidate && (
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Spécialisations</Text>
-                            <Text style={styles.sectionHint}>Sélectionnez vos domaines d'expertise</Text>
-                            <View style={styles.specGrid}>
+                        <View style={commonStyles.section}>
+                            <Text style={commonStyles.sectionTitle}>Spécialisations</Text>
+                            <Text style={commonStyles.sectionHint}>Sélectionnez vos domaines d'expertise</Text>
+                            <View style={commonStyles.chipsContainer}>
                                 {SPECIALIZATIONS.map((spec) => (
                                     <Pressable
                                         key={spec}
                                         style={[
-                                            styles.specChip,
-                                            formData.specializations.includes(spec) && styles.specChipActive,
+                                            commonStyles.chip,
+                                            formData.specializations.includes(spec) && commonStyles.chipActive,
                                         ]}
                                         onPress={() => toggleSpecialization(spec)}
                                     >
                                         <Text style={[
-                                            styles.specChipText,
-                                            formData.specializations.includes(spec) && styles.specChipTextActive,
+                                            commonStyles.chipText,
+                                            formData.specializations.includes(spec) && commonStyles.chipTextActive,
                                         ]}>
                                             {spec}
                                         </Text>
@@ -319,8 +322,8 @@ export default function EditProfile() {
 
                     {/* Mobilité */}
                     {isCandidate && (
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Mobilité</Text>
+                        <View style={commonStyles.section}>
+                            <Text style={commonStyles.sectionTitle}>Mobilité</Text>
                             <RelocationToggle
                                 value={formData.willingToRelocate}
                                 onChange={(v) => updateField('willingToRelocate', v)}
@@ -330,7 +333,7 @@ export default function EditProfile() {
                 </ScrollView>
 
                 {/* Footer fixe */}
-                <View style={styles.footer}>
+                <View style={commonStyles.footer}>
                     <Button
                         title="Enregistrer"
                         loading={loading}
@@ -343,28 +346,14 @@ export default function EditProfile() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: wp(5),
-        paddingTop: hp(2),
-        paddingBottom: hp(1),
-    },
     title: {
         fontSize: hp(2),
         fontFamily: theme.fonts.semiBold,
         color: theme.colors.text,
     },
-    scrollView: {
-        flex: 1,
-    },
-    content: {
-        paddingHorizontal: wp(5),
-        paddingBottom: hp(4),
+    row: {
+        flexDirection: 'row',
+        gap: wp(2),
     },
     avatarSection: {
         alignItems: 'center',
@@ -374,26 +363,6 @@ const styles = StyleSheet.create({
         fontSize: hp(1.3),
         color: theme.colors.textLight,
         marginTop: hp(1),
-    },
-    section: {
-        marginBottom: hp(2.5),
-        gap: hp(1.5),
-    },
-    sectionTitle: {
-        fontSize: hp(1.7),
-        fontFamily: theme.fonts.semiBold,
-        color: theme.colors.text,
-    },
-    sectionHint: {
-        fontSize: hp(1.3),
-        color: theme.colors.textLight,
-    },
-    row: {
-        flexDirection: 'row',
-        gap: wp(2),
-    },
-    halfInput: {
-        flex: 1,
     },
     bioContainer: {
         backgroundColor: theme.colors.card,
@@ -417,37 +386,5 @@ const styles = StyleSheet.create({
     },
     radiusContainer: {
         marginTop: hp(1.5),
-    },
-    specGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: wp(2),
-    },
-    specChip: {
-        paddingHorizontal: wp(3),
-        paddingVertical: hp(0.8),
-        borderRadius: theme.radius.lg,
-        backgroundColor: theme.colors.card,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    specChipActive: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
-    },
-    specChipText: {
-        fontSize: hp(1.4),
-        color: theme.colors.text,
-    },
-    specChipTextActive: {
-        color: 'white',
-        fontFamily: theme.fonts.medium,
-    },
-    footer: {
-        paddingHorizontal: wp(5),
-        paddingVertical: hp(2),
-        borderTopWidth: 1,
-        borderTopColor: theme.colors.border,
-        backgroundColor: theme.colors.background,
     },
 });
