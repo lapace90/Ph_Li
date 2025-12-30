@@ -2,6 +2,7 @@ import { StyleSheet, Text, View, ScrollView, Pressable, FlatList } from 'react-n
 import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
+import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePrivacy } from '../../hooks/usePrivacy';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
@@ -10,7 +11,6 @@ import StatsCard from '../../components/home/StatsCard';
 import JobCard from '../../components/home/JobCard';
 import ActivityItem from '../../components/home/ActivityItem';
 
-// Mock data - à remplacer par les vraies données
 const MOCK_STATS = {
   matches: 3,
   applications: 7,
@@ -78,25 +78,23 @@ export default function Home() {
   return (
     <ScreenWrapper bg={theme.colors.background}>
       <ScrollView 
-        style={styles.container}
+        style={commonStyles.flex1}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={commonStyles.rowBetween}>
           <View>
-            <Text style={styles.greeting}>
-              Bonjour {profile?.first_name} !
-            </Text>
+            <Text style={styles.greeting}>Bonjour {profile?.first_name} !</Text>
             <Pressable 
-              style={styles.statusRow}
+              style={[commonStyles.row, styles.statusRow]}
               onPress={() => router.push('/(screens)/privacySettings')}
             >
               <View style={[
                 styles.statusDot,
                 { backgroundColor: isSearchActive ? theme.colors.success : theme.colors.gray }
               ]} />
-              <Text style={styles.statusText}>
+              <Text style={commonStyles.hint}>
                 {isSearchActive ? 'Recherche active' : 'Recherche inactive'}
               </Text>
               <Icon name="chevronRight" size={14} color={theme.colors.textLight} />
@@ -107,7 +105,6 @@ export default function Home() {
             onPress={() => {}}
           >
             <Icon name="bell" size={24} color={theme.colors.text} />
-            {/* Badge notifications */}
             <View style={styles.notifBadge}>
               <Text style={styles.notifBadgeText}>2</Text>
             </View>
@@ -119,10 +116,10 @@ export default function Home() {
 
         {/* Offres recommandées */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Offres pour vous</Text>
+          <View style={commonStyles.rowBetween}>
+            <Text style={commonStyles.sectionTitle}>Offres pour vous</Text>
             <Pressable 
-              style={styles.seeAllButton}
+              style={[commonStyles.row, { gap: wp(1) }]}
               onPress={() => router.push('/(tabs)/search')}
             >
               <Text style={styles.seeAllText}>Voir tout</Text>
@@ -147,9 +144,7 @@ export default function Home() {
 
         {/* Activité récente */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Activité récente</Text>
-          </View>
+          <Text style={commonStyles.sectionTitle}>Activité récente</Text>
           
           <View style={styles.activitiesList}>
             {MOCK_ACTIVITIES.map((activity) => (
@@ -162,9 +157,9 @@ export default function Home() {
           </View>
 
           {MOCK_ACTIVITIES.length === 0 && (
-            <View style={styles.emptyActivity}>
+            <View style={[commonStyles.centered, { paddingVertical: hp(4), gap: hp(1) }]}>
               <Icon name="clock" size={40} color={theme.colors.gray} />
-              <Text style={styles.emptyText}>Aucune activité récente</Text>
+              <Text style={commonStyles.emptyText}>Aucune activité récente</Text>
             </View>
           )}
         </View>
@@ -174,19 +169,11 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   content: {
     paddingHorizontal: wp(5),
     paddingTop: hp(6),
     paddingBottom: hp(4),
     gap: hp(2.5),
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
   },
   greeting: {
     fontSize: hp(2.8),
@@ -194,8 +181,6 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
   statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginTop: hp(0.5),
     gap: wp(1.5),
   },
@@ -203,10 +188,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-  },
-  statusText: {
-    fontSize: hp(1.5),
-    color: theme.colors.textLight,
   },
   notifButton: {
     width: 44,
@@ -237,21 +218,6 @@ const styles = StyleSheet.create({
   section: {
     gap: hp(1.5),
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    fontSize: hp(2),
-    fontFamily: theme.fonts.semiBold,
-    color: theme.colors.text,
-  },
-  seeAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: wp(1),
-  },
   seeAllText: {
     fontSize: hp(1.5),
     color: theme.colors.primary,
@@ -262,14 +228,5 @@ const styles = StyleSheet.create({
   },
   activitiesList: {
     gap: hp(1),
-  },
-  emptyActivity: {
-    alignItems: 'center',
-    paddingVertical: hp(4),
-    gap: hp(1),
-  },
-  emptyText: {
-    fontSize: hp(1.6),
-    color: theme.colors.textLight,
   },
 });

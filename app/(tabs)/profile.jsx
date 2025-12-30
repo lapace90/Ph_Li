@@ -1,7 +1,10 @@
+// app/(tabs)/profile.jsx
+
 import { StyleSheet, Text, View, Pressable, ScrollView, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
+import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePrivacy } from '../../hooks/usePrivacy';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
@@ -73,16 +76,27 @@ export default function Profile() {
         return `${profile.experience_years} an${profile.experience_years > 1 ? 's' : ''} d'expérience`;
     };
 
+    const MenuItem = ({ icon, label, onPress, showBorder = true }) => (
+        <Pressable
+            style={[commonStyles.menuItem, !showBorder && commonStyles.menuItemNoBorder]}
+            onPress={onPress}
+        >
+            <Icon name={icon} size={20} color={theme.colors.text} />
+            <Text style={commonStyles.menuItemLabel}>{label}</Text>
+            <Icon name="chevronRight" size={18} color={theme.colors.textLight} />
+        </Pressable>
+    );
+
     return (
         <ScreenWrapper bg={theme.colors.background}>
             <ScrollView
-                style={styles.container}
+                style={commonStyles.flex1}
                 contentContainerStyle={styles.content}
                 showsVerticalScrollIndicator={false}
             >
                 {/* Header */}
-                <View style={styles.header}>
-                    <Text style={styles.title}>Profil</Text>
+                <View style={commonStyles.rowBetween}>
+                    <Text style={commonStyles.headerTitleLarge}>Profil</Text>
                     <Pressable
                         style={styles.editButton}
                         onPress={() => router.push('/(screens)/editProfile')}
@@ -92,126 +106,122 @@ export default function Profile() {
                 </View>
 
                 {/* Carte profil principale */}
-                <View style={styles.profileCard}>
-                    {profile?.avatar_url ? (
-                        <Avatar
-                            uri={profile.avatar_url}
-                            size={hp(10)}
-                            rounded
-                        />
-                    ) : (
-                        <RoleAvatar
-                            role={user?.user_type}
-                            gender={profile?.gender}
-                            size={hp(10)}
-                        />
-                    )}
-                    <View style={styles.profileInfo}>
-                        <View style={styles.nameRow}>
-                            <Text style={styles.name}>
-                                {profile?.first_name} {profile?.last_name}
-                            </Text>
-                            {user?.rpps_verified && <RppsBadge size="small" />}
-                        </View>
-                        <Text style={styles.role}>{getRoleLabel()}</Text>
-                        {getLocation() && (
-                            <View style={styles.locationRow}>
-                                <Icon name="mapPin" size={14} color={theme.colors.textLight} />
-                                <Text style={styles.locationText}>{getLocation()}</Text>
-                            </View>
+                <View style={commonStyles.card}>
+                    <View style={commonStyles.row}>
+                        {profile?.photo_url ? (
+                            <Avatar uri={profile.photo_url} size={hp(10)} rounded />
+                        ) : (
+                            <RoleAvatar role={user?.user_type} gender={profile?.gender} size={hp(10)} />
                         )}
+                        <View style={styles.profileInfo}>
+                            <View style={[commonStyles.row, { gap: wp(2) }]}>
+                                <Text style={styles.name}>
+                                    {profile?.first_name} {profile?.last_name}
+                                </Text>
+                                {user?.rpps_verified && <RppsBadge size="small" />}
+                            </View>
+                            <Text style={styles.role}>{getRoleLabel()}</Text>
+                            {getLocation() && (
+                                <View style={[commonStyles.row, { marginTop: hp(0.5), gap: wp(1) }]}>
+                                    <Icon name="mapPin" size={14} color={theme.colors.textLight} />
+                                    <Text style={commonStyles.hint}>{getLocation()}</Text>
+                                </View>
+                            )}
+                        </View>
                     </View>
                 </View>
 
                 {/* Bio */}
                 {profile?.bio ? (
-                    <View style={styles.bioCard}>
+                    <View style={commonStyles.card}>
                         <Text style={styles.bioText}>{profile.bio}</Text>
                     </View>
                 ) : (
                     <Pressable
                         style={styles.bioEmpty}
-                        onPress={() => router.push('/(screens)/profileEdit')}
+                        onPress={() => router.push('/(screens)/editProfile')}
                     >
                         <Icon name="edit" size={18} color={theme.colors.textLight} />
-                        <Text style={styles.bioEmptyText}>Ajouter une présentation</Text>
+                        <Text style={commonStyles.hint}>Ajouter une présentation</Text>
                     </Pressable>
                 )}
 
                 {/* Toggle recherche */}
-                <View style={styles.searchToggle}>
-                    <View style={styles.searchToggleLeft}>
-                        <View style={[
-                            styles.searchToggleIcon,
-                            privacy?.searchable_by_recruiters && styles.searchToggleIconActive,
-                        ]}>
-                            <Icon
-                                name="search"
-                                size={20}
-                                color={privacy?.searchable_by_recruiters ? 'white' : theme.colors.primary}
-                            />
+                <View style={commonStyles.card}>
+                    <View style={[commonStyles.rowBetween, { padding: 0 }]}>
+                        <View style={[commonStyles.row, commonStyles.flex1]}>
+                            <View style={[
+                                styles.searchToggleIcon,
+                                privacy?.searchable_by_recruiters && styles.searchToggleIconActive,
+                            ]}>
+                                <Icon
+                                    name="search"
+                                    size={20}
+                                    color={privacy?.searchable_by_recruiters ? 'white' : theme.colors.primary}
+                                />
+                            </View>
+                            <View style={styles.searchToggleInfo}>
+                                <Text style={styles.searchToggleTitle}>
+                                    {privacy?.searchable_by_recruiters ? 'Recherche active' : 'Recherche inactive'}
+                                </Text>
+                                <Text style={commonStyles.hint}>
+                                    {privacy?.searchable_by_recruiters
+                                        ? 'Visible par les recruteurs'
+                                        : 'Profil masqué'}
+                                </Text>
+                            </View>
                         </View>
-                        <View style={styles.searchToggleInfo}>
-                            <Text style={styles.searchToggleTitle}>
-                                {privacy?.searchable_by_recruiters ? 'Recherche active' : 'Recherche inactive'}
-                            </Text>
-                            <Text style={styles.searchToggleDesc}>
-                                {privacy?.searchable_by_recruiters
-                                    ? 'Visible par les recruteurs'
-                                    : 'Profil masqué'}
-                            </Text>
-                        </View>
+                        <Switch
+                            value={privacy?.searchable_by_recruiters || false}
+                            onValueChange={handleToggleSearchable}
+                            trackColor={{ false: theme.colors.gray, true: theme.colors.primary + '50' }}
+                            thumbColor={privacy?.searchable_by_recruiters ? theme.colors.primary : theme.colors.darkLight}
+                        />
                     </View>
-                    <Switch
-                        value={privacy?.searchable_by_recruiters || false}
-                        onValueChange={handleToggleSearchable}
-                        trackColor={{ false: theme.colors.gray, true: theme.colors.primary + '50' }}
-                        thumbColor={privacy?.searchable_by_recruiters ? theme.colors.primary : theme.colors.darkLight}
-                    />
                 </View>
 
                 {/* Infos rapides */}
-                <View style={styles.quickInfoCard}>
+                <View style={[commonStyles.card, { gap: hp(1.2) }]}>
                     {formatAvailability() && (
-                        <View style={styles.quickInfoRow}>
+                        <View style={[commonStyles.row, { gap: wp(3) }]}>
                             <Icon name="calendar" size={18} color={theme.colors.primary} />
-                            <Text style={styles.quickInfoText}>{formatAvailability()}</Text>
+                            <Text style={commonStyles.flex1}>{formatAvailability()}</Text>
                         </View>
                     )}
                     {getExperience() && (
-                        <View style={styles.quickInfoRow}>
+                        <View style={[commonStyles.row, { gap: wp(3) }]}>
                             <Icon name="briefcase" size={18} color={theme.colors.primary} />
-                            <Text style={styles.quickInfoText}>{getExperience()}</Text>
+                            <Text style={commonStyles.flex1}>{getExperience()}</Text>
                         </View>
                     )}
                     {formatContractTypes() && (
-                        <View style={styles.quickInfoRow}>
+                        <View style={[commonStyles.row, { gap: wp(3) }]}>
                             <Icon name="fileText" size={18} color={theme.colors.primary} />
-                            <Text style={styles.quickInfoText}>{formatContractTypes()}</Text>
+                            <Text style={commonStyles.flex1}>{formatContractTypes()}</Text>
                         </View>
                     )}
                     {formatRadius() && (
-                        <View style={styles.quickInfoRow}>
+                        <View style={[commonStyles.row, { gap: wp(3) }]}>
                             <Icon name="map" size={18} color={theme.colors.primary} />
-                            <Text style={styles.quickInfoText}>Recherche dans un rayon de {formatRadius()}</Text>
+                            <Text style={commonStyles.flex1}>Recherche dans un rayon de {formatRadius()}</Text>
                         </View>
                     )}
                     {profile?.willing_to_relocate && (
-                        <View style={styles.quickInfoRow}>
+                        <View style={[commonStyles.row, { gap: wp(3) }]}>
                             <Icon name="home" size={18} color={theme.colors.primary} />
-                            <Text style={styles.quickInfoText}>Prêt(e) à déménager</Text>
+                            <Text style={commonStyles.flex1}>Prêt(e) à déménager</Text>
                         </View>
                     )}
                     {profile?.specializations?.length > 0 && (
-                        <View style={styles.quickInfoRow}>
+                        <View style={[commonStyles.row, { gap: wp(3) }]}>
                             <Icon name="star" size={18} color={theme.colors.primary} />
-                            <Text style={styles.quickInfoText}>{profile.specializations.join(', ')}</Text>
+                            <Text style={commonStyles.flex1}>{profile.specializations.join(', ')}</Text>
                         </View>
                     )}
                 </View>
 
                 {/* Menu */}
-                <View style={styles.menuCard}>
+                <View style={[commonStyles.card, { padding: 0, overflow: 'hidden' }]}>
                     <MenuItem
                         icon="fileText"
                         label="Mes CV"
@@ -236,7 +246,7 @@ export default function Profile() {
                 </View>
 
                 {/* Déconnexion */}
-                <Pressable style={styles.logoutButton} onPress={signOut}>
+                <Pressable style={[commonStyles.row, styles.logoutButton]} onPress={signOut}>
                     <Icon name="logout" size={20} color={theme.colors.rose} />
                     <Text style={styles.logoutText}>Se déconnecter</Text>
                 </Pressable>
@@ -245,59 +255,21 @@ export default function Profile() {
     );
 }
 
-const MenuItem = ({ icon, label, onPress, showBorder = true }) => (
-    <Pressable
-        style={[styles.menuItem, !showBorder && styles.menuItemNoBorder]}
-        onPress={onPress}
-    >
-        <Icon name={icon} size={20} color={theme.colors.text} />
-        <Text style={styles.menuLabel}>{label}</Text>
-        <Icon name="chevronRight" size={18} color={theme.colors.textLight} />
-    </Pressable>
-);
-
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
     content: {
         paddingHorizontal: wp(5),
         paddingTop: hp(6),
         paddingBottom: hp(4),
         gap: hp(2),
     },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    title: {
-        fontSize: hp(3),
-        fontFamily: theme.fonts.bold,
-        color: theme.colors.text,
-    },
     editButton: {
         padding: hp(1),
         backgroundColor: theme.colors.primary + '15',
         borderRadius: theme.radius.md,
     },
-    profileCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: theme.colors.card,
-        padding: hp(2),
-        borderRadius: theme.radius.xl,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
     profileInfo: {
         flex: 1,
         marginLeft: wp(4),
-    },
-    nameRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: wp(2),
     },
     name: {
         fontSize: hp(2.2),
@@ -309,23 +281,6 @@ const styles = StyleSheet.create({
         color: theme.colors.primary,
         fontFamily: theme.fonts.medium,
         marginTop: hp(0.3),
-    },
-    locationRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: hp(0.5),
-        gap: wp(1),
-    },
-    locationText: {
-        fontSize: hp(1.4),
-        color: theme.colors.textLight,
-    },
-    bioCard: {
-        backgroundColor: theme.colors.card,
-        padding: hp(2),
-        borderRadius: theme.radius.xl,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
     },
     bioText: {
         fontSize: hp(1.5),
@@ -343,25 +298,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: theme.colors.border,
         borderStyle: 'dashed',
-    },
-    bioEmptyText: {
-        fontSize: hp(1.5),
-        color: theme.colors.textLight,
-    },
-    searchToggle: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: theme.colors.card,
-        padding: hp(2),
-        borderRadius: theme.radius.xl,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    searchToggleLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
     },
     searchToggleIcon: {
         width: wp(10),
@@ -383,56 +319,7 @@ const styles = StyleSheet.create({
         fontFamily: theme.fonts.semiBold,
         color: theme.colors.text,
     },
-    searchToggleDesc: {
-        fontSize: hp(1.3),
-        color: theme.colors.textLight,
-        marginTop: hp(0.2),
-    },
-    quickInfoCard: {
-        backgroundColor: theme.colors.card,
-        padding: hp(2),
-        borderRadius: theme.radius.xl,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        gap: hp(1.2),
-    },
-    quickInfoRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: wp(3),
-    },
-    quickInfoText: {
-        flex: 1,
-        fontSize: hp(1.5),
-        color: theme.colors.text,
-    },
-    menuCard: {
-        backgroundColor: theme.colors.card,
-        borderRadius: theme.radius.xl,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        overflow: 'hidden',
-    },
-    menuItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: hp(1.8),
-        paddingHorizontal: wp(4),
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.border,
-    },
-    menuItemNoBorder: {
-        borderBottomWidth: 0,
-    },
-    menuLabel: {
-        flex: 1,
-        marginLeft: wp(3),
-        fontSize: hp(1.6),
-        color: theme.colors.text,
-    },
     logoutButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: hp(1.5),
         gap: wp(2),

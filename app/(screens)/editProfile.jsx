@@ -37,7 +37,7 @@ export default function EditProfile() {
 
     const [loading, setLoading] = useState(false);
     const [avatarLoading, setAvatarLoading] = useState(false);
-    const [avatarUri, setAvatarUri] = useState(profile?.avatar_url || null);
+    const [avatarUri, setAvatarUri] = useState(profile?.photo_url || null);
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
@@ -52,9 +52,11 @@ export default function EditProfile() {
         willingToRelocate: false,
     });
 
+    const [initialData, setInitialData] = useState(null);
+
     useEffect(() => {
         if (profile) {
-            setFormData({
+            const initial = {
                 firstName: profile.first_name || '',
                 lastName: profile.last_name || '',
                 bio: profile.bio || '',
@@ -74,8 +76,10 @@ export default function EditProfile() {
                 searchRadius: profile.search_radius_km ?? -1,
                 contractTypes: profile.preferred_contract_types || [],
                 willingToRelocate: profile.willing_to_relocate ?? false,
-            });
-            setAvatarUri(profile.avatar_url || null);
+                photoUrl: profile.photo_url || null,
+            };
+            setFormData(initial);
+            setInitialData(initial); // Garder une copie
         }
     }, [profile]);
 
@@ -93,7 +97,7 @@ export default function EditProfile() {
         try {
             const url = await storageService.uploadImage('avatars', session.user.id, asset);
             setAvatarUri(url);
-            await profileService.update(session.user.id, { avatar_url: url });
+            // Ne PAS sauvegarder ici, on le fera dans handleSave
         } catch (error) {
             Alert.alert('Erreur', 'Impossible de télécharger la photo');
             console.error(error);
@@ -120,30 +124,53 @@ export default function EditProfile() {
             return;
         }
 
+        // Mapping form → database
+        const fieldMap = {
+            firstName: { key: 'first_name', transform: v => v.trim() },
+            lastName: { key: 'last_name', transform: v => v.trim() },
+            bio: { key: 'bio', transform: v => v.trim() || null },
+            phone: { key: 'phone', transform: v => v.trim() || null },
+            experienceYears: { key: 'experience_years', transform: v => v ? parseInt(v) : null },
+            specializations: { key: 'specializations', transform: v => v.length > 0 ? v : null },
+            availability: { key: 'availability_date', transform: v => v === 'immediate' ? new Date().toISOString().split('T')[0] : v },
+            searchRadius: { key: 'search_radius_km', transform: v => v === -1 ? null : v },
+            contractTypes: { key: 'preferred_contract_types', transform: v => v.length > 0 ? v : null },
+            willingToRelocate: { key: 'willing_to_relocate', transform: v => v },
+        };
+
+        // Construire uniquement les champs modifiés
+        const updates = {};
+
+        for (const [formKey, { key, transform }] of Object.entries(fieldMap)) {
+            if (JSON.stringify(formData[formKey]) !== JSON.stringify(initialData[formKey])) {
+                updates[key] = transform(formData[formKey]);
+            }
+        }
+
+        // Gérer la ville séparément (plusieurs colonnes)
+        if (JSON.stringify(formData.city) !== JSON.stringify(initialData.city)) {
+            updates.current_city = formData.city?.city || null;
+            updates.current_postal_code = formData.city?.postcode || null;
+            updates.current_region = formData.city?.region || null;
+            updates.current_department = formData.city?.department || null;
+            updates.current_latitude = formData.city?.latitude || null;
+            updates.current_longitude = formData.city?.longitude || null;
+        }
+
+        // Photo
+        if (avatarUri !== initialData.photoUrl) {
+            updates.photo_url = avatarUri;
+        }
+
+        // Rien à modifier ?
+        if (Object.keys(updates).length === 0) {
+            router.back();
+            return;
+        }
+
         setLoading(true);
         try {
-            await profileService.update(session.user.id, {
-                first_name: formData.firstName.trim(),
-                last_name: formData.lastName.trim(),
-                bio: formData.bio.trim() || null,
-                phone: formData.phone.trim() || null,
-                current_city: formData.city?.city || null,
-                current_postal_code: formData.city?.postcode || null,
-                current_region: formData.city?.region || null,
-                current_department: formData.city?.department || null,
-                current_latitude: formData.city?.latitude || null,
-                current_longitude: formData.city?.longitude || null,
-                experience_years: formData.experienceYears ? parseInt(formData.experienceYears) : null,
-                specializations: formData.specializations.length > 0 ? formData.specializations : null,
-                availability_date: formData.availability === 'immediate'
-                    ? new Date().toISOString().split('T')[0]
-                    : formData.availability,
-                search_radius_km: formData.searchRadius === -1 ? null : formData.searchRadius,
-                preferred_contract_types: formData.contractTypes.length > 0 ? formData.contractTypes : null,
-                willing_to_relocate: formData.willingToRelocate,
-                avatar_url: avatarUri,
-            });
-
+            await profileService.update(session.user.id, updates);
             await refreshUserData();
             Alert.alert('Succès', 'Profil mis à jour', [
                 { text: 'OK', onPress: () => router.back() }

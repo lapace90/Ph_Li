@@ -38,9 +38,9 @@ const Avatar = ({ profile, size = 40, style }) => {
   const initials = getInitials();
   const fontSize = size * 0.4;
 
-  // Si avatar_url existe
-  if (profile?.avatar_url) {
-    return <Image source={{ uri: profile.avatar_url }} style={[avatarSize, style]} />;
+  // Si photo_url existe
+  if (profile?.photo_url) {
+    return <Image source={{ uri: profile.photo_url }} style={[avatarSize, style]} />;
   }
 
   // Sinon afficher les initiales
