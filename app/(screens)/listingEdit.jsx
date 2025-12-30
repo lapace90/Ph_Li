@@ -1,30 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Alert, StyleSheet, Text, View, ScrollView, Pressable, TextInput, ActivityIndicator } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, Switch, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { hp, wp } from '../../helpers/common';
 import { theme } from '../../constants/theme';
+import { commonStyles } from '../../constants/styles';
+import { hp, wp } from '../../helpers/common';
 import { useAuth } from '../../contexts/AuthContext';
 import { pharmacyListingService } from '../../services/pharmacyListingService';
+import { storageService } from '../../services/storageService';
+import {
+  LISTING_TYPES,
+  NEARBY_OPTIONS,
+  getListingTypeLabel,
+  getListingTypeColor,
+  formatNumber,
+} from '../../constants/listingOptions';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
-import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
 import Icon from '../../assets/icons/Icon';
+import Input from '../../components/common/Input';
+import Button from '../../components/common/Button';
 import CityAutocomplete from '../../components/common/CityAutocomplete';
 import ImagePickerBox from '../../components/common/ImagePickerBox';
-import { storageService } from '../../services/storageService';
-
-const LISTING_TYPES = {
-  vente: 'Vente',
-  'location-gerance': 'Location-gérance',
-  collaboration: 'Collaboration',
-  association: 'Association',
-};
-
-const NEARBY_OPTIONS = [
-  'Centre médical', 'Hôpital', 'EHPAD', 'Centre commercial',
-  'Parking', 'Transport en commun', 'École', 'Zone piétonne',
-];
 
 export default function ListingEdit() {
   const router = useRouter();
@@ -34,6 +29,7 @@ export default function ListingEdit() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [photoLoading, setPhotoLoading] = useState(false);
+  const [activeSection, setActiveSection] = useState('info');
 
   const [formData, setFormData] = useState({
     type: null,
@@ -41,7 +37,12 @@ export default function ListingEdit() {
     description: '',
     price: '',
     negotiable: false,
-    city: null,
+    city: '',
+    postal_code: '',
+    region: '',
+    department: '',
+    latitude: null,
+    longitude: null,
     characteristics: {
       surface_m2: '',
       staff_count: '',
@@ -81,15 +82,12 @@ export default function ListingEdit() {
         description: data.description || '',
         price: data.price ? String(data.price) : '',
         negotiable: data.negotiable || false,
-        city: data.city ? {
-          city: data.city,
-          postcode: data.postal_code,
-          region: data.region,
-          department: data.department,
-          latitude: data.latitude,
-          longitude: data.longitude,
-          label: `${data.city} - ${data.region}`,
-        } : null,
+        city: data.city || '',
+        postal_code: data.postal_code || '',
+        region: data.region || '',
+        department: data.department || '',
+        latitude: data.latitude || null,
+        longitude: data.longitude || null,
         characteristics: {
           surface_m2: chars.surface_m2 ? String(chars.surface_m2) : '',
           staff_count: chars.staff_count ? String(chars.staff_count) : '',
@@ -113,9 +111,7 @@ export default function ListingEdit() {
     }
   };
 
-  const updateField = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  const updateField = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
   const updateCharacteristic = (field, value) => {
     setFormData(prev => ({
@@ -132,15 +128,30 @@ export default function ListingEdit() {
     updateCharacteristic('nearby', updated);
   };
 
+  const handleCitySelect = (city) => {
+    setFormData(prev => ({
+      ...prev,
+      city: city.city,
+      postal_code: city.postcode,
+      region: city.region,
+      department: city.department,
+      latitude: city.latitude,
+      longitude: city.longitude,
+    }));
+  };
+
   const handleAddPhoto = async (asset) => {
     if (formData.photos.length >= 10) {
-      Alert.alert('Limite atteinte', 'Maximum 10 photos par annonce');
+      Alert.alert('Limite atteinte', 'Maximum 10 photos');
       return;
     }
-
     setPhotoLoading(true);
     try {
-      const url = await storageService.uploadImage('listings', session.user.id, asset);
+      const url = await storageService.uploadImage(
+        'listings',
+        `${session.user.id}/${Date.now()}`,
+        asset
+      );
       updateField('photos', [...formData.photos, url]);
     } catch (error) {
       Alert.alert('Erreur', 'Impossible de télécharger la photo');
@@ -150,8 +161,7 @@ export default function ListingEdit() {
   };
 
   const handleRemovePhoto = (index) => {
-    const updated = formData.photos.filter((_, i) => i !== index);
-    updateField('photos', updated);
+    updateField('photos', formData.photos.filter((_, i) => i !== index));
   };
 
   const handleSave = async () => {
@@ -164,15 +174,15 @@ export default function ListingEdit() {
     try {
       const updates = {
         title: formData.title.trim(),
-        description: formData.description.trim() || null,
+        description: formData.description?.trim() || null,
         price: formData.price ? parseFloat(formData.price) : null,
         negotiable: formData.negotiable,
-        city: formData.city?.city || null,
-        postal_code: formData.city?.postcode || null,
-        region: formData.city?.region || null,
-        department: formData.city?.department || null,
-        latitude: formData.city?.latitude || null,
-        longitude: formData.city?.longitude || null,
+        city: formData.city || null,
+        postal_code: formData.postal_code || null,
+        region: formData.region || null,
+        department: formData.department || null,
+        latitude: formData.latitude || null,
+        longitude: formData.longitude || null,
         characteristics: {
           surface_m2: formData.characteristics.surface_m2 ? parseInt(formData.characteristics.surface_m2) : null,
           staff_count: formData.characteristics.staff_count ? parseInt(formData.characteristics.staff_count) : null,
@@ -195,526 +205,394 @@ export default function ListingEdit() {
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (error) {
-      Alert.alert('Erreur', error.message);
+      Alert.alert('Erreur', error.message || 'Impossible de sauvegarder');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleClose = () => {
-    Alert.alert(
-      'Clôturer l\'annonce',
-      'L\'annonce ne sera plus visible. Vous pourrez la réactiver plus tard.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Clôturer',
-          onPress: async () => {
-            try {
-              await pharmacyListingService.close(id);
-              Alert.alert('Succès', 'Annonce clôturée', [
-                { text: 'OK', onPress: () => router.replace('/(tabs)/marketplace') },
-              ]);
-            } catch (error) {
-              Alert.alert('Erreur', error.message);
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const handleDelete = () => {
-    Alert.alert(
-      'Supprimer l\'annonce',
-      'Cette action est irréversible.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await pharmacyListingService.delete(id);
-              Alert.alert('Succès', 'Annonce supprimée', [
-                { text: 'OK', onPress: () => router.replace('/(tabs)/marketplace') },
-              ]);
-            } catch (error) {
-              Alert.alert('Erreur', error.message);
-            }
-          },
+    Alert.alert('Supprimer l\'annonce', 'Cette action est irréversible.', [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Supprimer',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await pharmacyListingService.delete(id);
+            router.replace('/(tabs)/marketplace');
+          } catch (error) {
+            Alert.alert('Erreur', 'Impossible de supprimer');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   if (loading) {
     return (
       <ScreenWrapper bg={theme.colors.background}>
-        <View style={styles.loadingContainer}>
+        <View style={commonStyles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={commonStyles.loadingText}>Chargement...</Text>
         </View>
       </ScreenWrapper>
     );
   }
 
+  const SECTIONS = [
+    { key: 'info', label: 'Infos', icon: 'fileText' },
+    { key: 'details', label: 'Détails', icon: 'home' },
+    { key: 'photos', label: 'Photos', icon: 'image' },
+    { key: 'privacy', label: 'Options', icon: 'lock' },
+  ];
+
   return (
     <ScreenWrapper bg={theme.colors.background}>
-      <StatusBar style="dark" />
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
-            <Icon name="arrowLeft" size={24} color={theme.colors.text} />
+      <KeyboardAvoidingView style={commonStyles.flex1} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* Header */}
+        <View style={commonStyles.header}>
+          <Pressable style={commonStyles.headerButton} onPress={() => router.back()}>
+            <Icon name="x" size={24} color={theme.colors.text} />
           </Pressable>
-          <Text style={styles.headerTitle}>Modifier l'annonce</Text>
-          <View style={{ width: 24 }} />
+          <Text style={commonStyles.headerTitle}>Modifier l'annonce</Text>
+          <Pressable style={commonStyles.headerButton} onPress={handleSave} disabled={saving}>
+            {saving ? (
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            ) : (
+              <Icon name="check" size={24} color={theme.colors.primary} />
+            )}
+          </Pressable>
         </View>
 
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.content}
+        {/* Type Badge */}
+        <View style={styles.typeBadgeContainer}>
+          <View style={[commonStyles.badge, { backgroundColor: getListingTypeColor(formData.type) + '15' }]}>
+            <Text style={[commonStyles.badgeText, { color: getListingTypeColor(formData.type) }]}>
+              {getListingTypeLabel(formData.type)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Section Tabs */}
+        <View style={styles.tabsContainer}>
+          {SECTIONS.map((section) => (
+            <Pressable
+              key={section.key}
+              style={[styles.tab, activeSection === section.key && styles.tabActive]}
+              onPress={() => setActiveSection(section.key)}
+            >
+              <Icon 
+                name={section.icon} 
+                size={18} 
+                color={activeSection === section.key ? theme.colors.primary : theme.colors.textLight} 
+              />
+              <Text style={[styles.tabText, activeSection === section.key && styles.tabTextActive]}>
+                {section.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {/* Content */}
+        <ScrollView 
+          style={commonStyles.flex1} 
+          contentContainerStyle={commonStyles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Type (read-only) */}
-          <View style={styles.typeDisplay}>
-            <Text style={styles.typeLabel}>Type d'annonce</Text>
-            <Text style={styles.typeValue}>{LISTING_TYPES[formData.type]}</Text>
-          </View>
-
-          {/* General Info */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Informations générales</Text>
-
-            <Input
-              icon={<Icon name="fileText" size={22} color={theme.colors.textLight} />}
-              placeholder="Titre de l'annonce *"
-              value={formData.title}
-              onChangeText={(v) => updateField('title', v)}
+          {activeSection === 'info' && (
+            <SectionInfo 
+              formData={formData} 
+              updateField={updateField} 
+              onCitySelect={handleCitySelect} 
             />
-
-            <View style={{ zIndex: 100 }}>
-              <CityAutocomplete
-                value={formData.city?.label}
-                onSelect={(city) => updateField('city', city)}
-                placeholder="Ville"
-              />
-            </View>
-
-            <Input
-              icon={<Icon name="briefcase" size={22} color={theme.colors.textLight} />}
-              placeholder="Prix (€)"
-              keyboardType="numeric"
-              value={formData.price}
-              onChangeText={(v) => updateField('price', v)}
+          )}
+          {activeSection === 'details' && (
+            <SectionDetails 
+              formData={formData} 
+              updateCharacteristic={updateCharacteristic} 
+              toggleNearby={toggleNearby} 
             />
-
-            <Pressable
-              style={styles.toggleRow}
-              onPress={() => updateField('negotiable', !formData.negotiable)}
-            >
-              <Text style={styles.toggleLabel}>Prix négociable</Text>
-              <View style={[styles.toggle, formData.negotiable && styles.toggleActive]}>
-                {formData.negotiable && <Icon name="check" size={14} color="white" />}
-              </View>
-            </Pressable>
-
-            <View style={styles.textAreaContainer}>
-              <TextInput
-                style={styles.textArea}
-                placeholder="Description"
-                placeholderTextColor={theme.colors.textLight}
-                multiline
-                numberOfLines={4}
-                value={formData.description}
-                onChangeText={(v) => updateField('description', v)}
-              />
-            </View>
-          </View>
-
-          {/* Characteristics */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Caractéristiques</Text>
-
-            <View style={styles.row}>
-              <View style={styles.halfInput}>
-                <Input
-                  icon={<Icon name="home" size={22} color={theme.colors.textLight} />}
-                  placeholder="Surface (m²)"
-                  keyboardType="numeric"
-                  value={formData.characteristics.surface_m2}
-                  onChangeText={(v) => updateCharacteristic('surface_m2', v)}
-                />
-              </View>
-              <View style={styles.halfInput}>
-                <Input
-                  icon={<Icon name="users" size={22} color={theme.colors.textLight} />}
-                  placeholder="Effectif"
-                  keyboardType="numeric"
-                  value={formData.characteristics.staff_count}
-                  onChangeText={(v) => updateCharacteristic('staff_count', v)}
-                />
-              </View>
-            </View>
-
-            <View style={styles.row}>
-              <View style={styles.halfInput}>
-                <Input
-                  icon={<Icon name="briefcase" size={22} color={theme.colors.textLight} />}
-                  placeholder="CA annuel (€)"
-                  keyboardType="numeric"
-                  value={formData.characteristics.annual_revenue}
-                  onChangeText={(v) => updateCharacteristic('annual_revenue', v)}
-                />
-              </View>
-              <View style={styles.halfInput}>
-                <Input
-                  icon={<Icon name="star" size={22} color={theme.colors.textLight} />}
-                  placeholder="Bénéfice (€)"
-                  keyboardType="numeric"
-                  value={formData.characteristics.annual_profit}
-                  onChangeText={(v) => updateCharacteristic('annual_profit', v)}
-                />
-              </View>
-            </View>
-
-            <Input
-              icon={<Icon name="clock" size={22} color={theme.colors.textLight} />}
-              placeholder="Horaires (ex: 9h-19h)"
-              value={formData.characteristics.opening_hours}
-              onChangeText={(v) => updateCharacteristic('opening_hours', v)}
+          )}
+          {activeSection === 'photos' && (
+            <SectionPhotos 
+              formData={formData} 
+              onAddPhoto={handleAddPhoto} 
+              onRemovePhoto={handleRemovePhoto} 
+              photoLoading={photoLoading} 
             />
-
-            <Text style={styles.subsectionTitle}>Équipements</Text>
-            <View style={styles.equipmentRow}>
-              {[
-                { key: 'parking', label: '🅿️ Parking' },
-                { key: 'has_robot', label: '🤖 Robot' },
-                { key: 'has_lab', label: '🔬 Labo' },
-                { key: 'has_drive', label: '🚗 Drive' },
-              ].map((item) => (
-                <Pressable
-                  key={item.key}
-                  style={[
-                    styles.equipmentChip,
-                    formData.characteristics[item.key] && styles.equipmentChipSelected,
-                  ]}
-                  onPress={() => updateCharacteristic(item.key, !formData.characteristics[item.key])}
-                >
-                  <Text style={[
-                    styles.equipmentChipText,
-                    formData.characteristics[item.key] && styles.equipmentChipTextSelected,
-                  ]}>
-                    {item.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <Text style={styles.subsectionTitle}>À proximité</Text>
-            <View style={styles.nearbyGrid}>
-              {NEARBY_OPTIONS.map((item) => (
-                <Pressable
-                  key={item}
-                  style={[
-                    styles.nearbyChip,
-                    formData.characteristics.nearby?.includes(item) && styles.nearbyChipSelected,
-                  ]}
-                  onPress={() => toggleNearby(item)}
-                >
-                  <Text style={[
-                    styles.nearbyChipText,
-                    formData.characteristics.nearby?.includes(item) && styles.nearbyChipTextSelected,
-                  ]}>
-                    {item}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-
-          {/* Privacy */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Confidentialité</Text>
-
-            <View style={styles.privacyCard}>
-              <View style={styles.privacyHeader}>
-                <Icon name="lock" size={24} color={theme.colors.primary} />
-                <Text style={styles.privacyTitle}>Mode anonyme</Text>
-                <Pressable
-                  style={[styles.toggle, styles.toggleLarge, formData.anonymized && styles.toggleActive]}
-                  onPress={() => updateField('anonymized', !formData.anonymized)}
-                >
-                  {formData.anonymized && <Icon name="check" size={16} color="white" />}
-                </Pressable>
-              </View>
-              <Text style={styles.privacyDescription}>
-                {formData.anonymized
-                  ? 'Votre ville exacte et le prix précis seront masqués.'
-                  : 'Toutes les informations seront visibles publiquement.'}
-              </Text>
-            </View>
-          </View>
-
-          {/* Photos */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Photos</Text>
-            <ImagePickerBox
-              values={formData.photos}
-              onAdd={handleAddPhoto}
-              onRemove={handleRemovePhoto}
-              multiple
-              maxImages={10}
-              loading={photoLoading}
+          )}
+          {activeSection === 'privacy' && (
+            <SectionPrivacy 
+              formData={formData} 
+              updateField={updateField} 
+              onDelete={handleDelete} 
             />
-          </View>
-
-          {/* Actions */}
-          <View style={styles.dangerSection}>
-            <Pressable style={styles.closeButton} onPress={handleClose}>
-              <Icon name="x" size={20} color={theme.colors.warning} />
-              <Text style={styles.closeButtonText}>Clôturer l'annonce</Text>
-            </Pressable>
-
-            <Pressable style={styles.deleteButton} onPress={handleDelete}>
-              <Icon name="trash" size={20} color={theme.colors.rose} />
-              <Text style={styles.deleteButtonText}>Supprimer l'annonce</Text>
-            </Pressable>
-          </View>
+          )}
         </ScrollView>
 
-        <View style={styles.footer}>
-          <Button title="Enregistrer" loading={saving} onPress={handleSave} />
+        {/* Footer */}
+        <View style={commonStyles.footer}>
+          <Button
+            title="Enregistrer les modifications"
+            onPress={handleSave}
+            loading={saving}
+          />
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </ScreenWrapper>
   );
 }
 
+// ============================================
+// SECTION COMPONENTS
+// ============================================
+
+const SectionInfo = ({ formData, updateField, onCitySelect }) => (
+  <View style={commonStyles.section}>
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>Titre de l'annonce *</Text>
+      <Input 
+        placeholder="Ex: Pharmacie de centre-ville à céder" 
+        value={formData.title} 
+        onChangeText={(v) => updateField('title', v)} 
+      />
+    </View>
+
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>Description</Text>
+      <Input
+        placeholder="Décrivez votre pharmacie..."
+        value={formData.description}
+        onChangeText={(v) => updateField('description', v)}
+        multiline
+        numberOfLines={5}
+        inputStyle={commonStyles.textArea}
+      />
+    </View>
+
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>Ville</Text>
+      <CityAutocomplete
+        value={formData.city ? { city: formData.city, postcode: formData.postal_code } : null}
+        onSelect={onCitySelect}
+        placeholder="Rechercher une ville..."
+      />
+    </View>
+
+    {formData.city && (
+      <View style={commonStyles.card}>
+        <View style={commonStyles.rowGapSmall}>
+          <Icon name="mapPin" size={16} color={theme.colors.primary} />
+          <Text style={[commonStyles.chipText, { fontFamily: theme.fonts.medium }]}>{formData.city}, {formData.postal_code}</Text>
+        </View>
+        <View style={[commonStyles.rowGapSmall, { marginTop: hp(0.8) }]}>
+          <Icon name="map" size={16} color={theme.colors.textLight} />
+          <Text style={commonStyles.hint}>{formData.department}, {formData.region}</Text>
+        </View>
+      </View>
+    )}
+
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>Prix de vente (€)</Text>
+      <Input 
+        placeholder="Ex: 850000" 
+        value={formData.price} 
+        onChangeText={(v) => updateField('price', v.replace(/[^0-9]/g, ''))}
+        keyboardType="numeric"
+      />
+      <View style={[commonStyles.rowGapSmall, { marginTop: hp(1) }]}>
+        <Switch
+          value={formData.negotiable}
+          onValueChange={(v) => updateField('negotiable', v)}
+          trackColor={{ false: theme.colors.gray, true: theme.colors.primary + '50' }}
+          thumbColor={formData.negotiable ? theme.colors.primary : '#f4f3f4'}
+        />
+        <Text style={commonStyles.hint}>Prix négociable</Text>
+      </View>
+    </View>
+  </View>
+);
+
+const SectionDetails = ({ formData, updateCharacteristic, toggleNearby }) => (
+  <View style={commonStyles.section}>
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>Surface (m²)</Text>
+      <Input 
+        placeholder="Ex: 150" 
+        value={formData.characteristics.surface_m2} 
+        onChangeText={(v) => updateCharacteristic('surface_m2', v.replace(/[^0-9]/g, ''))}
+        keyboardType="numeric"
+      />
+    </View>
+
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>Nombre d'employés</Text>
+      <Input 
+        placeholder="Ex: 5" 
+        value={formData.characteristics.staff_count} 
+        onChangeText={(v) => updateCharacteristic('staff_count', v.replace(/[^0-9]/g, ''))}
+        keyboardType="numeric"
+      />
+    </View>
+
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>Chiffre d'affaires annuel (€)</Text>
+      <Input 
+        placeholder="Ex: 2500000" 
+        value={formData.characteristics.annual_revenue} 
+        onChangeText={(v) => updateCharacteristic('annual_revenue', v.replace(/[^0-9]/g, ''))}
+        keyboardType="numeric"
+      />
+    </View>
+
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>Bénéfice annuel (€)</Text>
+      <Input 
+        placeholder="Ex: 150000" 
+        value={formData.characteristics.annual_profit} 
+        onChangeText={(v) => updateCharacteristic('annual_profit', v.replace(/[^0-9]/g, ''))}
+        keyboardType="numeric"
+      />
+    </View>
+
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>Horaires d'ouverture</Text>
+      <Input 
+        placeholder="Ex: 9h-19h du lundi au samedi" 
+        value={formData.characteristics.opening_hours} 
+        onChangeText={(v) => updateCharacteristic('opening_hours', v)}
+      />
+    </View>
+
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>Équipements</Text>
+      <View style={{ gap: hp(1) }}>
+        <ToggleRow label="Parking client" value={formData.characteristics.parking} onToggle={(v) => updateCharacteristic('parking', v)} />
+        <ToggleRow label="Robot de dispensation" value={formData.characteristics.has_robot} onToggle={(v) => updateCharacteristic('has_robot', v)} />
+        <ToggleRow label="Laboratoire de préparation" value={formData.characteristics.has_lab} onToggle={(v) => updateCharacteristic('has_lab', v)} />
+        <ToggleRow label="Drive / Click & Collect" value={formData.characteristics.has_drive} onToggle={(v) => updateCharacteristic('has_drive', v)} />
+      </View>
+    </View>
+
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>À proximité</Text>
+      <View style={commonStyles.chipsContainer}>
+        {NEARBY_OPTIONS.map((item) => (
+          <Pressable
+            key={item}
+            style={[commonStyles.chip, formData.characteristics.nearby?.includes(item) && commonStyles.chipActive]}
+            onPress={() => toggleNearby(item)}
+          >
+            <Text style={[commonStyles.chipText, formData.characteristics.nearby?.includes(item) && commonStyles.chipTextActive]}>
+              {item}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  </View>
+);
+
+const ToggleRow = ({ label, value, onToggle }) => (
+  <View style={commonStyles.rowBetween}>
+    <Text style={commonStyles.hint}>{label}</Text>
+    <Switch
+      value={value}
+      onValueChange={onToggle}
+      trackColor={{ false: theme.colors.gray, true: theme.colors.primary + '50' }}
+      thumbColor={value ? theme.colors.primary : '#f4f3f4'}
+    />
+  </View>
+);
+
+const SectionPhotos = ({ formData, onAddPhoto, onRemovePhoto, photoLoading }) => (
+  <View style={commonStyles.section}>
+    <Text style={commonStyles.sectionTitle}>Photos de la pharmacie</Text>
+    <Text style={commonStyles.hint}>Ajoutez jusqu'à 10 photos. La première sera l'image principale.</Text>
+    
+    <ImagePickerBox
+      images={formData.photos}
+      onAdd={onAddPhoto}
+      onRemove={onRemovePhoto}
+      maxImages={10}
+      loading={photoLoading}
+    />
+
+    <Text style={[commonStyles.hint, { marginTop: hp(1) }]}>
+      {formData.photos.length}/10 photos
+    </Text>
+  </View>
+);
+
+const SectionPrivacy = ({ formData, updateField, onDelete }) => (
+  <View style={commonStyles.section}>
+    {/* Anonymat */}
+    <View style={commonStyles.card}>
+      <View style={commonStyles.rowBetween}>
+        <View style={[commonStyles.flex1, { marginRight: wp(3) }]}>
+          <Text style={commonStyles.sectionTitleSmall}>Annonce anonyme</Text>
+          <Text style={commonStyles.hint}>Masquer la ville exacte et vos coordonnées jusqu'au premier contact</Text>
+        </View>
+        <Switch
+          value={formData.anonymized}
+          onValueChange={(v) => updateField('anonymized', v)}
+          trackColor={{ false: theme.colors.gray, true: theme.colors.primary + '50' }}
+          thumbColor={formData.anonymized ? theme.colors.primary : '#f4f3f4'}
+        />
+      </View>
+    </View>
+
+    {/* Danger Zone */}
+    <View style={[commonStyles.card, { marginTop: hp(3), borderColor: theme.colors.rose + '30' }]}>
+      <Text style={[commonStyles.sectionTitleSmall, { color: theme.colors.rose }]}>Zone de danger</Text>
+      <Text style={[commonStyles.hint, { marginBottom: hp(2) }]}>
+        Ces actions sont irréversibles
+      </Text>
+      
+      <Pressable style={commonStyles.buttonDanger} onPress={onDelete}>
+        <Icon name="trash" size={18} color={theme.colors.rose} />
+        <Text style={commonStyles.buttonDangerText}>Supprimer l'annonce</Text>
+      </Pressable>
+    </View>
+  </View>
+);
+
+// ============================================
+// STYLES LOCAUX
+// ============================================
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingTop: hp(2),
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  typeBadgeContainer: {
     alignItems: 'center',
+    paddingVertical: hp(1),
   },
-  header: {
+  tabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  tab: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: wp(5),
-    marginBottom: hp(2),
+    justifyContent: 'center',
+    paddingVertical: hp(1.5),
+    gap: wp(1.5),
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
   },
-  headerTitle: {
-    fontSize: hp(2.2),
-    fontFamily: theme.fonts.semiBold,
-    color: theme.colors.text,
+  tabActive: {
+    borderBottomColor: theme.colors.primary,
   },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: wp(5),
-    paddingBottom: hp(4),
-    gap: hp(3),
-  },
-  typeDisplay: {
-    backgroundColor: theme.colors.card,
-    padding: hp(2),
-    borderRadius: theme.radius.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  typeLabel: {
-    fontSize: hp(1.4),
+  tabText: {
+    fontSize: hp(1.3),
     color: theme.colors.textLight,
   },
-  typeValue: {
-    fontSize: hp(1.8),
-    fontFamily: theme.fonts.semiBold,
+  tabTextActive: {
     color: theme.colors.primary,
-    marginTop: hp(0.3),
-  },
-  section: {
-    gap: hp(1.5),
-  },
-  sectionTitle: {
-    fontSize: hp(1.9),
     fontFamily: theme.fonts.semiBold,
-    color: theme.colors.text,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: wp(3),
-  },
-  halfInput: {
-    flex: 1,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: theme.colors.card,
-    padding: hp(2),
-    borderRadius: theme.radius.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  toggleLabel: {
-    fontSize: hp(1.7),
-    color: theme.colors.text,
-  },
-  toggle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: theme.colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  toggleLarge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-  },
-  toggleActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  textAreaContainer: {
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.radius.xxl,
-    borderWidth: 0.4,
-    borderColor: theme.colors.text,
-    padding: hp(2),
-  },
-  textArea: {
-    fontSize: hp(1.7),
-    color: theme.colors.text,
-    minHeight: hp(10),
-    textAlignVertical: 'top',
-  },
-  subsectionTitle: {
-    fontSize: hp(1.6),
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.text,
-    marginTop: hp(0.5),
-  },
-  equipmentRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: wp(2),
-  },
-  equipmentChip: {
-    paddingHorizontal: wp(4),
-    paddingVertical: hp(1.2),
-    borderRadius: theme.radius.lg,
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  equipmentChipSelected: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  equipmentChipText: {
-    fontSize: hp(1.5),
-    color: theme.colors.text,
-  },
-  equipmentChipTextSelected: {
-    color: 'white',
-  },
-  nearbyGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: wp(2),
-  },
-  nearbyChip: {
-    paddingHorizontal: wp(3),
-    paddingVertical: hp(0.8),
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  nearbyChipSelected: {
-    backgroundColor: theme.colors.primary + '15',
-    borderColor: theme.colors.primary,
-  },
-  nearbyChipText: {
-    fontSize: hp(1.4),
-    color: theme.colors.textLight,
-  },
-  nearbyChipTextSelected: {
-    color: theme.colors.primary,
-    fontFamily: theme.fonts.medium,
-  },
-  privacyCard: {
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.radius.xl,
-    padding: hp(2),
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  privacyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: wp(3),
-    marginBottom: hp(1),
-  },
-  privacyTitle: {
-    flex: 1,
-    fontSize: hp(1.8),
-    fontFamily: theme.fonts.semiBold,
-    color: theme.colors.text,
-  },
-  privacyDescription: {
-    fontSize: hp(1.5),
-    color: theme.colors.textLight,
-    lineHeight: hp(2.2),
-  },
-  dangerSection: {
-    gap: hp(1.5),
-    paddingTop: hp(2),
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
-  closeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: wp(2),
-    paddingVertical: hp(1.8),
-    borderRadius: theme.radius.xl,
-    backgroundColor: theme.colors.warning + '15',
-  },
-  closeButtonText: {
-    fontSize: hp(1.7),
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.warning,
-  },
-  deleteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: wp(2),
-    paddingVertical: hp(1.8),
-    borderRadius: theme.radius.xl,
-    backgroundColor: theme.colors.rose + '15',
-  },
-  deleteButtonText: {
-    fontSize: hp(1.7),
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.rose,
-  },
-  footer: {
-    paddingHorizontal: wp(5),
-    paddingVertical: hp(2),
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
   },
 });

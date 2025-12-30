@@ -18,6 +18,10 @@ export default function Profile() {
     const { session, user, profile, signOut } = useAuth();
     const { privacy, setSearchable } = usePrivacy(session?.user?.id);
 
+    // Déterminer le type d'utilisateur
+    const isTitulaire = user?.user_type === 'titulaire';
+    const isCandidate = !isTitulaire;
+
     const handleToggleSearchable = async (value) => {
         await setSearchable(value);
     };
@@ -76,13 +80,13 @@ export default function Profile() {
         return `${profile.experience_years} an${profile.experience_years > 1 ? 's' : ''} d'expérience`;
     };
 
-    const MenuItem = ({ icon, label, onPress, showBorder = true }) => (
+    const MenuItem = ({ icon, label, onPress, showBorder = true, highlight = false }) => (
         <Pressable
             style={[commonStyles.menuItem, !showBorder && commonStyles.menuItemNoBorder]}
             onPress={onPress}
         >
-            <Icon name={icon} size={20} color={theme.colors.text} />
-            <Text style={commonStyles.menuItemLabel}>{label}</Text>
+            <Icon name={icon} size={20} color={highlight ? theme.colors.primary : theme.colors.text} />
+            <Text style={[commonStyles.menuItemLabel, highlight && { color: theme.colors.primary }]}>{label}</Text>
             <Icon name="chevronRight" size={18} color={theme.colors.textLight} />
         </Pressable>
     );
@@ -118,7 +122,7 @@ export default function Profile() {
                                 <Text style={styles.name}>
                                     {profile?.first_name} {profile?.last_name}
                                 </Text>
-                                {user?.rpps_verified && <RppsBadge size="small" />}
+                                {user?.rpps_verified && <RppsBadge verified={true} size="small" />}
                             </View>
                             <Text style={styles.role}>{getRoleLabel()}</Text>
                             {getLocation() && (
@@ -146,87 +150,148 @@ export default function Profile() {
                     </Pressable>
                 )}
 
-                {/* Toggle recherche */}
-                <View style={commonStyles.card}>
-                    <View style={[commonStyles.rowBetween, { padding: 0 }]}>
-                        <View style={[commonStyles.row, commonStyles.flex1]}>
-                            <View style={[
-                                styles.searchToggleIcon,
-                                privacy?.searchable_by_recruiters && styles.searchToggleIconActive,
-                            ]}>
-                                <Icon
-                                    name="search"
-                                    size={20}
-                                    color={privacy?.searchable_by_recruiters ? 'white' : theme.colors.primary}
+                {/* ====== SECTION CANDIDAT ====== */}
+                {isCandidate && (
+                    <>
+                        {/* Toggle recherche */}
+                        <View style={commonStyles.card}>
+                            <View style={[commonStyles.rowBetween, { padding: 0 }]}>
+                                <View style={[commonStyles.row, commonStyles.flex1]}>
+                                    <View style={[
+                                        styles.searchToggleIcon,
+                                        privacy?.searchable_by_recruiters && styles.searchToggleIconActive,
+                                    ]}>
+                                        <Icon
+                                            name="search"
+                                            size={20}
+                                            color={privacy?.searchable_by_recruiters ? 'white' : theme.colors.primary}
+                                        />
+                                    </View>
+                                    <View style={styles.searchToggleInfo}>
+                                        <Text style={styles.searchToggleTitle}>
+                                            {privacy?.searchable_by_recruiters ? 'Recherche active' : 'Recherche inactive'}
+                                        </Text>
+                                        <Text style={commonStyles.hint}>
+                                            {privacy?.searchable_by_recruiters
+                                                ? 'Visible par les recruteurs'
+                                                : 'Profil masqué'}
+                                        </Text>
+                                    </View>
+                                </View>
+                                <Switch
+                                    value={privacy?.searchable_by_recruiters || false}
+                                    onValueChange={handleToggleSearchable}
+                                    trackColor={{ false: theme.colors.gray, true: theme.colors.primary + '50' }}
+                                    thumbColor={privacy?.searchable_by_recruiters ? theme.colors.primary : theme.colors.darkLight}
                                 />
                             </View>
-                            <View style={styles.searchToggleInfo}>
-                                <Text style={styles.searchToggleTitle}>
-                                    {privacy?.searchable_by_recruiters ? 'Recherche active' : 'Recherche inactive'}
-                                </Text>
-                                <Text style={commonStyles.hint}>
-                                    {privacy?.searchable_by_recruiters
-                                        ? 'Visible par les recruteurs'
-                                        : 'Profil masqué'}
-                                </Text>
+                        </View>
+
+                        {/* Infos rapides candidat */}
+                        <View style={[commonStyles.card, { gap: hp(1.2) }]}>
+                            {formatAvailability() && (
+                                <View style={[commonStyles.row, { gap: wp(3) }]}>
+                                    <Icon name="calendar" size={18} color={theme.colors.primary} />
+                                    <Text style={commonStyles.flex1}>{formatAvailability()}</Text>
+                                </View>
+                            )}
+                            {getExperience() && (
+                                <View style={[commonStyles.row, { gap: wp(3) }]}>
+                                    <Icon name="briefcase" size={18} color={theme.colors.primary} />
+                                    <Text style={commonStyles.flex1}>{getExperience()}</Text>
+                                </View>
+                            )}
+                            {formatContractTypes() && (
+                                <View style={[commonStyles.row, { gap: wp(3) }]}>
+                                    <Icon name="fileText" size={18} color={theme.colors.primary} />
+                                    <Text style={commonStyles.flex1}>{formatContractTypes()}</Text>
+                                </View>
+                            )}
+                            {formatRadius() && (
+                                <View style={[commonStyles.row, { gap: wp(3) }]}>
+                                    <Icon name="map" size={18} color={theme.colors.primary} />
+                                    <Text style={commonStyles.flex1}>Recherche dans un rayon de {formatRadius()}</Text>
+                                </View>
+                            )}
+                            {profile?.willing_to_relocate && (
+                                <View style={[commonStyles.row, { gap: wp(3) }]}>
+                                    <Icon name="home" size={18} color={theme.colors.primary} />
+                                    <Text style={commonStyles.flex1}>Prêt(e) à déménager</Text>
+                                </View>
+                            )}
+                            {profile?.specializations?.length > 0 && (
+                                <View style={[commonStyles.row, { gap: wp(3) }]}>
+                                    <Icon name="star" size={18} color={theme.colors.primary} />
+                                    <Text style={commonStyles.flex1}>{profile.specializations.join(', ')}</Text>
+                                </View>
+                            )}
+                        </View>
+                    </>
+                )}
+
+                {/* ====== SECTION TITULAIRE ====== */}
+                {isTitulaire && (
+                    <>
+                        {/* Accès rapide recruteur */}
+                        <View style={[commonStyles.card, { padding: 0, overflow: 'hidden' }]}>
+                            <MenuItem
+                                icon="briefcase"
+                                label="Mes offres d'emploi"
+                                onPress={() => router.push('/(screens)/recruiterDashboard')}
+                                highlight
+                            />
+                            <MenuItem
+                                icon="home"
+                                label="Mes annonces pharmacie"
+                                onPress={() => router.push('/(screens)/myListings')}
+                                showBorder={false}
+                                highlight
+                            />
+                        </View>
+
+                        {/* Vérification RPPS */}
+                        {!user?.rpps_verified && (
+                            <Pressable 
+                                style={styles.rppsWarning}
+                                onPress={() => router.push('/(screens)/rppsVerification')}
+                            >
+                                <Icon name="alertCircle" size={20} color={theme.colors.warning} />
+                                <View style={commonStyles.flex1}>
+                                    <Text style={styles.rppsWarningTitle}>Vérification RPPS requise</Text>
+                                    <Text style={commonStyles.hint}>Pour publier des annonces, faites vérifier votre profil</Text>
+                                </View>
+                                <Icon name="chevronRight" size={18} color={theme.colors.warning} />
+                            </Pressable>
+                        )}
+
+                        {/* Infos pharmacie */}
+                        {profile?.pharmacy_name && (
+                            <View style={[commonStyles.card, { gap: hp(1.2) }]}>
+                                <View style={[commonStyles.row, { gap: wp(3) }]}>
+                                    <Icon name="home" size={18} color={theme.colors.primary} />
+                                    <Text style={commonStyles.flex1}>{profile.pharmacy_name}</Text>
+                                </View>
+                                {getLocation() && (
+                                    <View style={[commonStyles.row, { gap: wp(3) }]}>
+                                        <Icon name="mapPin" size={18} color={theme.colors.textLight} />
+                                        <Text style={[commonStyles.flex1, { color: theme.colors.textLight }]}>{getLocation()}</Text>
+                                    </View>
+                                )}
                             </View>
-                        </View>
-                        <Switch
-                            value={privacy?.searchable_by_recruiters || false}
-                            onValueChange={handleToggleSearchable}
-                            trackColor={{ false: theme.colors.gray, true: theme.colors.primary + '50' }}
-                            thumbColor={privacy?.searchable_by_recruiters ? theme.colors.primary : theme.colors.darkLight}
-                        />
-                    </View>
-                </View>
+                        )}
+                    </>
+                )}
 
-                {/* Infos rapides */}
-                <View style={[commonStyles.card, { gap: hp(1.2) }]}>
-                    {formatAvailability() && (
-                        <View style={[commonStyles.row, { gap: wp(3) }]}>
-                            <Icon name="calendar" size={18} color={theme.colors.primary} />
-                            <Text style={commonStyles.flex1}>{formatAvailability()}</Text>
-                        </View>
-                    )}
-                    {getExperience() && (
-                        <View style={[commonStyles.row, { gap: wp(3) }]}>
-                            <Icon name="briefcase" size={18} color={theme.colors.primary} />
-                            <Text style={commonStyles.flex1}>{getExperience()}</Text>
-                        </View>
-                    )}
-                    {formatContractTypes() && (
-                        <View style={[commonStyles.row, { gap: wp(3) }]}>
-                            <Icon name="fileText" size={18} color={theme.colors.primary} />
-                            <Text style={commonStyles.flex1}>{formatContractTypes()}</Text>
-                        </View>
-                    )}
-                    {formatRadius() && (
-                        <View style={[commonStyles.row, { gap: wp(3) }]}>
-                            <Icon name="map" size={18} color={theme.colors.primary} />
-                            <Text style={commonStyles.flex1}>Recherche dans un rayon de {formatRadius()}</Text>
-                        </View>
-                    )}
-                    {profile?.willing_to_relocate && (
-                        <View style={[commonStyles.row, { gap: wp(3) }]}>
-                            <Icon name="home" size={18} color={theme.colors.primary} />
-                            <Text style={commonStyles.flex1}>Prêt(e) à déménager</Text>
-                        </View>
-                    )}
-                    {profile?.specializations?.length > 0 && (
-                        <View style={[commonStyles.row, { gap: wp(3) }]}>
-                            <Icon name="star" size={18} color={theme.colors.primary} />
-                            <Text style={commonStyles.flex1}>{profile.specializations.join(', ')}</Text>
-                        </View>
-                    )}
-                </View>
-
-                {/* Menu */}
+                {/* Menu commun */}
                 <View style={[commonStyles.card, { padding: 0, overflow: 'hidden' }]}>
-                    <MenuItem
-                        icon="fileText"
-                        label="Mes CV"
-                        onPress={() => router.push('/(screens)/cvList')}
-                    />
+                    {/* CV seulement pour les candidats */}
+                    {isCandidate && (
+                        <MenuItem
+                            icon="fileText"
+                            label="Mes CV"
+                            onPress={() => router.push('/(screens)/cvList')}
+                        />
+                    )}
                     <MenuItem
                         icon="shield"
                         label="Confidentialité"
@@ -258,14 +323,17 @@ export default function Profile() {
 const styles = StyleSheet.create({
     content: {
         paddingHorizontal: wp(5),
-        paddingTop: hp(6),
+        paddingTop: hp(2),
         paddingBottom: hp(4),
         gap: hp(2),
     },
     editButton: {
-        padding: hp(1),
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         backgroundColor: theme.colors.primary + '15',
-        borderRadius: theme.radius.md,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     profileInfo: {
         flex: 1,
@@ -277,27 +345,26 @@ const styles = StyleSheet.create({
         color: theme.colors.text,
     },
     role: {
-        fontSize: hp(1.5),
+        fontSize: hp(1.6),
         color: theme.colors.primary,
-        fontFamily: theme.fonts.medium,
         marginTop: hp(0.3),
     },
     bioText: {
-        fontSize: hp(1.5),
+        fontSize: hp(1.6),
         color: theme.colors.text,
-        lineHeight: hp(2.2),
+        lineHeight: hp(2.4),
     },
     bioEmpty: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: wp(2),
-        backgroundColor: theme.colors.card,
         padding: hp(2),
-        borderRadius: theme.radius.xl,
+        backgroundColor: theme.colors.card,
+        borderRadius: theme.radius.lg,
         borderWidth: 1,
         borderColor: theme.colors.border,
         borderStyle: 'dashed',
+        gap: wp(2),
     },
     searchToggleIcon: {
         width: wp(10),
@@ -316,12 +383,25 @@ const styles = StyleSheet.create({
     },
     searchToggleTitle: {
         fontSize: hp(1.6),
-        fontFamily: theme.fonts.semiBold,
+        fontFamily: theme.fonts.medium,
         color: theme.colors.text,
+    },
+    rppsWarning: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.warning + '15',
+        padding: hp(2),
+        borderRadius: theme.radius.lg,
+        gap: wp(3),
+    },
+    rppsWarningTitle: {
+        fontSize: hp(1.5),
+        fontFamily: theme.fonts.semiBold,
+        color: theme.colors.warning,
     },
     logoutButton: {
         justifyContent: 'center',
-        paddingVertical: hp(1.5),
+        padding: hp(2),
         gap: wp(2),
     },
     logoutText: {

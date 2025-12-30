@@ -1,3 +1,5 @@
+// contexts/AuthContext.jsx
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { userService } from '../services/userService';
@@ -38,14 +40,32 @@ export const AuthProvider = ({ children }) => {
   const loadUserData = async (userId, email) => {
     console.log('Loading user data for:', userId);
     try {
-      const [userData, profileData, privacyData] = await Promise.all([
+      // Charger toutes les données en parallèle
+      const [userData, profileData, privacyData, rppsData] = await Promise.all([
         userService.getById(userId).catch(() => null),
         profileService.getById(userId).catch(() => null),
         privacyService.getByUserId(userId).catch(() => null),
+        // Vérifier si l'utilisateur a un document RPPS approuvé
+        supabase
+          .from('verification_documents')
+          .select('id, status')
+          .eq('user_id', userId)
+          .eq('verification_type', 'rpps')
+          .eq('status', 'approved')
+          .maybeSingle()
+          .then(({ data }) => data)
+          .catch(() => null),
       ]);
 
-      console.log('Loaded data:', { userData, profileData, privacyData });
-      setUser(userData);
+      console.log('Loaded data:', { userData, profileData, privacyData, rppsData });
+
+      // Ajouter rpps_verified au userData
+      const userWithRpps = userData ? {
+        ...userData,
+        rpps_verified: !!rppsData, // true si un document approuvé existe
+      } : null;
+
+      setUser(userWithRpps);
       setProfile(profileData);
       setPrivacy(privacyData);
     } catch (error) {
@@ -67,15 +87,6 @@ export const AuthProvider = ({ children }) => {
     const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) return { data: null, error };
-
-    // Créer l'utilisateur dans public.users
-    // if (data?.user) {
-    //   try {
-    //     await userService.create(data.user.id, email);
-    //   } catch (err) {
-    //     console.error('Error creating user record:', err);
-    //   }
-    // }
 
     return { data, error: null };
   };

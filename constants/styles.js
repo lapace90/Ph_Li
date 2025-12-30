@@ -707,4 +707,353 @@ export const commonStyles = StyleSheet.create({
         shadowRadius: 3.84,
         elevation: 5,
     },
+
+    // ============================================
+    // PROGRESS STEPS (formulaires multi-étapes)
+    // ============================================
+    progressContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: hp(2),
+        paddingHorizontal: wp(5),
+    },
+    progressItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    progressDot: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: theme.colors.border,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    progressDotActive: {
+        backgroundColor: theme.colors.primary,
+    },
+    progressDotCompleted: {
+        backgroundColor: theme.colors.success,
+    },
+    progressNumber: {
+        fontSize: hp(1.4),
+        fontFamily: theme.fonts.semiBold,
+        color: theme.colors.textLight,
+    },
+    progressNumberActive: {
+        color: 'white',
+    },
+    progressLine: {
+        width: wp(8),
+        height: 2,
+        backgroundColor: theme.colors.border,
+        marginHorizontal: wp(1),
+    },
+    progressLineActive: {
+        backgroundColor: theme.colors.success,
+    },
+
+    // ============================================
+    // TABS
+    // ============================================
+    tabsContainer: {
+        flexDirection: 'row',
+        backgroundColor: theme.colors.card,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
+    },
+    tabsContainerPill: {
+        flexDirection: 'row',
+        backgroundColor: theme.colors.card,
+        borderRadius: theme.radius.lg,
+        padding: 4,
+        marginHorizontal: wp(5),
+        marginBottom: hp(2),
+    },
+    tab: {
+        flex: 1,
+        paddingVertical: hp(1.5),
+        alignItems: 'center',
+        borderBottomWidth: 2,
+        borderBottomColor: 'transparent',
+    },
+    tabPill: {
+        flex: 1,
+        paddingVertical: hp(1.2),
+        alignItems: 'center',
+        borderRadius: theme.radius.md,
+    },
+    tabActive: {
+        borderBottomColor: theme.colors.primary,
+    },
+    tabPillActive: {
+        backgroundColor: theme.colors.primary,
+    },
+    tabText: {
+        fontSize: hp(1.5),
+        color: theme.colors.textLight,
+    },
+    tabTextActive: {
+        color: theme.colors.primary,
+        fontFamily: theme.fonts.semiBold,
+    },
+    tabPillTextActive: {
+        color: 'white',
+    },
+
+    // ============================================
+    // STATUS (points/badges dynamiques)
+    // ============================================
+    statusDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+    },
+    statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: hp(0.5),
+        paddingHorizontal: wp(3),
+        borderRadius: theme.radius.md,
+        gap: wp(2),
+    },
+    statusText: {
+        fontSize: hp(1.3),
+        fontFamily: theme.fonts.semiBold,
+    },
+    statusPill: {
+        paddingVertical: hp(0.3),
+        paddingHorizontal: wp(2),
+        borderRadius: theme.radius.sm,
+    },
+    statusPillText: {
+        fontSize: hp(1.15),
+        fontFamily: theme.fonts.medium,
+    },
+
+    // ============================================
+    // OFFER CARDS (liste annonces)
+    // ============================================
+    offerCard: {
+        backgroundColor: theme.colors.card,
+        borderRadius: theme.radius.xl,
+        padding: hp(2),
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    offerHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: hp(1.2),
+    },
+    offerTitle: {
+        fontSize: hp(1.7),
+        fontFamily: theme.fonts.semiBold,
+        color: theme.colors.text,
+    },
+    offerSubtitle: {
+        fontSize: hp(1.35),
+        color: theme.colors.textLight,
+    },
+    offerLocation: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(1.5),
+    },
+    offerLocationText: {
+        fontSize: hp(1.3),
+        color: theme.colors.textLight,
+    },
+    offerFooter: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingTop: hp(1.2),
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.border,
+    },
+    offerDate: {
+        fontSize: hp(1.25),
+        color: theme.colors.textLight,
+    },
+    offerActions: {
+        flexDirection: 'row',
+        gap: wp(2),
+    },
+
+    // ============================================
+    // ACTION BUTTONS (icônes rondes)
+    // ============================================
+    actionButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: theme.colors.background,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    actionButtonSmall: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+    },
+
+    // ============================================
+    // STATS CARDS
+    // ============================================
+    statsRow: {
+        flexDirection: 'row',
+        gap: wp(2),
+    },
+    statCard: {
+        flex: 1,
+        backgroundColor: theme.colors.card,
+        borderRadius: theme.radius.lg,
+        padding: hp(1.5),
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    statValue: {
+        fontSize: hp(2.2),
+        fontFamily: theme.fonts.bold,
+        color: theme.colors.text,
+    },
+    statLabel: {
+        fontSize: hp(1.1),
+        color: theme.colors.textLight,
+        marginTop: 2,
+    },
+
+    // ============================================
+    // CANDIDATE CARDS
+    // ============================================
+    candidateCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.card,
+        borderRadius: theme.radius.xl,
+        padding: hp(1.5),
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        gap: wp(3),
+    },
+    candidateInfo: {
+        flex: 1,
+    },
+    candidateName: {
+        fontSize: hp(1.6),
+        fontFamily: theme.fonts.semiBold,
+        color: theme.colors.text,
+    },
+    candidateDetails: {
+        fontSize: hp(1.3),
+        color: theme.colors.textLight,
+        marginTop: 2,
+    },
+
+    // ============================================
+    // TYPE SELECTION CARDS
+    // ============================================
+    typeCard: {
+        flex: 1,
+        padding: hp(2),
+        borderRadius: theme.radius.xl,
+        borderWidth: 2,
+        borderColor: theme.colors.border,
+        backgroundColor: theme.colors.card,
+        alignItems: 'center',
+        gap: hp(1),
+    },
+    typeCardSelected: {
+        borderColor: theme.colors.primary,
+    },
+    typeCardTitle: {
+        fontSize: hp(1.7),
+        fontFamily: theme.fonts.semiBold,
+        color: theme.colors.text,
+    },
+    typeCardDesc: {
+        fontSize: hp(1.2),
+        color: theme.colors.textLight,
+        textAlign: 'center',
+    },
+
+    // ============================================
+    // PREVIEW CARD
+    // ============================================
+    previewCard: {
+        backgroundColor: theme.colors.card,
+        borderRadius: theme.radius.xl,
+        padding: hp(2.5),
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    previewTitle: {
+        fontSize: hp(2),
+        fontFamily: theme.fonts.bold,
+        color: theme.colors.text,
+    },
+    previewSubtitle: {
+        fontSize: hp(1.4),
+        color: theme.colors.textLight,
+        marginTop: hp(0.3),
+    },
+    previewInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(2),
+        marginBottom: hp(0.8),
+    },
+    previewInfoText: {
+        fontSize: hp(1.4),
+        color: theme.colors.textLight,
+    },
+    previewDescription: {
+        fontSize: hp(1.45),
+        color: theme.colors.text,
+        lineHeight: hp(2.2),
+    },
+    previewTags: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: hp(0.8),
+    },
+    previewTag: {
+        paddingVertical: hp(0.5),
+        paddingHorizontal: wp(2.5),
+        borderRadius: theme.radius.md,
+        backgroundColor: theme.colors.background,
+    },
+    previewTagText: {
+        fontSize: hp(1.3),
+        color: theme.colors.textLight,
+    },
+
+    // ============================================
+    // LOCATION INFO
+    // ============================================
+    locationInfo: {
+        backgroundColor: theme.colors.card,
+        padding: hp(2),
+        borderRadius: theme.radius.lg,
+        gap: hp(1),
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    locationRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(2),
+    },
+    locationText: {
+        fontSize: hp(1.5),
+        color: theme.colors.text,
+        fontFamily: theme.fonts.medium,
+    },
+    locationTextLight: {
+        fontSize: hp(1.4),
+        color: theme.colors.textLight,
+    },
 });

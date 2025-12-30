@@ -1,68 +1,72 @@
-import { useState } from 'react';
-import { Alert, StyleSheet, Text, View, ScrollView, Pressable, TextInput } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { useState, useEffect } from 'react';
+import { View, Text, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform, Switch, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { hp, wp } from '../../helpers/common';
 import { theme } from '../../constants/theme';
 import { commonStyles } from '../../constants/styles';
+import { hp, wp } from '../../helpers/common';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMyListings } from '../../hooks/usePharmacyListings';
+import { storageService } from '../../services/storageService';
+import {
+  LISTING_TYPES,
+  NEARBY_OPTIONS,
+  EMPTY_LISTING,
+  getListingTypeLabel,
+  getListingTypeColor,
+  formatPrice,
+  formatNumber,
+} from '../../constants/listingOptions';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
-import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
 import Icon from '../../assets/icons/Icon';
+import Input from '../../components/common/Input';
+import Button from '../../components/common/Button';
 import CityAutocomplete from '../../components/common/CityAutocomplete';
 import ImagePickerBox from '../../components/common/ImagePickerBox';
-import { storageService } from '../../services/storageService';
 
-const LISTING_TYPES = [
-  { value: 'vente', label: 'Vente', icon: 'briefcase', description: 'Vendre votre pharmacie' },
-  { value: 'location-gerance', label: 'Location-gérance', icon: 'home', description: 'Mettre en location-gérance' },
-  { value: 'collaboration', label: 'Collaboration', icon: 'users', description: 'Rechercher un collaborateur' },
-  { value: 'association', label: 'Association', icon: 'heart', description: 'Trouver un associé' },
-];
+// TODO: Passer à false en production
+const DEV_BYPASS_RPPS_CHECK = true;
 
-const NEARBY_OPTIONS = [
-  'Centre médical', 'Hôpital', 'EHPAD', 'Centre commercial',
-  'Parking', 'Transport en commun', 'École', 'Zone piétonne',
+const STEPS = [
+  { key: 'type', title: 'Type', subtitle: 'Type d\'annonce' },
+  { key: 'info', title: 'Infos', subtitle: 'Description' },
+  { key: 'details', title: 'Détails', subtitle: 'Caractéristiques' },
+  { key: 'photos', title: 'Photos', subtitle: 'Images' },
+  { key: 'preview', title: 'Aperçu', subtitle: 'Vérification' },
 ];
 
 export default function ListingCreate() {
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, user, profile } = useAuth();
   const { createListing } = useMyListings(session?.user?.id);
+  
+  // Vérification RPPS requise
+  const canPublish = DEV_BYPASS_RPPS_CHECK || (user?.user_type === 'titulaire' && user?.rpps_verified);
+  
+  useEffect(() => {
+    if (!canPublish) {
+      Alert.alert(
+        'Accès refusé',
+        'Seuls les titulaires avec un badge RPPS vérifié peuvent publier des annonces.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    }
+  }, [canPublish]);
 
-  const [step, setStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [photoLoading, setPhotoLoading] = useState(false);
-
   const [formData, setFormData] = useState({
-    type: null,
-    title: '',
-    description: '',
-    price: '',
-    negotiable: false,
-    city: null,
-    characteristics: {
-      surface_m2: '',
-      staff_count: '',
-      annual_revenue: '',
-      annual_profit: '',
-      opening_hours: '',
-      parking: false,
-      has_robot: false,
-      has_lab: false,
-      has_drive: false,
-      nearby: [],
-    },
-    anonymized: true,
-    photos: [],
+    ...EMPTY_LISTING,
+    city: profile?.current_city || '',
+    postal_code: profile?.current_postal_code || '',
+    region: profile?.current_region || '',
+    department: profile?.current_department || '',
+    latitude: profile?.current_latitude || null,
+    longitude: profile?.current_longitude || null,
   });
 
-  const updateField = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
+  const updateField = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
+  
   const updateCharacteristic = (field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -78,12 +82,23 @@ export default function ListingCreate() {
     updateCharacteristic('nearby', updated);
   };
 
+  const handleCitySelect = (city) => {
+    setFormData(prev => ({
+      ...prev,
+      city: city.city,
+      postal_code: city.postcode,
+      region: city.region,
+      department: city.department,
+      latitude: city.latitude,
+      longitude: city.longitude,
+    }));
+  };
+
   const handleAddPhoto = async (asset) => {
     if (formData.photos.length >= 10) {
       Alert.alert('Limite atteinte', 'Maximum 10 photos');
       return;
     }
-
     setPhotoLoading(true);
     try {
       const url = await storageService.uploadImage(
@@ -103,47 +118,44 @@ export default function ListingCreate() {
     updateField('photos', formData.photos.filter((_, i) => i !== index));
   };
 
-  const handleBack = () => {
-    if (step > 1) {
-      setStep(step - 1);
-    } else {
-      router.back();
+  const canGoNext = () => {
+    switch (currentStep) {
+      case 0: return formData.type;
+      case 1: return formData.title && formData.city;
+      case 2: return true;
+      case 3: return true;
+      case 4: return true;
+      default: return false;
     }
   };
 
   const handleNext = () => {
-    if (step === 1 && !formData.type) {
-      Alert.alert('Erreur', 'Veuillez sélectionner un type d\'annonce');
-      return;
+    if (currentStep < STEPS.length - 1) {
+      setCurrentStep(prev => prev + 1);
+    } else {
+      handlePublish();
     }
-    if (step === 2) {
-      if (!formData.title.trim()) {
-        Alert.alert('Erreur', 'Veuillez entrer un titre');
-        return;
-      }
-      if (!formData.city) {
-        Alert.alert('Erreur', 'Veuillez sélectionner une ville');
-        return;
-      }
-    }
-    setStep(step + 1);
   };
 
-  const handleSubmit = async () => {
+  const handleBack = () => {
+    currentStep > 0 ? setCurrentStep(prev => prev - 1) : router.back();
+  };
+
+  const handlePublish = async () => {
     setLoading(true);
     try {
       const listingData = {
         type: formData.type,
         title: formData.title.trim(),
-        description: formData.description.trim() || null,
+        description: formData.description?.trim() || null,
         price: formData.price ? parseFloat(formData.price) : null,
         negotiable: formData.negotiable,
-        city: formData.city?.city,
-        postal_code: formData.city?.postcode,
-        region: formData.city?.region,
-        department: formData.city?.department,
-        latitude: formData.city?.latitude,
-        longitude: formData.city?.longitude,
+        city: formData.city,
+        postal_code: formData.postal_code,
+        region: formData.region,
+        department: formData.department,
+        latitude: formData.latitude,
+        longitude: formData.longitude,
         characteristics: {
           surface_m2: formData.characteristics.surface_m2 ? parseInt(formData.characteristics.surface_m2) : null,
           staff_count: formData.characteristics.staff_count ? parseInt(formData.characteristics.staff_count) : null,
@@ -164,431 +176,398 @@ export default function ListingCreate() {
       const { error } = await createListing(listingData);
       if (error) throw error;
 
-      Alert.alert('Succès', 'Votre annonce a été publiée', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)/marketplace') },
+      Alert.alert('Annonce publiée !', 'Votre annonce est maintenant visible.', [
+        { text: 'OK', onPress: () => router.replace('/(tabs)/marketplace') }
       ]);
     } catch (error) {
-      Alert.alert('Erreur', error.message);
+      Alert.alert('Erreur', error.message || 'Impossible de publier');
     } finally {
       setLoading(false);
     }
   };
 
-  const renderStepIndicator = () => (
-    <View style={styles.stepIndicator}>
-      {[1, 2, 3, 4].map((s) => (
-        <View
-          key={s}
-          style={[
-            styles.stepDot,
-            s === step && styles.stepDotActive,
-            s < step && styles.stepDotCompleted,
-          ]}
-        />
-      ))}
-    </View>
-  );
-
-  const renderStep1 = () => (
-    <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Type d'annonce</Text>
-      <Text style={commonStyles.hint}>Que souhaitez-vous faire ?</Text>
-
-      <View style={styles.typeCards}>
-        {LISTING_TYPES.map((type) => (
-          <Pressable
-            key={type.value}
-            style={[
-              styles.typeCard,
-              formData.type === type.value && styles.typeCardSelected,
-            ]}
-            onPress={() => updateField('type', type.value)}
-          >
-            <View style={[
-              styles.typeIcon,
-              formData.type === type.value && styles.typeIconSelected,
-            ]}>
-              <Icon
-                name={type.icon}
-                size={24}
-                color={formData.type === type.value ? 'white' : theme.colors.primary}
-              />
-            </View>
-            <Text style={[
-              styles.typeLabel,
-              formData.type === type.value && styles.typeLabelSelected,
-            ]}>
-              {type.label}
-            </Text>
-            <Text style={commonStyles.hint}>{type.description}</Text>
-          </Pressable>
-        ))}
-      </View>
-    </View>
-  );
-
-  const renderStep2 = () => (
-    <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
-      <Text style={styles.stepTitle}>Informations générales</Text>
-
-      <View style={styles.formSection}>
-        <Input
-          icon={<Icon name="fileText" size={22} color={theme.colors.textLight} />}
-          placeholder="Titre de l'annonce *"
-          value={formData.title}
-          onChangeText={(v) => updateField('title', v)}
-        />
-
-        <View style={{ zIndex: 100 }}>
-          <CityAutocomplete
-            value={formData.city?.label}
-            onSelect={(city) => updateField('city', city)}
-            placeholder="Ville *"
-          />
-        </View>
-
-        <Input
-          icon={<Icon name="briefcase" size={22} color={theme.colors.textLight} />}
-          placeholder="Prix (€)"
-          keyboardType="numeric"
-          value={formData.price}
-          onChangeText={(v) => updateField('price', v)}
-        />
-
-        <Pressable
-          style={styles.toggleRow}
-          onPress={() => updateField('negotiable', !formData.negotiable)}
-        >
-          <Text style={styles.toggleLabel}>Prix négociable</Text>
-          <View style={[
-            commonStyles.checkbox,
-            formData.negotiable && commonStyles.checkboxChecked,
-          ]}>
-            {formData.negotiable && <Icon name="check" size={14} color="white" />}
-          </View>
-        </Pressable>
-
-        <View style={styles.textAreaContainer}>
-          <TextInput
-            style={styles.textArea}
-            placeholder="Description détaillée..."
-            placeholderTextColor={theme.colors.textLight}
-            value={formData.description}
-            onChangeText={(v) => updateField('description', v)}
-            multiline
-            numberOfLines={6}
-          />
-        </View>
-      </View>
-    </ScrollView>
-  );
-
-  const renderStep3 = () => (
-    <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
-      <Text style={styles.stepTitle}>Caractéristiques</Text>
-
-      <View style={styles.formSection}>
-        <View style={commonStyles.formRow}>
-          <View style={commonStyles.formHalf}>
-            <Input
-              placeholder="Surface (m²)"
-              keyboardType="numeric"
-              value={formData.characteristics.surface_m2}
-              onChangeText={(v) => updateCharacteristic('surface_m2', v)}
-            />
-          </View>
-          <View style={commonStyles.formHalf}>
-            <Input
-              placeholder="Employés"
-              keyboardType="numeric"
-              value={formData.characteristics.staff_count}
-              onChangeText={(v) => updateCharacteristic('staff_count', v)}
-            />
-          </View>
-        </View>
-
-        <View style={commonStyles.formRow}>
-          <View style={commonStyles.formHalf}>
-            <Input
-              placeholder="CA annuel (€)"
-              keyboardType="numeric"
-              value={formData.characteristics.annual_revenue}
-              onChangeText={(v) => updateCharacteristic('annual_revenue', v)}
-            />
-          </View>
-          <View style={commonStyles.formHalf}>
-            <Input
-              placeholder="Bénéfice (€)"
-              keyboardType="numeric"
-              value={formData.characteristics.annual_profit}
-              onChangeText={(v) => updateCharacteristic('annual_profit', v)}
-            />
-          </View>
-        </View>
-
-        <Input
-          placeholder="Horaires d'ouverture"
-          value={formData.characteristics.opening_hours}
-          onChangeText={(v) => updateCharacteristic('opening_hours', v)}
-        />
-
-        <Text style={commonStyles.label}>Équipements</Text>
-        {[
-          { key: 'parking', label: 'Parking client' },
-          { key: 'has_robot', label: 'Robot de dispensation' },
-          { key: 'has_lab', label: 'Préparations magistrales' },
-          { key: 'has_drive', label: 'Drive / Click & Collect' },
-        ].map((item) => (
-          <Pressable
-            key={item.key}
-            style={styles.toggleRow}
-            onPress={() => updateCharacteristic(item.key, !formData.characteristics[item.key])}
-          >
-            <Text style={styles.toggleLabel}>{item.label}</Text>
-            <View style={[
-              commonStyles.checkbox,
-              formData.characteristics[item.key] && commonStyles.checkboxChecked,
-            ]}>
-              {formData.characteristics[item.key] && <Icon name="check" size={14} color="white" />}
-            </View>
-          </Pressable>
-        ))}
-
-        <Text style={commonStyles.label}>À proximité</Text>
-        <View style={commonStyles.chipsContainer}>
-          {NEARBY_OPTIONS.map((item) => (
-            <Pressable
-              key={item}
-              style={[
-                commonStyles.chip,
-                formData.characteristics.nearby?.includes(item) && commonStyles.chipActive,
-              ]}
-              onPress={() => toggleNearby(item)}
-            >
-              <Text style={[
-                commonStyles.chipText,
-                formData.characteristics.nearby?.includes(item) && commonStyles.chipTextActive,
-              ]}>
-                {item}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
-    </ScrollView>
-  );
-
-  const renderStep4 = () => (
-    <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
-      <Text style={styles.stepTitle}>Photos & Confidentialité</Text>
-
-      <View style={styles.formSection}>
-        <Text style={commonStyles.label}>Photos (max 10)</Text>
-        <ImagePickerBox
-          values={formData.photos}
-          onAdd={handleAddPhoto}
-          onRemove={handleRemovePhoto}
-          multiple
-          maxImages={10}
-          loading={photoLoading}
-        />
-
-        <View style={styles.privacyCard}>
-          <View style={commonStyles.rowBetween}>
-            <View style={commonStyles.rowGapSmall}>
-              <Icon name="shield" size={20} color={theme.colors.primary} />
-              <Text style={styles.privacyTitle}>Mode anonyme</Text>
-            </View>
-            <Pressable
-              style={[
-                styles.toggleLarge,
-                formData.anonymized && commonStyles.checkboxChecked,
-              ]}
-              onPress={() => updateField('anonymized', !formData.anonymized)}
-            >
-              {formData.anonymized && <Icon name="check" size={16} color="white" />}
-            </Pressable>
-          </View>
-          <Text style={commonStyles.hint}>
-            {formData.anonymized
-              ? 'Votre ville exacte et le prix précis seront masqués.'
-              : 'Toutes les informations seront visibles publiquement.'}
-          </Text>
-        </View>
-      </View>
-    </ScrollView>
-  );
-
   return (
     <ScreenWrapper bg={theme.colors.background}>
-      <StatusBar style="dark" />
-      <View style={commonStyles.flex1}>
-        <View style={styles.header}>
-          <Pressable onPress={handleBack}>
+      <KeyboardAvoidingView style={commonStyles.flex1} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* Header */}
+        <View style={commonStyles.headerNoBorder}>
+          <Pressable style={commonStyles.headerButton} onPress={handleBack}>
             <Icon name="arrowLeft" size={24} color={theme.colors.text} />
           </Pressable>
-          <Text style={styles.headerTitle}>Nouvelle annonce</Text>
-          <View style={{ width: 24 }} />
+          <View style={styles.headerCenter}>
+            <Text style={commonStyles.headerTitle}>{STEPS[currentStep].title}</Text>
+            <Text style={commonStyles.hint}>{STEPS[currentStep].subtitle}</Text>
+          </View>
+          <View style={commonStyles.headerSpacer} />
         </View>
 
-        {renderStepIndicator()}
+        {/* Progress */}
+        <ProgressSteps steps={STEPS} currentStep={currentStep} />
 
-        {step === 1 && renderStep1()}
-        {step === 2 && renderStep2()}
-        {step === 3 && renderStep3()}
-        {step === 4 && renderStep4()}
+        {/* Content */}
+        <ScrollView 
+          style={commonStyles.flex1} 
+          contentContainerStyle={commonStyles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {currentStep === 0 && <StepType formData={formData} updateField={updateField} />}
+          {currentStep === 1 && <StepInfo formData={formData} updateField={updateField} onCitySelect={handleCitySelect} />}
+          {currentStep === 2 && <StepDetails formData={formData} updateCharacteristic={updateCharacteristic} toggleNearby={toggleNearby} />}
+          {currentStep === 3 && <StepPhotos formData={formData} onAddPhoto={handleAddPhoto} onRemovePhoto={handleRemovePhoto} photoLoading={photoLoading} />}
+          {currentStep === 4 && <StepPreview formData={formData} updateField={updateField} />}
+        </ScrollView>
 
+        {/* Footer */}
         <View style={commonStyles.footer}>
-          {step < 4 ? (
-            <Button title="Continuer" onPress={handleNext} />
-          ) : (
-            <Button title="Publier l'annonce" loading={loading} onPress={handleSubmit} />
-          )}
+          <Button
+            title={currentStep === STEPS.length - 1 ? 'Publier l\'annonce' : 'Continuer'}
+            onPress={handleNext}
+            loading={loading}
+            disabled={!canGoNext()}
+            buttonStyle={!canGoNext() && { opacity: 0.5 }}
+          />
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </ScreenWrapper>
   );
 }
 
+// ============================================
+// COMPONENTS
+// ============================================
+
+const ProgressSteps = ({ steps, currentStep }) => (
+  <View style={styles.progressContainer}>
+    {steps.map((step, index) => (
+      <View key={step.key} style={commonStyles.row}>
+        <View style={[
+          styles.progressDot,
+          index <= currentStep && styles.progressDotActive,
+          index < currentStep && styles.progressDotCompleted,
+        ]}>
+          {index < currentStep ? (
+            <Icon name="check" size={12} color="white" />
+          ) : (
+            <Text style={[styles.progressNumber, index <= currentStep && styles.progressNumberActive]}>
+              {index + 1}
+            </Text>
+          )}
+        </View>
+        {index < steps.length - 1 && (
+          <View style={[styles.progressLine, index < currentStep && styles.progressLineActive]} />
+        )}
+      </View>
+    ))}
+  </View>
+);
+
+const StepType = ({ formData, updateField }) => (
+  <View style={commonStyles.section}>
+    <Text style={commonStyles.sectionTitle}>Quel type d'annonce souhaitez-vous créer ?</Text>
+    <View style={styles.typeCards}>
+      {LISTING_TYPES.map((type) => (
+        <Pressable
+          key={type.value}
+          style={[
+            styles.typeCard,
+            formData.type === type.value && { borderColor: getListingTypeColor(type.value) }
+          ]}
+          onPress={() => updateField('type', type.value)}
+        >
+          <Icon 
+            name={type.icon} 
+            size={28} 
+            color={formData.type === type.value ? getListingTypeColor(type.value) : theme.colors.textLight} 
+          />
+          <Text style={[styles.typeCardTitle, formData.type === type.value && { color: getListingTypeColor(type.value) }]}>
+            {type.label}
+          </Text>
+          <Text style={commonStyles.hint}>{type.description}</Text>
+        </Pressable>
+      ))}
+    </View>
+  </View>
+);
+
+const StepInfo = ({ formData, updateField, onCitySelect }) => (
+  <View style={commonStyles.section}>
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>Titre de l'annonce *</Text>
+      <Input 
+        placeholder="Ex: Pharmacie de centre-ville à céder" 
+        value={formData.title} 
+        onChangeText={(v) => updateField('title', v)} 
+      />
+    </View>
+
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>Description</Text>
+      <Input
+        placeholder="Décrivez votre pharmacie, son emplacement, sa clientèle..."
+        value={formData.description}
+        onChangeText={(v) => updateField('description', v)}
+        multiline
+        numberOfLines={5}
+        inputStyle={commonStyles.textArea}
+      />
+    </View>
+
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>Ville *</Text>
+      <CityAutocomplete
+        value={formData.city ? { city: formData.city, postcode: formData.postal_code } : null}
+        onSelect={onCitySelect}
+        placeholder="Rechercher une ville..."
+      />
+    </View>
+
+    {formData.city && (
+      <View style={commonStyles.card}>
+        <View style={commonStyles.rowGapSmall}>
+          <Icon name="mapPin" size={16} color={theme.colors.primary} />
+          <Text style={[commonStyles.chipText, { fontFamily: theme.fonts.medium }]}>{formData.city}, {formData.postal_code}</Text>
+        </View>
+        <View style={[commonStyles.rowGapSmall, { marginTop: hp(0.8) }]}>
+          <Icon name="map" size={16} color={theme.colors.textLight} />
+          <Text style={commonStyles.hint}>{formData.department}, {formData.region}</Text>
+        </View>
+      </View>
+    )}
+
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>Prix de vente (€)</Text>
+      <Input 
+        placeholder="Ex: 850000" 
+        value={formData.price?.toString() || ''} 
+        onChangeText={(v) => updateField('price', v.replace(/[^0-9]/g, ''))}
+        keyboardType="numeric"
+      />
+      <View style={[commonStyles.rowGapSmall, { marginTop: hp(1) }]}>
+        <Switch
+          value={formData.negotiable}
+          onValueChange={(v) => updateField('negotiable', v)}
+          trackColor={{ false: theme.colors.gray, true: theme.colors.primary + '50' }}
+          thumbColor={formData.negotiable ? theme.colors.primary : '#f4f3f4'}
+        />
+        <Text style={commonStyles.hint}>Prix négociable</Text>
+      </View>
+    </View>
+  </View>
+);
+
+const StepDetails = ({ formData, updateCharacteristic, toggleNearby }) => (
+  <View style={commonStyles.section}>
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>Surface (m²)</Text>
+      <Input 
+        placeholder="Ex: 150" 
+        value={formData.characteristics.surface_m2?.toString() || ''} 
+        onChangeText={(v) => updateCharacteristic('surface_m2', v.replace(/[^0-9]/g, ''))}
+        keyboardType="numeric"
+      />
+    </View>
+
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>Nombre d'employés</Text>
+      <Input 
+        placeholder="Ex: 5" 
+        value={formData.characteristics.staff_count?.toString() || ''} 
+        onChangeText={(v) => updateCharacteristic('staff_count', v.replace(/[^0-9]/g, ''))}
+        keyboardType="numeric"
+      />
+    </View>
+
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>Chiffre d'affaires annuel (€)</Text>
+      <Input 
+        placeholder="Ex: 2500000" 
+        value={formData.characteristics.annual_revenue?.toString() || ''} 
+        onChangeText={(v) => updateCharacteristic('annual_revenue', v.replace(/[^0-9]/g, ''))}
+        keyboardType="numeric"
+      />
+    </View>
+
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>Équipements</Text>
+      <View style={{ gap: hp(1) }}>
+        <ToggleRow label="Parking client" value={formData.characteristics.parking} onToggle={(v) => updateCharacteristic('parking', v)} />
+        <ToggleRow label="Robot de dispensation" value={formData.characteristics.has_robot} onToggle={(v) => updateCharacteristic('has_robot', v)} />
+        <ToggleRow label="Laboratoire de préparation" value={formData.characteristics.has_lab} onToggle={(v) => updateCharacteristic('has_lab', v)} />
+        <ToggleRow label="Drive / Click & Collect" value={formData.characteristics.has_drive} onToggle={(v) => updateCharacteristic('has_drive', v)} />
+      </View>
+    </View>
+
+    <View style={commonStyles.formGroup}>
+      <Text style={commonStyles.label}>À proximité</Text>
+      <View style={commonStyles.chipsContainer}>
+        {NEARBY_OPTIONS.map((item) => (
+          <Pressable
+            key={item}
+            style={[commonStyles.chip, formData.characteristics.nearby?.includes(item) && commonStyles.chipActive]}
+            onPress={() => toggleNearby(item)}
+          >
+            <Text style={[commonStyles.chipText, formData.characteristics.nearby?.includes(item) && commonStyles.chipTextActive]}>
+              {item}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  </View>
+);
+
+const ToggleRow = ({ label, value, onToggle }) => (
+  <View style={commonStyles.rowBetween}>
+    <Text style={commonStyles.hint}>{label}</Text>
+    <Switch
+      value={value}
+      onValueChange={onToggle}
+      trackColor={{ false: theme.colors.gray, true: theme.colors.primary + '50' }}
+      thumbColor={value ? theme.colors.primary : '#f4f3f4'}
+    />
+  </View>
+);
+
+const StepPhotos = ({ formData, onAddPhoto, onRemovePhoto, photoLoading }) => (
+  <View style={commonStyles.section}>
+    <Text style={commonStyles.sectionTitle}>Photos de la pharmacie</Text>
+    <Text style={commonStyles.hint}>Ajoutez jusqu'à 10 photos. La première sera l'image principale.</Text>
+    
+    <ImagePickerBox
+      images={formData.photos}
+      onAdd={onAddPhoto}
+      onRemove={onRemovePhoto}
+      maxImages={10}
+      loading={photoLoading}
+    />
+  </View>
+);
+
+const StepPreview = ({ formData, updateField }) => (
+  <View style={{ gap: hp(2) }}>
+    {/* Anonymat */}
+    <View style={commonStyles.card}>
+      <View style={commonStyles.rowBetween}>
+        <View style={commonStyles.flex1}>
+          <Text style={commonStyles.sectionTitleSmall}>Annonce anonyme</Text>
+          <Text style={commonStyles.hint}>Masquer la ville exacte et vos coordonnées</Text>
+        </View>
+        <Switch
+          value={formData.anonymized}
+          onValueChange={(v) => updateField('anonymized', v)}
+          trackColor={{ false: theme.colors.gray, true: theme.colors.primary + '50' }}
+          thumbColor={formData.anonymized ? theme.colors.primary : '#f4f3f4'}
+        />
+      </View>
+    </View>
+
+    {/* Preview Card */}
+    <View style={commonStyles.card}>
+      <View style={[commonStyles.badge, { backgroundColor: getListingTypeColor(formData.type) + '15', alignSelf: 'flex-start', marginBottom: hp(1) }]}>
+        <Text style={[commonStyles.badgeText, { color: getListingTypeColor(formData.type) }]}>
+          {getListingTypeLabel(formData.type)}
+        </Text>
+      </View>
+
+      <Text style={commonStyles.sectionTitle}>{formData.title || 'Titre'}</Text>
+
+      <View style={[commonStyles.section, { marginTop: hp(1.5), marginBottom: 0 }]}>
+        <InfoRow icon="mapPin" text={formData.anonymized ? formData.region : `${formData.city}, ${formData.region}`} />
+        {formData.price && <InfoRow icon="briefcase" text={`${formatNumber(formData.price)} €${formData.negotiable ? ' (négociable)' : ''}`} />}
+        {formData.characteristics.surface_m2 && <InfoRow icon="home" text={`${formData.characteristics.surface_m2} m²`} />}
+        {formData.characteristics.staff_count && <InfoRow icon="users" text={`${formData.characteristics.staff_count} employés`} />}
+      </View>
+
+      {formData.description && (
+        <>
+          <View style={commonStyles.divider} />
+          <Text style={commonStyles.sectionTitleSmall}>Description</Text>
+          <Text style={[commonStyles.hint, { lineHeight: hp(2.2) }]} numberOfLines={4}>{formData.description}</Text>
+        </>
+      )}
+
+      {formData.photos.length > 0 && (
+        <Text style={[commonStyles.hint, { marginTop: hp(1) }]}>
+          📷 {formData.photos.length} photo{formData.photos.length > 1 ? 's' : ''}
+        </Text>
+      )}
+    </View>
+  </View>
+);
+
+const InfoRow = ({ icon, text }) => (
+  <View style={commonStyles.rowGapSmall}>
+    <Icon name={icon} size={16} color={theme.colors.textLight} />
+    <Text style={commonStyles.hint}>{text}</Text>
+  </View>
+);
+
+// ============================================
+// STYLES LOCAUX
+// ============================================
+
 const styles = StyleSheet.create({
-  // Header
-  header: {
+  headerCenter: {
+    alignItems: 'center',
+  },
+  progressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: wp(5),
-    paddingTop: hp(2),
-    marginBottom: hp(2),
-  },
-  headerTitle: {
-    fontSize: hp(2.2),
-    fontFamily: theme.fonts.semiBold,
-    color: theme.colors.text,
-  },
-
-  // Steps
-  stepIndicator: {
-    flexDirection: 'row',
     justifyContent: 'center',
-    gap: wp(2),
-    marginBottom: hp(3),
+    paddingVertical: hp(2),
+    paddingHorizontal: wp(5),
   },
-  stepDot: {
-    width: wp(12),
-    height: 4,
-    borderRadius: 2,
+  progressDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: theme.colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  stepDotActive: {
+  progressDotActive: {
     backgroundColor: theme.colors.primary,
   },
-  stepDotCompleted: {
-    backgroundColor: theme.colors.primary + '50',
+  progressDotCompleted: {
+    backgroundColor: theme.colors.success,
   },
-  stepContent: {
-    flex: 1,
-    paddingHorizontal: wp(5),
+  progressNumber: {
+    fontSize: hp(1.4),
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.textLight,
   },
-  stepTitle: {
-    fontSize: hp(2.4),
-    fontFamily: theme.fonts.bold,
-    color: theme.colors.text,
-    marginBottom: hp(0.5),
+  progressNumberActive: {
+    color: 'white',
   },
-
-  // Type cards
+  progressLine: {
+    width: wp(6),
+    height: 2,
+    backgroundColor: theme.colors.border,
+    marginHorizontal: wp(0.5),
+  },
+  progressLineActive: {
+    backgroundColor: theme.colors.success,
+  },
   typeCards: {
-    gap: hp(2),
-    marginTop: hp(2),
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: wp(3),
   },
   typeCard: {
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.radius.xl,
+    width: '47%',
     padding: hp(2),
+    borderRadius: theme.radius.xl,
     borderWidth: 2,
     borderColor: theme.colors.border,
+    backgroundColor: theme.colors.card,
     alignItems: 'center',
+    gap: hp(0.8),
   },
-  typeCardSelected: {
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.primary + '08',
-  },
-  typeIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: theme.colors.primary + '15',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: hp(1),
-  },
-  typeIconSelected: {
-    backgroundColor: theme.colors.primary,
-  },
-  typeLabel: {
-    fontSize: hp(1.8),
+  typeCardTitle: {
+    fontSize: hp(1.5),
     fontFamily: theme.fonts.semiBold,
     color: theme.colors.text,
-  },
-  typeLabelSelected: {
-    color: theme.colors.primary,
-  },
-
-  // Form
-  formSection: {
-    gap: hp(2),
-    paddingBottom: hp(4),
-    marginTop: hp(2),
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: theme.colors.card,
-    padding: hp(2),
-    borderRadius: theme.radius.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  toggleLabel: {
-    fontSize: hp(1.7),
-    color: theme.colors.text,
-  },
-  toggleLarge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: theme.colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  textAreaContainer: {
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.radius.xxl,
-    borderWidth: 0.4,
-    borderColor: theme.colors.text,
-    padding: hp(2),
-  },
-  textArea: {
-    fontSize: hp(1.7),
-    color: theme.colors.text,
-    minHeight: hp(12),
-    textAlignVertical: 'top',
-  },
-
-  // Privacy
-  privacyCard: {
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.radius.xl,
-    padding: hp(2),
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    gap: hp(1),
-  },
-  privacyTitle: {
-    fontSize: hp(1.8),
-    fontFamily: theme.fonts.semiBold,
-    color: theme.colors.text,
+    textAlign: 'center',
   },
 });

@@ -1,4 +1,6 @@
-import { Alert, StyleSheet, Text, View, Switch } from 'react-native';
+// app/(auth)/onboarding/privacy.jsx
+
+import { Alert, StyleSheet, Text, View, Switch, Pressable } from 'react-native';
 import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -18,11 +20,17 @@ export default function OnboardingPrivacy() {
   const { session, refreshUserData } = useAuth();
 
   const [loading, setLoading] = useState(false);
+  
+  // Déterminer si c'est un titulaire (recruteur) ou un candidat
+  const isTitulaire = role === 'titulaire';
+
+  // Settings différents selon le rôle
   const [settings, setSettings] = useState({
-    showFullName: false,
-    showPhoto: false,
-    showExactLocation: false,
-    searchableByRecruiters: false,
+    showFullName: isTitulaire, // Titulaires montrent leur nom par défaut
+    showPhoto: isTitulaire,
+    showExactLocation: isTitulaire,
+    searchableByRecruiters: false, // Seulement pour candidats
+    showPharmacyInfo: true, // Seulement pour titulaires
   });
 
   const toggleSetting = (key) => {
@@ -32,14 +40,14 @@ export default function OnboardingPrivacy() {
   const handleFinish = async () => {
     setLoading(true);
     try {
-      // Créer les paramètres de confidentialité
+      // Créer les paramètres de confidentialité adaptés au rôle
       await privacyService.upsert(session.user.id, {
-        profile_visibility: 'anonymous',
+        profile_visibility: isTitulaire ? 'public' : 'anonymous',
         show_full_name: settings.showFullName,
         show_photo: settings.showPhoto,
         show_exact_location: settings.showExactLocation,
         show_current_employer: false,
-        searchable_by_recruiters: settings.searchableByRecruiters,
+        searchable_by_recruiters: isTitulaire ? false : settings.searchableByRecruiters,
       });
 
       // Marquer le profil comme complet
@@ -87,14 +95,18 @@ export default function OnboardingPrivacy() {
           <Text style={styles.step}>Étape 3/3</Text>
           <Text style={styles.title}>Confidentialité</Text>
           <Text style={styles.subtitle}>
-            Contrôlez ce que les autres peuvent voir. Vous pourrez modifier ces paramètres à tout moment.
+            {isTitulaire 
+              ? 'Configurez la visibilité de votre profil employeur.'
+              : 'Contrôlez ce que les recruteurs peuvent voir.'}
           </Text>
         </View>
 
         <View style={styles.infoBox}>
-          <Icon name="lock" size={20} color={theme.colors.primary} />
+          <Icon name={isTitulaire ? 'briefcase' : 'lock'} size={20} color={theme.colors.primary} />
           <Text style={styles.infoText}>
-            Par défaut, votre profil est anonyme. Seules la région et les informations professionnelles sont visibles.
+            {isTitulaire
+              ? 'En tant que titulaire, vous pourrez publier des offres d\'emploi et rechercher des candidats.'
+              : 'Par défaut, votre profil est anonyme. Seules la région et les informations professionnelles sont visibles.'}
           </Text>
         </View>
 
@@ -102,7 +114,7 @@ export default function OnboardingPrivacy() {
           <SettingRow
             icon="user"
             title="Afficher mon nom complet"
-            description="Votre prénom et nom seront visibles"
+            description={isTitulaire ? 'Les candidats verront votre nom' : 'Votre prénom et nom seront visibles'}
             value={settings.showFullName}
             onToggle={() => toggleSetting('showFullName')}
           />
@@ -125,13 +137,25 @@ export default function OnboardingPrivacy() {
 
           <View style={styles.divider} />
 
-          <SettingRow
-            icon="search"
-            title="Visible par les recruteurs"
-            description="Les employeurs peuvent voir votre profil"
-            value={settings.searchableByRecruiters}
-            onToggle={() => toggleSetting('searchableByRecruiters')}
-          />
+          {/* Section spécifique selon le rôle */}
+          {isTitulaire ? (
+            <>
+              <View style={styles.roleInfoBox}>
+                <Icon name="checkCircle" size={20} color={theme.colors.success} />
+                <Text style={styles.roleInfoText}>
+                  Vous pourrez publier des offres d'emploi, de stage et mettre en vente/location votre pharmacie depuis votre espace recruteur.
+                </Text>
+              </View>
+            </>
+          ) : (
+            <SettingRow
+              icon="search"
+              title="Visible par les recruteurs"
+              description="Les employeurs peuvent voir votre profil et vous contacter"
+              value={settings.searchableByRecruiters}
+              onToggle={() => toggleSetting('searchableByRecruiters')}
+            />
+          )}
         </View>
 
         <View style={styles.footer}>
@@ -141,7 +165,9 @@ export default function OnboardingPrivacy() {
             onPress={handleFinish}
           />
           <Text style={styles.footerHint}>
-            Vous pourrez activer la visibilité recruteurs plus tard depuis votre profil
+            {isTitulaire
+              ? 'Vous pourrez configurer votre pharmacie depuis les paramètres'
+              : 'Vous pourrez activer la visibilité recruteurs plus tard depuis votre profil'}
           </Text>
         </View>
       </View>
@@ -189,6 +215,20 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: hp(1.6),
+    color: theme.colors.text,
+    lineHeight: hp(2.2),
+  },
+  roleInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: theme.colors.success + '10',
+    padding: hp(2),
+    borderRadius: theme.radius.lg,
+    gap: wp(3),
+  },
+  roleInfoText: {
+    flex: 1,
+    fontSize: hp(1.5),
     color: theme.colors.text,
     lineHeight: hp(2.2),
   },

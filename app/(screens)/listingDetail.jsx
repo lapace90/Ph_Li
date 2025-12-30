@@ -1,23 +1,23 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, Pressable, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, Dimensions, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { hp, wp } from '../../helpers/common';
 import { theme } from '../../constants/theme';
+import { commonStyles } from '../../constants/styles';
+import { hp, wp } from '../../helpers/common';
 import { useAuth } from '../../contexts/AuthContext';
 import { pharmacyListingService } from '../../services/pharmacyListingService';
+import {
+  getListingTypeLabel,
+  getListingTypeColor,
+  getListingStatusInfo,
+  formatNumber,
+} from '../../constants/listingOptions';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import Icon from '../../assets/icons/Icon';
+import Button from '../../components/common/Button';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-const LISTING_TYPES = {
-  vente: { label: 'Vente', color: theme.colors.primary },
-  'location-gerance': { label: 'Location-gérance', color: theme.colors.secondary },
-  collaboration: { label: 'Collaboration', color: theme.colors.warning },
-  association: { label: 'Association', color: theme.colors.success },
-};
 
 export default function ListingDetail() {
   const router = useRouter();
@@ -27,6 +27,8 @@ export default function ListingDetail() {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+
+  const isOwner = listing?.user_id === session?.user?.id;
 
   useEffect(() => {
     loadListing();
@@ -39,15 +41,76 @@ export default function ListingDetail() {
       setListing(data);
     } catch (error) {
       console.error('Error loading listing:', error);
+      Alert.alert('Erreur', 'Impossible de charger l\'annonce');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleToggleStatus = async () => {
+    if (!listing) return;
+    try {
+      const newStatus = listing.status === 'active' ? 'inactive' : 'active';
+      await pharmacyListingService.update(id, { status: newStatus });
+      setListing(prev => ({ ...prev, status: newStatus }));
+    } catch (error) {
+      Alert.alert('Erreur', 'Impossible de modifier le statut');
+    }
+  };
+
+  const handleMarkAsSold = async () => {
+    Alert.alert(
+      'Marquer comme vendue',
+      'Cette pharmacie a-t-elle été vendue ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Confirmer',
+          onPress: async () => {
+            try {
+              await pharmacyListingService.update(id, { status: 'sold' });
+              setListing(prev => ({ ...prev, status: 'sold' }));
+            } catch (error) {
+              Alert.alert('Erreur', 'Impossible de mettre à jour');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDelete = () => {
+    Alert.alert('Supprimer l\'annonce', 'Cette action est irréversible.', [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Supprimer',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await pharmacyListingService.delete(id);
+            router.back();
+          } catch (error) {
+            Alert.alert('Erreur', 'Impossible de supprimer');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleContact = () => {
+    // TODO: Implémenter la messagerie
+    Alert.alert('Contact', 'La messagerie sera bientôt disponible');
+  };
+
+  const handlePhotoScroll = (event) => {
+    const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+    setCurrentPhotoIndex(index);
+  };
+
   if (loading) {
     return (
       <ScreenWrapper bg={theme.colors.background}>
-        <View style={styles.loadingContainer}>
+        <View style={commonStyles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
       </ScreenWrapper>
@@ -57,119 +120,76 @@ export default function ListingDetail() {
   if (!listing) {
     return (
       <ScreenWrapper bg={theme.colors.background}>
-        <View style={styles.errorContainer}>
-          <Icon name="alertCircle" size={60} color={theme.colors.gray} />
-          <Text style={styles.errorText}>Annonce introuvable</Text>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Retour</Text>
-          </Pressable>
+        <View style={commonStyles.emptyContainer}>
+          <Icon name="alertCircle" size={50} color={theme.colors.rose} />
+          <Text style={commonStyles.emptyTitle}>Annonce introuvable</Text>
+          <Button title="Retour" onPress={() => router.back()} />
         </View>
       </ScreenWrapper>
     );
   }
 
-  const typeConfig = LISTING_TYPES[listing.type] || LISTING_TYPES.vente;
-  const isOwner = session?.user?.id === listing.user_id;
   const photos = listing.photos || [];
   const characteristics = listing.characteristics || {};
-
-  const formatNumber = (num) => {
-    return new Intl.NumberFormat('fr-FR').format(num);
-  };
-
-  const formatPrice = () => {
-    if (listing.anonymized) {
-      if (characteristics.price_min && characteristics.price_max) {
-        return `${formatNumber(characteristics.price_min)} - ${formatNumber(characteristics.price_max)} €`;
-      }
-      return 'Prix sur demande';
-    }
-    return listing.price ? `${formatNumber(listing.price)} €` : 'Prix sur demande';
-  };
+  const statusInfo = getListingStatusInfo(listing.status);
 
   const getLocation = () => {
-    if (listing.anonymized) {
-      return listing.region || 'France';
-    }
-    return listing.city ? `${listing.city}${listing.postal_code ? ` (${listing.postal_code})` : ''}` : listing.region || 'France';
+    if (listing.anonymized) return listing.region || 'France';
+    return `${listing.city}, ${listing.region}`;
   };
 
-  const handleScroll = (event) => {
-    const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-    setCurrentPhotoIndex(index);
-  };
-
-  const handleContact = () => {
-    // TODO: Implement messaging
-    console.log('Contact seller');
-  };
-
-  const handleEdit = () => {
-    router.push({
-      pathname: '/(screens)/listingEdit',
-      params: { id: listing.id },
-    });
+  const getPrice = () => {
+    if (!listing.price) return 'Prix sur demande';
+    return `${formatNumber(listing.price)} €${listing.negotiable ? ' (négociable)' : ''}`;
   };
 
   return (
-    <ScreenWrapper bg={theme.colors.background} edges={[]}>
-      <StatusBar style="light" />
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Photos Carousel */}
-        <View style={styles.photosContainer}>
+    <ScreenWrapper bg={theme.colors.background}>
+      <ScrollView style={commonStyles.flex1} showsVerticalScrollIndicator={false}>
+        {/* Photos Gallery */}
+        <View style={styles.gallery}>
           {photos.length > 0 ? (
             <>
               <ScrollView
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
-                onScroll={handleScroll}
+                onScroll={handlePhotoScroll}
                 scrollEventThrottle={16}
               >
                 {photos.map((photo, index) => (
-                  <Image
-                    key={index}
-                    source={{ uri: photo }}
-                    style={styles.photo}
-                    contentFit="cover"
-                  />
+                  <Image key={index} source={{ uri: photo }} style={styles.photo} contentFit="cover" />
                 ))}
               </ScrollView>
               {photos.length > 1 && (
                 <View style={styles.pagination}>
                   {photos.map((_, index) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.paginationDot,
-                        currentPhotoIndex === index && styles.paginationDotActive,
-                      ]}
-                    />
+                    <View key={index} style={[styles.paginationDot, index === currentPhotoIndex && styles.paginationDotActive]} />
                   ))}
                 </View>
               )}
             </>
           ) : (
             <View style={styles.noPhoto}>
-              <Icon name="home" size={60} color={theme.colors.gray} />
-              <Text style={styles.noPhotoText}>Aucune photo</Text>
+              <Icon name="home" size={50} color={theme.colors.gray} />
+              <Text style={commonStyles.hint}>Aucune photo</Text>
             </View>
           )}
 
           {/* Back button overlay */}
-          <Pressable style={styles.backOverlay} onPress={() => router.back()}>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
             <Icon name="arrowLeft" size={24} color="white" />
           </Pressable>
 
           {/* Type badge */}
-          <View style={[styles.typeBadge, { backgroundColor: typeConfig.color }]}>
-            <Text style={styles.typeBadgeText}>{typeConfig.label}</Text>
+          <View style={[styles.typeBadge, { backgroundColor: getListingTypeColor(listing.type) }]}>
+            <Text style={styles.typeBadgeText}>{getListingTypeLabel(listing.type)}</Text>
           </View>
 
           {/* Anonymous badge */}
           {listing.anonymized && (
             <View style={styles.anonymousBadge}>
-              <Icon name="lock" size={14} color="white" />
+              <Icon name="eyeOff" size={14} color="white" />
               <Text style={styles.anonymousBadgeText}>Anonyme</Text>
             </View>
           )}
@@ -177,191 +197,151 @@ export default function ListingDetail() {
 
         {/* Content */}
         <View style={styles.content}>
-          {/* Title & Price */}
-          <View style={styles.header}>
-            <Text style={styles.title}>{listing.title}</Text>
-            <Text style={styles.price}>{formatPrice()}</Text>
-            {listing.negotiable && (
-              <Text style={styles.negotiable}>Prix négociable</Text>
+          {/* Header */}
+          <View style={commonStyles.card}>
+            {isOwner && (
+              <View style={[commonStyles.badge, { backgroundColor: theme.colors[statusInfo.color] + '15', alignSelf: 'flex-start', marginBottom: hp(1) }]}>
+                <Text style={[commonStyles.badgeText, { color: theme.colors[statusInfo.color] }]}>{statusInfo.label}</Text>
+              </View>
             )}
-          </View>
 
-          {/* Location */}
-          <View style={styles.locationRow}>
-            <Icon name="mapPin" size={18} color={theme.colors.primary} />
-            <Text style={styles.location}>{getLocation()}</Text>
+            <Text style={commonStyles.sectionTitle}>{listing.title}</Text>
+            
+            <View style={[commonStyles.section, { marginTop: hp(1.5), marginBottom: 0 }]}>
+              <InfoRow icon="mapPin" text={getLocation()} />
+              <InfoRow icon="briefcase" text={getPrice()} highlight />
+            </View>
           </View>
 
           {/* Characteristics */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Caractéristiques</Text>
-            <View style={styles.characteristicsGrid}>
+          <View style={commonStyles.card}>
+            <Text style={commonStyles.sectionTitleSmall}>Caractéristiques</Text>
+            
+            <View style={styles.statsGrid}>
               {characteristics.surface_m2 && (
-                <CharacteristicItem
-                  icon="home"
-                  label="Surface"
-                  value={`${characteristics.surface_m2} m²`}
-                />
+                <StatItem icon="home" value={`${characteristics.surface_m2} m²`} label="Surface" />
               )}
               {characteristics.staff_count && (
-                <CharacteristicItem
-                  icon="users"
-                  label="Équipe"
-                  value={`${characteristics.staff_count} personnes`}
-                />
+                <StatItem icon="users" value={characteristics.staff_count} label="Employés" />
               )}
               {characteristics.annual_revenue && (
-                <CharacteristicItem
-                  icon="briefcase"
-                  label="CA annuel"
-                  value={`${formatNumber(characteristics.annual_revenue)} €`}
-                />
-              )}
-              {characteristics.annual_profit && (
-                <CharacteristicItem
-                  icon="star"
-                  label="Bénéfice"
-                  value={`${formatNumber(characteristics.annual_profit)} €`}
-                />
-              )}
-              {characteristics.opening_hours && (
-                <CharacteristicItem
-                  icon="clock"
-                  label="Horaires"
-                  value={characteristics.opening_hours}
-                />
-              )}
-              {characteristics.parking !== undefined && (
-                <CharacteristicItem
-                  icon="map"
-                  label="Parking"
-                  value={characteristics.parking ? 'Oui' : 'Non'}
-                />
+                <StatItem icon="trendingUp" value={`${formatNumber(characteristics.annual_revenue)} €`} label="CA annuel" />
               )}
             </View>
+
+            {/* Equipements */}
+            <View style={[commonStyles.chipsContainerCompact, { marginTop: hp(2) }]}>
+              {characteristics.parking && <FeatureChip icon="car" label="Parking" />}
+              {characteristics.has_robot && <FeatureChip icon="cpu" label="Robot" />}
+              {characteristics.has_lab && <FeatureChip icon="flask" label="Laboratoire" />}
+              {characteristics.has_drive && <FeatureChip icon="shoppingBag" label="Drive" />}
+            </View>
+
+            {/* Nearby */}
+            {characteristics.nearby?.length > 0 && (
+              <View style={{ marginTop: hp(2) }}>
+                <Text style={commonStyles.hint}>À proximité :</Text>
+                <View style={[commonStyles.chipsContainerCompact, { marginTop: hp(0.8) }]}>
+                  {characteristics.nearby.map((item, i) => (
+                    <View key={i} style={[commonStyles.badge, commonStyles.badgeSecondary]}>
+                      <Text style={[commonStyles.badgeText, commonStyles.badgeTextSecondary]}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
           </View>
-
-          {/* Equipment */}
-          {(characteristics.has_robot || characteristics.has_lab || characteristics.has_drive) && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Équipements</Text>
-              <View style={styles.equipmentRow}>
-                {characteristics.has_robot && (
-                  <View style={styles.equipmentBadge}>
-                    <Text style={styles.equipmentText}>🤖 Robot</Text>
-                  </View>
-                )}
-                {characteristics.has_lab && (
-                  <View style={styles.equipmentBadge}>
-                    <Text style={styles.equipmentText}>🔬 Laboratoire</Text>
-                  </View>
-                )}
-                {characteristics.has_drive && (
-                  <View style={styles.equipmentBadge}>
-                    <Text style={styles.equipmentText}>🚗 Drive</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          )}
-
-          {/* Nearby */}
-          {characteristics.nearby && characteristics.nearby.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>À proximité</Text>
-              <View style={styles.tagsRow}>
-                {characteristics.nearby.map((item, index) => (
-                  <View key={index} style={styles.tag}>
-                    <Text style={styles.tagText}>{item}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
 
           {/* Description */}
           {listing.description && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Description</Text>
-              <Text style={styles.description}>{listing.description}</Text>
+            <View style={commonStyles.card}>
+              <Text style={commonStyles.sectionTitleSmall}>Description</Text>
+              <Text style={[commonStyles.hint, { lineHeight: hp(2.2) }]}>{listing.description}</Text>
             </View>
           )}
 
-          {/* Anonymous info */}
-          {listing.anonymized && !isOwner && (
-            <View style={styles.anonymousInfo}>
-              <Icon name="info" size={20} color={theme.colors.secondary} />
-              <Text style={styles.anonymousInfoText}>
-                Cette annonce est anonyme. Certaines informations seront dévoilées après votre premier contact avec le vendeur.
-              </Text>
+          {/* Owner Actions */}
+          {isOwner && (
+            <View style={commonStyles.card}>
+              <Text style={commonStyles.sectionTitleSmall}>Gérer l'annonce</Text>
+              <View style={{ gap: hp(1), marginTop: hp(1) }}>
+                <Pressable style={commonStyles.menuItem} onPress={() => router.push({ pathname: '/(screens)/listingEdit', params: { id } })}>
+                  <Icon name="edit" size={20} color={theme.colors.text} />
+                  <Text style={commonStyles.menuItemLabel}>Modifier l'annonce</Text>
+                  <Icon name="chevronRight" size={18} color={theme.colors.textLight} />
+                </Pressable>
+                
+                <Pressable style={commonStyles.menuItem} onPress={handleToggleStatus}>
+                  <Icon name={listing.status === 'active' ? 'eyeOff' : 'eye'} size={20} color={theme.colors.text} />
+                  <Text style={commonStyles.menuItemLabel}>
+                    {listing.status === 'active' ? 'Désactiver' : 'Réactiver'}
+                  </Text>
+                  <Icon name="chevronRight" size={18} color={theme.colors.textLight} />
+                </Pressable>
+
+                {listing.type === 'vente' && listing.status === 'active' && (
+                  <Pressable style={commonStyles.menuItem} onPress={handleMarkAsSold}>
+                    <Icon name="checkCircle" size={20} color={theme.colors.success} />
+                    <Text style={[commonStyles.menuItemLabel, { color: theme.colors.success }]}>Marquer comme vendue</Text>
+                    <Icon name="chevronRight" size={18} color={theme.colors.textLight} />
+                  </Pressable>
+                )}
+
+                <Pressable style={[commonStyles.menuItem, commonStyles.menuItemNoBorder]} onPress={handleDelete}>
+                  <Icon name="trash" size={20} color={theme.colors.rose} />
+                  <Text style={[commonStyles.menuItemLabel, { color: theme.colors.rose }]}>Supprimer</Text>
+                  <Icon name="chevronRight" size={18} color={theme.colors.textLight} />
+                </Pressable>
+              </View>
             </View>
           )}
 
-          {/* Spacer for button */}
+          {/* Spacer for footer */}
           <View style={{ height: hp(10) }} />
         </View>
       </ScrollView>
 
-      {/* Action Button */}
-      <View style={styles.actionBar}>
-        {isOwner ? (
-          <Pressable style={styles.editButton} onPress={handleEdit}>
-            <Icon name="edit" size={20} color="white" />
-            <Text style={styles.actionButtonText}>Modifier l'annonce</Text>
-          </Pressable>
-        ) : (
-          <Pressable style={styles.contactButton} onPress={handleContact}>
-            <Icon name="messageCircle" size={20} color="white" />
-            <Text style={styles.actionButtonText}>Contacter le vendeur</Text>
-          </Pressable>
-        )}
-      </View>
+      {/* Contact Footer (non-owner only) */}
+      {!isOwner && (
+        <View style={styles.footer}>
+          <View>
+            <Text style={styles.footerPrice}>{getPrice()}</Text>
+            <Text style={commonStyles.hint}>{getLocation()}</Text>
+          </View>
+          <Button title="Contacter" onPress={handleContact} buttonStyle={{ paddingHorizontal: wp(8) }} />
+        </View>
+      )}
     </ScreenWrapper>
   );
 }
 
-const CharacteristicItem = ({ icon, label, value }) => (
-  <View style={styles.characteristicItem}>
+const InfoRow = ({ icon, text, highlight }) => (
+  <View style={commonStyles.rowGapSmall}>
+    <Icon name={icon} size={16} color={highlight ? theme.colors.primary : theme.colors.textLight} />
+    <Text style={[commonStyles.hint, highlight && { color: theme.colors.primary, fontFamily: theme.fonts.semiBold }]}>{text}</Text>
+  </View>
+);
+
+const StatItem = ({ icon, value, label }) => (
+  <View style={styles.statItem}>
     <Icon name={icon} size={20} color={theme.colors.primary} />
-    <View>
-      <Text style={styles.characteristicLabel}>{label}</Text>
-      <Text style={styles.characteristicValue}>{value}</Text>
-    </View>
+    <Text style={styles.statValue}>{value}</Text>
+    <Text style={commonStyles.hint}>{label}</Text>
+  </View>
+);
+
+const FeatureChip = ({ icon, label }) => (
+  <View style={[commonStyles.badge, commonStyles.badgePrimary, commonStyles.rowGapSmall]}>
+    <Icon name={icon} size={12} color={theme.colors.primary} />
+    <Text style={[commonStyles.badgeText, commonStyles.badgeTextPrimary]}>{label}</Text>
   </View>
 );
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: hp(2),
-  },
-  errorText: {
-    fontSize: hp(2),
-    color: theme.colors.textLight,
-  },
-  backButton: {
-    paddingVertical: hp(1.5),
-    paddingHorizontal: wp(6),
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radius.xl,
-  },
-  backButtonText: {
-    color: 'white',
-    fontFamily: theme.fonts.semiBold,
-  },
-  photosContainer: {
+  gallery: {
+    width: SCREEN_WIDTH,
     height: hp(35),
-    backgroundColor: theme.colors.dark,
+    backgroundColor: theme.colors.backgroundDark,
   },
   photo: {
     width: SCREEN_WIDTH,
@@ -372,10 +352,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: hp(1),
-  },
-  noPhotoText: {
-    color: theme.colors.gray,
-    fontSize: hp(1.6),
   },
   pagination: {
     position: 'absolute',
@@ -396,7 +372,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     width: 20,
   },
-  backOverlay: {
+  backButton: {
     position: 'absolute',
     top: hp(6),
     left: wp(4),
@@ -440,148 +416,37 @@ const styles = StyleSheet.create({
     padding: wp(5),
     gap: hp(2),
   },
-  header: {
+  statsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: hp(1.5),
+  },
+  statItem: {
+    alignItems: 'center',
     gap: hp(0.5),
   },
-  title: {
-    fontSize: hp(2.4),
-    fontFamily: theme.fonts.bold,
-    color: theme.colors.text,
-  },
-  price: {
-    fontSize: hp(2.2),
-    fontFamily: theme.fonts.bold,
-    color: theme.colors.primary,
-  },
-  negotiable: {
-    fontSize: hp(1.4),
-    color: theme.colors.success,
-    fontFamily: theme.fonts.medium,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: wp(2),
-  },
-  location: {
-    fontSize: hp(1.7),
-    color: theme.colors.text,
-  },
-  section: {
-    gap: hp(1.5),
-  },
-  sectionTitle: {
-    fontSize: hp(1.8),
-    fontFamily: theme.fonts.semiBold,
-    color: theme.colors.text,
-  },
-  characteristicsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: hp(1.5),
-  },
-  characteristicItem: {
-    width: '48%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: wp(3),
-    backgroundColor: theme.colors.card,
-    padding: hp(1.5),
-    borderRadius: theme.radius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  characteristicLabel: {
-    fontSize: hp(1.3),
-    color: theme.colors.textLight,
-  },
-  characteristicValue: {
-    fontSize: hp(1.5),
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.text,
-  },
-  equipmentRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: wp(2),
-  },
-  equipmentBadge: {
-    backgroundColor: theme.colors.primary + '15',
-    paddingHorizontal: wp(3),
-    paddingVertical: hp(0.8),
-    borderRadius: theme.radius.lg,
-  },
-  equipmentText: {
-    fontSize: hp(1.4),
-    color: theme.colors.primary,
-    fontFamily: theme.fonts.medium,
-  },
-  tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: wp(2),
-  },
-  tag: {
-    backgroundColor: theme.colors.background,
-    paddingHorizontal: wp(3),
-    paddingVertical: hp(0.6),
-    borderRadius: theme.radius.md,
-  },
-  tagText: {
-    fontSize: hp(1.4),
-    color: theme.colors.text,
-  },
-  description: {
+  statValue: {
     fontSize: hp(1.6),
-    color: theme.colors.textLight,
-    lineHeight: hp(2.4),
-  },
-  anonymousInfo: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: wp(3),
-    backgroundColor: theme.colors.secondary + '10',
-    padding: hp(2),
-    borderRadius: theme.radius.lg,
-  },
-  anonymousInfoText: {
-    flex: 1,
-    fontSize: hp(1.5),
+    fontFamily: theme.fonts.bold,
     color: theme.colors.text,
-    lineHeight: hp(2.2),
   },
-  actionBar: {
+  footer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    padding: wp(5),
-    paddingBottom: hp(4),
-    backgroundColor: theme.colors.background,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: wp(5),
+    paddingVertical: hp(2),
+    backgroundColor: theme.colors.card,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },
-  contactButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: wp(2),
-    backgroundColor: theme.colors.primary,
-    paddingVertical: hp(2),
-    borderRadius: theme.radius.xl,
-  },
-  editButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: wp(2),
-    backgroundColor: theme.colors.secondary,
-    paddingVertical: hp(2),
-    borderRadius: theme.radius.xl,
-  },
-  actionButtonText: {
-    color: 'white',
+  footerPrice: {
     fontSize: hp(1.8),
-    fontFamily: theme.fonts.semiBold,
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.primary,
   },
 });
