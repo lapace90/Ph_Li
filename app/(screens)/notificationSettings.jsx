@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hp, wp } from '../../helpers/common';
 import { theme } from '../../constants/theme';
+import { commonStyles } from '../../constants/styles';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import BackButton from '../../components/common/BackButton';
 import Icon from '../../assets/icons/Icon';
@@ -50,13 +51,13 @@ export default function NotificationSettings() {
   };
 
   const SettingRow = ({ icon, title, description, settingKey }) => (
-    <View style={styles.settingRow}>
+    <View style={[commonStyles.row, styles.settingRow]}>
       <View style={styles.settingIcon}>
         <Icon name={icon} size={20} color={theme.colors.primary} />
       </View>
-      <View style={styles.settingContent}>
+      <View style={commonStyles.flex1}>
         <Text style={styles.settingTitle}>{title}</Text>
-        {description && <Text style={styles.settingDescription}>{description}</Text>}
+        {description && <Text style={commonStyles.hint}>{description}</Text>}
       </View>
       <Switch
         value={settings[settingKey]}
@@ -71,16 +72,16 @@ export default function NotificationSettings() {
   return (
     <ScreenWrapper bg={theme.colors.background}>
       <StatusBar style="dark" />
-      <View style={styles.container}>
-        <View style={styles.header}>
+      <View style={[commonStyles.flex1, commonStyles.scrollContent, { paddingTop: hp(2) }]}>
+        <View style={commonStyles.rowBetween}>
           <BackButton router={router} />
           <Text style={styles.title}>Notifications</Text>
-          <View style={{ width: 36 }} />
+          <View style={commonStyles.headerSpacer} />
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Général</Text>
-          <View style={styles.sectionCard}>
+          <Text style={commonStyles.sectionTitleSmall}>Général</Text>
+          <View style={[commonStyles.card, { padding: 0, overflow: 'hidden' }]}>
             <SettingRow
               icon="bell"
               title="Notifications push"
@@ -91,22 +92,22 @@ export default function NotificationSettings() {
         </View>
 
         <View style={[styles.section, !settings.pushEnabled && styles.sectionDisabled]}>
-          <Text style={styles.sectionTitle}>Activité</Text>
-          <View style={styles.sectionCard}>
+          <Text style={commonStyles.sectionTitleSmall}>Activité</Text>
+          <View style={[commonStyles.card, { padding: 0, overflow: 'hidden' }]}>
             <SettingRow
               icon="heart"
               title="Nouveaux matchs"
               description="Quand un employeur matche avec vous"
               settingKey="newMatch"
             />
-            <View style={styles.separator} />
+            <View style={commonStyles.dividerLight} />
             <SettingRow
               icon="messageCircle"
               title="Messages"
               description="Nouveaux messages reçus"
               settingKey="newMessage"
             />
-            <View style={styles.separator} />
+            <View style={commonStyles.dividerLight} />
             <SettingRow
               icon="briefcase"
               title="Candidatures"
@@ -117,15 +118,15 @@ export default function NotificationSettings() {
         </View>
 
         <View style={[styles.section, !settings.pushEnabled && styles.sectionDisabled]}>
-          <Text style={styles.sectionTitle}>Découverte</Text>
-          <View style={styles.sectionCard}>
+          <Text style={commonStyles.sectionTitleSmall}>Découverte</Text>
+          <View style={[commonStyles.card, { padding: 0, overflow: 'hidden' }]}>
             <SettingRow
               icon="mapPin"
               title="Nouvelles offres"
               description="Offres dans votre zone de recherche"
               settingKey="newJobInArea"
             />
-            <View style={styles.separator} />
+            <View style={commonStyles.dividerLight} />
             <SettingRow
               icon="mail"
               title="Résumé hebdomadaire"
@@ -136,7 +137,7 @@ export default function NotificationSettings() {
         </View>
 
         {!settings.pushEnabled && (
-          <Text style={styles.disabledHint}>
+          <Text style={[commonStyles.hint, commonStyles.textCenter]}>
             Activez les notifications push pour personnaliser vos préférences
           </Text>
         )}
@@ -146,46 +147,21 @@ export default function NotificationSettings() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: wp(5),
-    paddingTop: hp(2),
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: hp(3),
-  },
   title: {
     fontSize: hp(2.2),
     fontFamily: theme.fonts.semiBold,
     color: theme.colors.text,
   },
   section: {
-    marginBottom: hp(3),
+    marginTop: hp(3),
+    gap: hp(1),
   },
   sectionDisabled: {
     opacity: 0.5,
   },
-  sectionTitle: {
-    fontSize: hp(1.6),
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.textLight,
-    marginBottom: hp(1),
-    paddingLeft: wp(2),
-  },
-  sectionCard: {
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.radius.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    overflow: 'hidden',
-  },
   settingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     padding: hp(2),
+    gap: wp(3),
   },
   settingIcon: {
     width: wp(10),
@@ -195,30 +171,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  settingContent: {
-    flex: 1,
-    marginLeft: wp(3),
-    marginRight: wp(2),
-  },
   settingTitle: {
     fontSize: hp(1.7),
     color: theme.colors.text,
     fontFamily: theme.fonts.medium,
-  },
-  settingDescription: {
-    fontSize: hp(1.3),
-    color: theme.colors.textLight,
-    marginTop: 2,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: theme.colors.border,
-    marginLeft: wp(15),
-  },
-  disabledHint: {
-    fontSize: hp(1.4),
-    color: theme.colors.textLight,
-    textAlign: 'center',
-    fontStyle: 'italic',
   },
 });

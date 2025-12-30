@@ -4,10 +4,10 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { hp, wp } from '../../helpers/common';
 import { theme } from '../../constants/theme';
+import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMyListings } from '../../hooks/usePharmacyListings';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
-import BackButton from '../../components/common/BackButton';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import Icon from '../../assets/icons/Icon';
@@ -80,53 +80,27 @@ export default function ListingCreate() {
 
   const handleAddPhoto = async (asset) => {
     if (formData.photos.length >= 10) {
-      Alert.alert('Limite atteinte', 'Maximum 10 photos par annonce');
+      Alert.alert('Limite atteinte', 'Maximum 10 photos');
       return;
     }
 
     setPhotoLoading(true);
     try {
-      const url = await storageService.uploadImage('listings', session.user.id, asset);
+      const url = await storageService.uploadImage(
+        'listings',
+        `${session.user.id}/${Date.now()}`,
+        asset
+      );
       updateField('photos', [...formData.photos, url]);
     } catch (error) {
       Alert.alert('Erreur', 'Impossible de télécharger la photo');
-      console.error(error);
     } finally {
       setPhotoLoading(false);
     }
   };
 
   const handleRemovePhoto = (index) => {
-    const updated = formData.photos.filter((_, i) => i !== index);
-    updateField('photos', updated);
-  };
-
-  const validateStep = () => {
-    switch (step) {
-      case 1:
-        if (!formData.type) {
-          Alert.alert('Erreur', 'Veuillez sélectionner un type d\'annonce');
-          return false;
-        }
-        break;
-      case 2:
-        if (!formData.title.trim()) {
-          Alert.alert('Erreur', 'Veuillez entrer un titre');
-          return false;
-        }
-        if (!formData.city) {
-          Alert.alert('Erreur', 'Veuillez sélectionner une ville');
-          return false;
-        }
-        break;
-    }
-    return true;
-  };
-
-  const handleNext = () => {
-    if (validateStep()) {
-      setStep(step + 1);
-    }
+    updateField('photos', formData.photos.filter((_, i) => i !== index));
   };
 
   const handleBack = () => {
@@ -135,6 +109,24 @@ export default function ListingCreate() {
     } else {
       router.back();
     }
+  };
+
+  const handleNext = () => {
+    if (step === 1 && !formData.type) {
+      Alert.alert('Erreur', 'Veuillez sélectionner un type d\'annonce');
+      return;
+    }
+    if (step === 2) {
+      if (!formData.title.trim()) {
+        Alert.alert('Erreur', 'Veuillez entrer un titre');
+        return;
+      }
+      if (!formData.city) {
+        Alert.alert('Erreur', 'Veuillez sélectionner une ville');
+        return;
+      }
+    }
+    setStep(step + 1);
   };
 
   const handleSubmit = async () => {
@@ -146,12 +138,12 @@ export default function ListingCreate() {
         description: formData.description.trim() || null,
         price: formData.price ? parseFloat(formData.price) : null,
         negotiable: formData.negotiable,
-        city: formData.city?.city || null,
-        postal_code: formData.city?.postcode || null,
-        region: formData.city?.region || null,
-        department: formData.city?.department || null,
-        latitude: formData.city?.latitude || null,
-        longitude: formData.city?.longitude || null,
+        city: formData.city?.city,
+        postal_code: formData.city?.postcode,
+        region: formData.city?.region,
+        department: formData.city?.department,
+        latitude: formData.city?.latitude,
+        longitude: formData.city?.longitude,
         characteristics: {
           surface_m2: formData.characteristics.surface_m2 ? parseInt(formData.characteristics.surface_m2) : null,
           staff_count: formData.characteristics.staff_count ? parseInt(formData.characteristics.staff_count) : null,
@@ -169,8 +161,7 @@ export default function ListingCreate() {
         status: 'active',
       };
 
-      const { data, error } = await createListing(listingData);
-
+      const { error } = await createListing(listingData);
       if (error) throw error;
 
       Alert.alert('Succès', 'Votre annonce a été publiée', [
@@ -201,7 +192,7 @@ export default function ListingCreate() {
   const renderStep1 = () => (
     <View style={styles.stepContent}>
       <Text style={styles.stepTitle}>Type d'annonce</Text>
-      <Text style={styles.stepSubtitle}>Que souhaitez-vous faire ?</Text>
+      <Text style={commonStyles.hint}>Que souhaitez-vous faire ?</Text>
 
       <View style={styles.typeCards}>
         {LISTING_TYPES.map((type) => (
@@ -229,7 +220,7 @@ export default function ListingCreate() {
             ]}>
               {type.label}
             </Text>
-            <Text style={styles.typeDescription}>{type.description}</Text>
+            <Text style={commonStyles.hint}>{type.description}</Text>
           </Pressable>
         ))}
       </View>
@@ -270,8 +261,8 @@ export default function ListingCreate() {
         >
           <Text style={styles.toggleLabel}>Prix négociable</Text>
           <View style={[
-            styles.toggle,
-            formData.negotiable && styles.toggleActive,
+            commonStyles.checkbox,
+            formData.negotiable && commonStyles.checkboxChecked,
           ]}>
             {formData.negotiable && <Icon name="check" size={14} color="white" />}
           </View>
@@ -280,12 +271,12 @@ export default function ListingCreate() {
         <View style={styles.textAreaContainer}>
           <TextInput
             style={styles.textArea}
-            placeholder="Description (optionnel)"
+            placeholder="Description détaillée..."
             placeholderTextColor={theme.colors.textLight}
-            multiline
-            numberOfLines={4}
             value={formData.description}
             onChangeText={(v) => updateField('description', v)}
+            multiline
+            numberOfLines={6}
           />
         </View>
       </View>
@@ -297,20 +288,18 @@ export default function ListingCreate() {
       <Text style={styles.stepTitle}>Caractéristiques</Text>
 
       <View style={styles.formSection}>
-        <View style={styles.row}>
-          <View style={styles.halfInput}>
+        <View style={commonStyles.formRow}>
+          <View style={commonStyles.formHalf}>
             <Input
-              icon={<Icon name="home" size={22} color={theme.colors.textLight} />}
               placeholder="Surface (m²)"
               keyboardType="numeric"
               value={formData.characteristics.surface_m2}
               onChangeText={(v) => updateCharacteristic('surface_m2', v)}
             />
           </View>
-          <View style={styles.halfInput}>
+          <View style={commonStyles.formHalf}>
             <Input
-              icon={<Icon name="users" size={22} color={theme.colors.textLight} />}
-              placeholder="Effectif"
+              placeholder="Employés"
               keyboardType="numeric"
               value={formData.characteristics.staff_count}
               onChangeText={(v) => updateCharacteristic('staff_count', v)}
@@ -318,19 +307,17 @@ export default function ListingCreate() {
           </View>
         </View>
 
-        <View style={styles.row}>
-          <View style={styles.halfInput}>
+        <View style={commonStyles.formRow}>
+          <View style={commonStyles.formHalf}>
             <Input
-              icon={<Icon name="briefcase" size={22} color={theme.colors.textLight} />}
               placeholder="CA annuel (€)"
               keyboardType="numeric"
               value={formData.characteristics.annual_revenue}
               onChangeText={(v) => updateCharacteristic('annual_revenue', v)}
             />
           </View>
-          <View style={styles.halfInput}>
+          <View style={commonStyles.formHalf}>
             <Input
-              icon={<Icon name="star" size={22} color={theme.colors.textLight} />}
               placeholder="Bénéfice (€)"
               keyboardType="numeric"
               value={formData.characteristics.annual_profit}
@@ -340,52 +327,47 @@ export default function ListingCreate() {
         </View>
 
         <Input
-          icon={<Icon name="clock" size={22} color={theme.colors.textLight} />}
-          placeholder="Horaires (ex: 9h-19h)"
+          placeholder="Horaires d'ouverture"
           value={formData.characteristics.opening_hours}
           onChangeText={(v) => updateCharacteristic('opening_hours', v)}
         />
 
-        <Text style={styles.subsectionTitle}>Équipements</Text>
-        <View style={styles.equipmentRow}>
-          {[
-            { key: 'parking', label: '🅿️ Parking' },
-            { key: 'has_robot', label: '🤖 Robot' },
-            { key: 'has_lab', label: '🔬 Labo' },
-            { key: 'has_drive', label: '🚗 Drive' },
-          ].map((item) => (
-            <Pressable
-              key={item.key}
-              style={[
-                styles.equipmentChip,
-                formData.characteristics[item.key] && styles.equipmentChipSelected,
-              ]}
-              onPress={() => updateCharacteristic(item.key, !formData.characteristics[item.key])}
-            >
-              <Text style={[
-                styles.equipmentChipText,
-                formData.characteristics[item.key] && styles.equipmentChipTextSelected,
-              ]}>
-                {item.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <Text style={commonStyles.label}>Équipements</Text>
+        {[
+          { key: 'parking', label: 'Parking client' },
+          { key: 'has_robot', label: 'Robot de dispensation' },
+          { key: 'has_lab', label: 'Préparations magistrales' },
+          { key: 'has_drive', label: 'Drive / Click & Collect' },
+        ].map((item) => (
+          <Pressable
+            key={item.key}
+            style={styles.toggleRow}
+            onPress={() => updateCharacteristic(item.key, !formData.characteristics[item.key])}
+          >
+            <Text style={styles.toggleLabel}>{item.label}</Text>
+            <View style={[
+              commonStyles.checkbox,
+              formData.characteristics[item.key] && commonStyles.checkboxChecked,
+            ]}>
+              {formData.characteristics[item.key] && <Icon name="check" size={14} color="white" />}
+            </View>
+          </Pressable>
+        ))}
 
-        <Text style={styles.subsectionTitle}>À proximité</Text>
-        <View style={styles.nearbyGrid}>
+        <Text style={commonStyles.label}>À proximité</Text>
+        <View style={commonStyles.chipsContainer}>
           {NEARBY_OPTIONS.map((item) => (
             <Pressable
               key={item}
               style={[
-                styles.nearbyChip,
-                formData.characteristics.nearby?.includes(item) && styles.nearbyChipSelected,
+                commonStyles.chip,
+                formData.characteristics.nearby?.includes(item) && commonStyles.chipActive,
               ]}
               onPress={() => toggleNearby(item)}
             >
               <Text style={[
-                styles.nearbyChipText,
-                formData.characteristics.nearby?.includes(item) && styles.nearbyChipTextSelected,
+                commonStyles.chipText,
+                formData.characteristics.nearby?.includes(item) && commonStyles.chipTextActive,
               ]}>
                 {item}
               </Text>
@@ -398,32 +380,10 @@ export default function ListingCreate() {
 
   const renderStep4 = () => (
     <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
-      <Text style={styles.stepTitle}>Confidentialité & Photos</Text>
+      <Text style={styles.stepTitle}>Photos & Confidentialité</Text>
 
       <View style={styles.formSection}>
-        <View style={styles.privacyCard}>
-          <View style={styles.privacyHeader}>
-            <Icon name="lock" size={24} color={theme.colors.primary} />
-            <Text style={styles.privacyTitle}>Mode anonyme</Text>
-            <Pressable
-              style={[
-                styles.toggle,
-                styles.toggleLarge,
-                formData.anonymized && styles.toggleActive,
-              ]}
-              onPress={() => updateField('anonymized', !formData.anonymized)}
-            >
-              {formData.anonymized && <Icon name="check" size={16} color="white" />}
-            </Pressable>
-          </View>
-          <Text style={styles.privacyDescription}>
-            {formData.anonymized
-              ? 'Votre ville exacte et le prix précis seront masqués. Seule la région sera visible.'
-              : 'Toutes les informations seront visibles publiquement.'}
-          </Text>
-        </View>
-
-        <Text style={styles.subsectionTitle}>Photos (max 10)</Text>
+        <Text style={commonStyles.label}>Photos (max 10)</Text>
         <ImagePickerBox
           values={formData.photos}
           onAdd={handleAddPhoto}
@@ -433,14 +393,28 @@ export default function ListingCreate() {
           loading={photoLoading}
         />
 
-        {formData.anonymized && (
-          <View style={styles.warningBox}>
-            <Icon name="alertCircle" size={20} color={theme.colors.warning} />
-            <Text style={styles.warningText}>
-              En mode anonyme, évitez les photos montrant le nom ou l'adresse de la pharmacie.
-            </Text>
+        <View style={styles.privacyCard}>
+          <View style={commonStyles.rowBetween}>
+            <View style={commonStyles.rowGapSmall}>
+              <Icon name="shield" size={20} color={theme.colors.primary} />
+              <Text style={styles.privacyTitle}>Mode anonyme</Text>
+            </View>
+            <Pressable
+              style={[
+                styles.toggleLarge,
+                formData.anonymized && commonStyles.checkboxChecked,
+              ]}
+              onPress={() => updateField('anonymized', !formData.anonymized)}
+            >
+              {formData.anonymized && <Icon name="check" size={16} color="white" />}
+            </Pressable>
           </View>
-        )}
+          <Text style={commonStyles.hint}>
+            {formData.anonymized
+              ? 'Votre ville exacte et le prix précis seront masqués.'
+              : 'Toutes les informations seront visibles publiquement.'}
+          </Text>
+        </View>
       </View>
     </ScrollView>
   );
@@ -448,7 +422,7 @@ export default function ListingCreate() {
   return (
     <ScreenWrapper bg={theme.colors.background}>
       <StatusBar style="dark" />
-      <View style={styles.container}>
+      <View style={commonStyles.flex1}>
         <View style={styles.header}>
           <Pressable onPress={handleBack}>
             <Icon name="arrowLeft" size={24} color={theme.colors.text} />
@@ -464,7 +438,7 @@ export default function ListingCreate() {
         {step === 3 && renderStep3()}
         {step === 4 && renderStep4()}
 
-        <View style={styles.footer}>
+        <View style={commonStyles.footer}>
           {step < 4 ? (
             <Button title="Continuer" onPress={handleNext} />
           ) : (
@@ -477,15 +451,13 @@ export default function ListingCreate() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingTop: hp(2),
-  },
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: wp(5),
+    paddingTop: hp(2),
     marginBottom: hp(2),
   },
   headerTitle: {
@@ -493,6 +465,8 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.semiBold,
     color: theme.colors.text,
   },
+
+  // Steps
   stepIndicator: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -521,13 +495,11 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     marginBottom: hp(0.5),
   },
-  stepSubtitle: {
-    fontSize: hp(1.6),
-    color: theme.colors.textLight,
-    marginBottom: hp(3),
-  },
+
+  // Type cards
   typeCards: {
     gap: hp(2),
+    marginTop: hp(2),
   },
   typeCard: {
     backgroundColor: theme.colors.card,
@@ -561,21 +533,12 @@ const styles = StyleSheet.create({
   typeLabelSelected: {
     color: theme.colors.primary,
   },
-  typeDescription: {
-    fontSize: hp(1.4),
-    color: theme.colors.textLight,
-    marginTop: hp(0.3),
-  },
+
+  // Form
   formSection: {
     gap: hp(2),
     paddingBottom: hp(4),
-  },
-  row: {
-    flexDirection: 'row',
-    gap: wp(3),
-  },
-  halfInput: {
-    flex: 1,
+    marginTop: hp(2),
   },
   toggleRow: {
     flexDirection: 'row',
@@ -591,23 +554,14 @@ const styles = StyleSheet.create({
     fontSize: hp(1.7),
     color: theme.colors.text,
   },
-  toggle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: theme.colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   toggleLarge: {
     width: 32,
     height: 32,
     borderRadius: 16,
-  },
-  toggleActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   textAreaContainer: {
     backgroundColor: theme.colors.card,
@@ -622,103 +576,19 @@ const styles = StyleSheet.create({
     minHeight: hp(12),
     textAlignVertical: 'top',
   },
-  subsectionTitle: {
-    fontSize: hp(1.7),
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.text,
-    marginTop: hp(1),
-  },
-  equipmentRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: wp(2),
-  },
-  equipmentChip: {
-    paddingHorizontal: wp(4),
-    paddingVertical: hp(1.2),
-    borderRadius: theme.radius.lg,
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  equipmentChipSelected: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  equipmentChipText: {
-    fontSize: hp(1.5),
-    color: theme.colors.text,
-  },
-  equipmentChipTextSelected: {
-    color: 'white',
-  },
-  nearbyGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: wp(2),
-  },
-  nearbyChip: {
-    paddingHorizontal: wp(3),
-    paddingVertical: hp(0.8),
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  nearbyChipSelected: {
-    backgroundColor: theme.colors.primary + '15',
-    borderColor: theme.colors.primary,
-  },
-  nearbyChipText: {
-    fontSize: hp(1.4),
-    color: theme.colors.textLight,
-  },
-  nearbyChipTextSelected: {
-    color: theme.colors.primary,
-    fontFamily: theme.fonts.medium,
-  },
+
+  // Privacy
   privacyCard: {
     backgroundColor: theme.colors.card,
     borderRadius: theme.radius.xl,
     padding: hp(2),
     borderWidth: 1,
     borderColor: theme.colors.border,
-  },
-  privacyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: wp(3),
-    marginBottom: hp(1),
+    gap: hp(1),
   },
   privacyTitle: {
-    flex: 1,
     fontSize: hp(1.8),
     fontFamily: theme.fonts.semiBold,
     color: theme.colors.text,
-  },
-  privacyDescription: {
-    fontSize: hp(1.5),
-    color: theme.colors.textLight,
-    lineHeight: hp(2.2),
-  },
-  warningBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: wp(3),
-    backgroundColor: theme.colors.warning + '15',
-    padding: hp(2),
-    borderRadius: theme.radius.lg,
-  },
-  warningText: {
-    flex: 1,
-    fontSize: hp(1.4),
-    color: theme.colors.text,
-    lineHeight: hp(2),
-  },
-  footer: {
-    paddingHorizontal: wp(5),
-    paddingVertical: hp(2),
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
   },
 });

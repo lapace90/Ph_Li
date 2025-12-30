@@ -15,9 +15,9 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { hp, wp } from '../../helpers/common';
 import { theme } from '../../constants/theme';
+import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCVs } from '../../hooks/useCVs';
-import { commonStyles } from '../../constants/styles';
 import {
     EMPTY_CV_STRUCTURE,
     ALL_SKILLS,
@@ -55,7 +55,6 @@ export default function CVCreate() {
     const [visibility, setVisibility] = useState('anonymous');
     const [cvData, setCvData] = useState({ ...EMPTY_CV_STRUCTURE });
 
-    // Modals
     const [showExpModal, setShowExpModal] = useState(false);
     const [editingExp, setEditingExp] = useState(null);
     const [showFormModal, setShowFormModal] = useState(false);
@@ -63,7 +62,6 @@ export default function CVCreate() {
 
     const scrollRef = useRef(null);
 
-    // Navigation entre étapes
     const goToStep = (index) => {
         if (index >= 0 && index < STEPS.length) {
             setCurrentStep(index);
@@ -74,7 +72,6 @@ export default function CVCreate() {
     const nextStep = () => goToStep(currentStep + 1);
     const prevStep = () => goToStep(currentStep - 1);
 
-    // Gestion des expériences
     const handleSaveExperience = (exp) => {
         setCvData(prev => {
             const existing = prev.experiences.findIndex(e => e.id === exp.id);
@@ -111,7 +108,6 @@ export default function CVCreate() {
         );
     };
 
-    // Gestion des formations
     const handleSaveFormation = (form) => {
         setCvData(prev => {
             const existing = prev.formations.findIndex(f => f.id === form.id);
@@ -148,7 +144,6 @@ export default function CVCreate() {
         );
     };
 
-    // Toggle compétence/logiciel/certification
     const toggleArrayItem = (field, item) => {
         setCvData(prev => {
             const current = prev[field] || [];
@@ -159,7 +154,6 @@ export default function CVCreate() {
         });
     };
 
-    // Gestion des langues
     const addLanguage = () => {
         setCvData(prev => ({
             ...prev,
@@ -182,7 +176,6 @@ export default function CVCreate() {
         }));
     };
 
-    // Soumission finale
     const handleSubmit = async () => {
         if (!title.trim()) {
             Alert.alert('Erreur', 'Veuillez donner un titre à votre CV');
@@ -215,7 +208,6 @@ export default function CVCreate() {
         }
     };
 
-    // Rendu des étapes
     const renderStepInfo = () => (
         <View style={styles.stepContent}>
             <Text style={styles.stepTitle}>Informations générales</Text>
@@ -264,14 +256,13 @@ export default function CVCreate() {
             <View style={commonStyles.formGroup}>
                 <Text style={commonStyles.label}>Résumé / À propos</Text>
                 <TextInput
-                    style={[commonStyles.input, styles.textArea]}
+                    style={[commonStyles.textArea, styles.textAreaLarge]}
                     placeholder="Présentez-vous en quelques lignes : votre parcours, vos points forts, ce que vous recherchez..."
                     placeholderTextColor={theme.colors.textLight}
                     value={cvData.summary}
                     onChangeText={(v) => setCvData(prev => ({ ...prev, summary: v }))}
                     multiline
                     numberOfLines={5}
-                    textAlignVertical="top"
                     maxLength={500}
                 />
                 <Text style={styles.charCount}>{cvData.summary?.length || 0}/500</Text>
@@ -297,7 +288,7 @@ export default function CVCreate() {
             {cvData.experiences.length === 0 ? (
                 <View style={styles.emptyState}>
                     <Icon name="briefcase" size={40} color={theme.colors.gray} />
-                    <Text style={styles.emptyText}>Aucune expérience ajoutée</Text>
+                    <Text style={commonStyles.emptyText}>Aucune expérience ajoutée</Text>
                     <Pressable
                         style={styles.emptyButton}
                         onPress={() => {
@@ -310,10 +301,10 @@ export default function CVCreate() {
                 </View>
             ) : (
                 <View style={styles.itemsList}>
-                    {cvData.experiences.map((exp, index) => (
+                    {cvData.experiences.map((exp) => (
                         <Pressable
                             key={exp.id}
-                            style={styles.itemCard}
+                            style={commonStyles.listItem}
                             onPress={() => {
                                 setEditingExp(exp);
                                 setShowExpModal(true);
@@ -322,10 +313,10 @@ export default function CVCreate() {
                             <View style={styles.itemIcon}>
                                 <Icon name="briefcase" size={20} color={theme.colors.primary} />
                             </View>
-                            <View style={styles.itemInfo}>
-                                <Text style={styles.itemTitle}>{exp.job_title}</Text>
+                            <View style={commonStyles.listItemContent}>
+                                <Text style={commonStyles.listItemTitle}>{exp.job_title}</Text>
                                 <Text style={styles.itemSubtitle}>{exp.company_name || 'Structure non renseignée'}</Text>
-                                <Text style={styles.itemMeta}>
+                                <Text style={commonStyles.listItemSubtitle}>
                                     {exp.start_date} - {exp.is_current ? 'Présent' : exp.end_date}
                                 </Text>
                             </View>
@@ -355,7 +346,7 @@ export default function CVCreate() {
             {cvData.formations.length === 0 ? (
                 <View style={styles.emptyState}>
                     <Icon name="book" size={40} color={theme.colors.gray} />
-                    <Text style={styles.emptyText}>Aucune formation ajoutée</Text>
+                    <Text style={commonStyles.emptyText}>Aucune formation ajoutée</Text>
                     <Pressable
                         style={styles.emptyButton}
                         onPress={() => {
@@ -371,7 +362,7 @@ export default function CVCreate() {
                     {cvData.formations.map((form) => (
                         <Pressable
                             key={form.id}
-                            style={styles.itemCard}
+                            style={commonStyles.listItem}
                             onPress={() => {
                                 setEditingForm(form);
                                 setShowFormModal(true);
@@ -380,10 +371,10 @@ export default function CVCreate() {
                             <View style={[styles.itemIcon, { backgroundColor: theme.colors.secondary + '15' }]}>
                                 <Icon name="book" size={20} color={theme.colors.secondary} />
                             </View>
-                            <View style={styles.itemInfo}>
-                                <Text style={styles.itemTitle}>{form.diploma_name || form.diploma_type}</Text>
+                            <View style={commonStyles.listItemContent}>
+                                <Text style={commonStyles.listItemTitle}>{form.diploma_name || form.diploma_type}</Text>
                                 <Text style={styles.itemSubtitle}>{form.school_name || 'Établissement non renseigné'}</Text>
-                                <Text style={styles.itemMeta}>{form.year}</Text>
+                                <Text style={commonStyles.listItemSubtitle}>{form.year}</Text>
                             </View>
                             <Icon name="chevronRight" size={20} color={theme.colors.textLight} />
                         </Pressable>
@@ -424,7 +415,6 @@ export default function CVCreate() {
                         />
                     </Pressable>
 
-                    {/* Sélection visible même fermé */}
                     {!isExpanded && hasSelection && (
                         <View style={styles.accordionPreview}>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -444,7 +434,6 @@ export default function CVCreate() {
                         </View>
                     )}
 
-                    {/* Contenu expandé */}
                     {isExpanded && (
                         <View style={commonStyles.accordionContent}>
                             {content}
@@ -461,9 +450,8 @@ export default function CVCreate() {
                 contentContainerStyle={{ paddingBottom: hp(4) }}
             >
                 <Text style={styles.stepTitle}>Compétences & Qualifications</Text>
-                <Text style={styles.stepSubtitle}>Touchez une section pour la développer</Text>
+                <Text style={commonStyles.hint}>Touchez une section pour la développer</Text>
 
-                {/* Compétences */}
                 {renderAccordion(
                     'skills',
                     'Compétences',
@@ -490,7 +478,6 @@ export default function CVCreate() {
                     cvData.skills || []
                 )}
 
-                {/* Logiciels */}
                 {renderAccordion(
                     'software',
                     'Logiciels',
@@ -501,7 +488,7 @@ export default function CVCreate() {
                                 key={soft.value}
                                 style={[
                                     commonStyles.chip,
-                                    cvData.software?.includes(soft.label) && styles.chipActiveSoftware,
+                                    cvData.software?.includes(soft.label) && commonStyles.chipActiveSecondary,
                                 ]}
                                 onPress={() => toggleArrayItem('software', soft.label)}
                             >
@@ -517,7 +504,6 @@ export default function CVCreate() {
                     cvData.software || []
                 )}
 
-                {/* Certifications */}
                 {renderAccordion(
                     'certifications',
                     'Certifications',
@@ -530,7 +516,7 @@ export default function CVCreate() {
                                     key={cert.value}
                                     style={[
                                         commonStyles.chip,
-                                        isSelected && styles.chipActiveCert,
+                                        isSelected && commonStyles.chipActiveSuccess,
                                     ]}
                                     onPress={() => {
                                         if (isSelected) {
@@ -559,7 +545,6 @@ export default function CVCreate() {
                     cvData.certifications || []
                 )}
 
-                {/* Langues */}
                 {renderAccordion(
                     'languages',
                     'Langues',
@@ -567,33 +552,29 @@ export default function CVCreate() {
                     <View style={styles.languagesContainer}>
                         {cvData.languages.map((lang, index) => (
                             <View key={index} style={styles.languageCard}>
-                                <View style={styles.languageHeader}>
+                                <View style={commonStyles.rowBetween}>
                                     <Text style={styles.languageNumber}>Langue {index + 1}</Text>
                                     {index > 0 && (
-                                        <Pressable
-                                            style={styles.removeLanguageButton}
-                                            onPress={() => removeLanguage(index)}
-                                        >
+                                        <Pressable onPress={() => removeLanguage(index)}>
                                             <Icon name="trash" size={16} color={theme.colors.rose} />
                                         </Pressable>
                                     )}
                                 </View>
 
-                                {/* Sélection de la langue */}
-                                <Text style={styles.languageLabel}>Langue</Text>
-                                <View style={styles.languageOptions}>
+                                <Text style={commonStyles.labelSmall}>Langue</Text>
+                                <View style={commonStyles.chipsContainerCompact}>
                                     {LANGUAGES.map((l) => (
                                         <Pressable
                                             key={l.value}
                                             style={[
-                                                styles.languageOption,
-                                                lang.language === l.value && styles.languageOptionActive,
+                                                commonStyles.chipSmall,
+                                                lang.language === l.value && commonStyles.chipActive,
                                             ]}
                                             onPress={() => updateLanguage(index, 'language', l.value)}
                                         >
                                             <Text style={[
-                                                styles.languageOptionText,
-                                                lang.language === l.value && styles.languageOptionTextActive,
+                                                commonStyles.chipTextSmall,
+                                                lang.language === l.value && commonStyles.chipTextActive,
                                             ]}>
                                                 {l.label}
                                             </Text>
@@ -601,21 +582,20 @@ export default function CVCreate() {
                                     ))}
                                 </View>
 
-                                {/* Niveau */}
-                                <Text style={styles.languageLabel}>Niveau</Text>
-                                <View style={styles.levelOptions}>
+                                <Text style={commonStyles.labelSmall}>Niveau</Text>
+                                <View style={commonStyles.chipsContainerCompact}>
                                     {LANGUAGE_LEVELS.map((level) => (
                                         <Pressable
                                             key={level.value}
                                             style={[
-                                                styles.levelOption,
-                                                lang.level === level.value && styles.levelOptionActive,
+                                                commonStyles.chipSmall,
+                                                lang.level === level.value && commonStyles.chipActiveSecondary,
                                             ]}
                                             onPress={() => updateLanguage(index, 'level', level.value)}
                                         >
                                             <Text style={[
-                                                styles.levelOptionText,
-                                                lang.level === level.value && styles.levelOptionTextActive,
+                                                commonStyles.chipTextSmall,
+                                                lang.level === level.value && commonStyles.chipTextActive,
                                             ]}>
                                                 {level.label}
                                             </Text>
@@ -625,10 +605,8 @@ export default function CVCreate() {
                             </View>
                         ))}
 
-                        {/* Bouton ajouter langue */}
-                        <Pressable style={styles.addLanguageButton} onPress={addLanguage}>
-                            <Icon name="plus" size={18} color={theme.colors.primary} />
-                            <Text style={styles.addLanguageText}>Ajouter une langue</Text>
+                        <Pressable style={commonStyles.buttonOutline} onPress={addLanguage}>
+                            <Text style={commonStyles.buttonOutlineText}>+ Ajouter une langue</Text>
                         </Pressable>
                     </View>,
                     cvData.languages || []
@@ -645,7 +623,7 @@ export default function CVCreate() {
                 profile={profile}
                 mode={visibility}
                 showToggle={true}
-                style={styles.previewContainer}
+                style={commonStyles.flex1}
             />
         </View>
     );
@@ -668,14 +646,12 @@ export default function CVCreate() {
                 style={commonStyles.flex1}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
-                {/* Header */}
                 <View style={commonStyles.headerNoBorder}>
                     <BackButton router={router} />
-                    <Text style={commonStyles.headerTitle}>Créer un CV</Text>
-                    <View style={{ width: 36 }} />
+                    <Text style={styles.headerTitle}>Créer un CV</Text>
+                    <View style={commonStyles.headerSpacer} />
                 </View>
 
-                {/* Steps indicator */}
                 <View style={styles.stepsIndicator}>
                     {STEPS.map((step, index) => (
                         <Pressable
@@ -696,18 +672,16 @@ export default function CVCreate() {
                     ))}
                 </View>
 
-                {/* Content */}
                 <ScrollView
                     ref={scrollRef}
-                    style={styles.scrollView}
+                    style={commonStyles.flex1}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
                 >
                     {renderCurrentStep()}
                 </ScrollView>
 
-                {/* Footer navigation */}
-                <View style={[commonStyles.footer, { flexDirection: 'row', alignItems: 'center' }]}>
+                <View style={styles.footerNav}>
                     {currentStep > 0 && (
                         <Pressable style={styles.prevButton} onPress={prevStep}>
                             <Icon name="arrowLeft" size={20} color={theme.colors.text} />
@@ -725,12 +699,11 @@ export default function CVCreate() {
                             title="Enregistrer le CV"
                             loading={loading}
                             onPress={handleSubmit}
-                            buttonStyle={styles.submitButton}
+                            buttonStyle={commonStyles.flex1}
                         />
                     )}
                 </View>
 
-                {/* Modal Expérience */}
                 <Modal
                     visible={showExpModal}
                     animationType="slide"
@@ -751,7 +724,6 @@ export default function CVCreate() {
                     />
                 </Modal>
 
-                {/* Modal Formation */}
                 <Modal
                     visible={showFormModal}
                     animationType="slide"
@@ -771,29 +743,20 @@ export default function CVCreate() {
                         onDelete={editingForm ? handleDeleteFormation : undefined}
                     />
                 </Modal>
-
-                {/* Modal Formation */}
-                <Modal
-                    visible={showFormModal}
-                    animationType="slide"
-                    presentationStyle="pageSheet"
-                >
-                    <CVFormFormation
-                        formation={editingForm}
-                        onSave={handleSaveFormation}
-                        onCancel={() => {
-                            setShowFormModal(false);
-                            setEditingForm(null);
-                        }}
-                        onDelete={editingForm ? handleDeleteFormation : undefined}
-                    />
-                </Modal>
             </KeyboardAvoidingView>
         </ScreenWrapper>
     );
 }
 
 const styles = StyleSheet.create({
+    // Header
+    headerTitle: {
+        fontSize: hp(2),
+        fontFamily: theme.fonts.semiBold,
+        color: theme.colors.text,
+    },
+
+    // Steps wizard
     stepsIndicator: {
         flexDirection: 'row',
         justifyContent: 'center',
@@ -845,9 +808,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    textArea: {
+
+    // Form
+    textAreaLarge: {
         minHeight: hp(12),
-        textAlignVertical: 'top',
     },
     charCount: {
         fontSize: hp(1.2),
@@ -855,6 +819,8 @@ const styles = StyleSheet.create({
         textAlign: 'right',
         marginTop: hp(0.5),
     },
+
+    // Visibility
     visibilityRow: {
         flexDirection: 'row',
         gap: wp(3),
@@ -889,15 +855,13 @@ const styles = StyleSheet.create({
     visibilityHintActive: {
         color: 'rgba(255,255,255,0.8)',
     },
+
+    // Empty state
     emptyState: {
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: hp(6),
         gap: hp(1),
-    },
-    emptyText: {
-        fontSize: hp(1.6),
-        color: theme.colors.textLight,
     },
     emptyButton: {
         marginTop: hp(1),
@@ -911,15 +875,10 @@ const styles = StyleSheet.create({
         color: theme.colors.primary,
         fontFamily: theme.fonts.medium,
     },
+
+    // Items list
     itemsList: {
         gap: hp(1.5),
-    },
-    itemCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: theme.colors.card,
-        borderRadius: theme.radius.xl,
-        padding: hp(1.5),
     },
     itemIcon: {
         width: 44,
@@ -929,131 +888,62 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    itemInfo: {
-        flex: 1,
-        marginLeft: wp(3),
-    },
-    itemTitle: {
-        fontSize: hp(1.6),
-        fontFamily: theme.fonts.semiBold,
-        color: theme.colors.text,
-    },
     itemSubtitle: {
         fontSize: hp(1.4),
         color: theme.colors.primary,
     },
-    itemMeta: {
-        fontSize: hp(1.3),
-        color: theme.colors.textLight,
-        marginTop: hp(0.2),
+
+    // Accordion preview
+    accordionPreview: {
+        paddingHorizontal: hp(2),
+        paddingBottom: hp(1.5),
     },
-    section: {
-        marginBottom: hp(2.5),
-    },
-    sectionHeader: {
+    previewChips: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: hp(1),
+        gap: wp(1.5),
     },
-    sectionTitle: {
-        fontSize: hp(1.8),
+    previewChip: {
+        backgroundColor: theme.colors.primary + '15',
+        paddingHorizontal: wp(2),
+        paddingVertical: hp(0.4),
+        borderRadius: theme.radius.sm,
+        maxWidth: wp(25),
+    },
+    previewChipText: {
+        fontSize: hp(1.2),
+        color: theme.colors.primary,
+    },
+    previewMore: {
+        fontSize: hp(1.2),
+        color: theme.colors.textLight,
+        alignSelf: 'center',
+    },
+
+    // Languages
+    languagesContainer: {
+        gap: hp(1.5),
+    },
+    languageCard: {
+        backgroundColor: theme.colors.background,
+        borderRadius: theme.radius.lg,
+        padding: hp(1.5),
+        gap: hp(1),
+    },
+    languageNumber: {
+        fontSize: hp(1.4),
         fontFamily: theme.fonts.semiBold,
         color: theme.colors.text,
-        marginBottom: hp(0.5),
     },
-    addSmallButton: {
+
+    // Footer nav
+    footerNav: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: wp(1),
-    },
-    addSmallText: {
-        fontSize: hp(1.4),
-        color: theme.colors.primary,
-        fontFamily: theme.fonts.medium,
-    },
-    chipsContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: wp(2),
-    },
-    chipSoftware: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: wp(1),
-        borderColor: theme.colors.secondary + '50',
-    },
-    chipSoftwareActive: {
-        backgroundColor: theme.colors.secondary,
-        borderColor: theme.colors.secondary,
-    },
-    chipTextSoftware: {
-        color: theme.colors.secondary,
-    },
-    chipCert: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: wp(1),
-        borderColor: theme.colors.success + '50',
-    },
-    chipCertActive: {
-        backgroundColor: theme.colors.success,
-        borderColor: theme.colors.success,
-    },
-    languageRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: hp(1),
-        gap: wp(2),
-    },
-    languageSelect: {
-        flex: 2,
-    },
-    levelSelect: {
-        flex: 1.5,
-        flexDirection: 'row',
-        gap: wp(1),
-    },
-    langChip: {
-        paddingHorizontal: wp(2.5),
-        paddingVertical: hp(0.6),
-        borderRadius: theme.radius.md,
-        backgroundColor: theme.colors.card,
-        marginRight: wp(1),
-    },
-    langChipActive: {
-        backgroundColor: theme.colors.primary,
-    },
-    langChipText: {
-        fontSize: hp(1.3),
-        color: theme.colors.text,
-    },
-    langChipTextActive: {
-        color: 'white',
-    },
-    levelChip: {
-        flex: 1,
-        paddingVertical: hp(0.6),
-        borderRadius: theme.radius.md,
-        backgroundColor: theme.colors.card,
-        alignItems: 'center',
-    },
-    levelChipActive: {
-        backgroundColor: theme.colors.secondary,
-    },
-    levelChipText: {
-        fontSize: hp(1.1),
-        color: theme.colors.text,
-    },
-    levelChipTextActive: {
-        color: 'white',
-    },
-    removeButton: {
-        padding: wp(1),
-    },
-    previewContainer: {
-        flex: 1,
-        marginTop: hp(1),
+        paddingHorizontal: wp(5),
+        paddingVertical: hp(2),
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.border,
+        backgroundColor: theme.colors.background,
     },
     prevButton: {
         flexDirection: 'row',
@@ -1081,142 +971,5 @@ const styles = StyleSheet.create({
         fontSize: hp(1.6),
         fontFamily: theme.fonts.semiBold,
         color: 'white',
-    },
-    submitButton: {
-        flex: 1,
-    },
-    // Accordéon styles
-    stepSubtitle: {
-        fontSize: hp(1.4),
-        color: theme.colors.textLight,
-        marginBottom: hp(2),
-    },
-    accordionPreview: {
-        paddingHorizontal: hp(2),
-        paddingBottom: hp(1.5),
-    },
-    previewChips: {
-        flexDirection: 'row',
-        gap: wp(1.5),
-    },
-    previewChip: {
-        backgroundColor: theme.colors.primary + '15',
-        paddingHorizontal: wp(2),
-        paddingVertical: hp(0.4),
-        borderRadius: theme.radius.sm,
-        maxWidth: wp(25),
-    },
-    previewChipText: {
-        fontSize: hp(1.2),
-        color: theme.colors.primary,
-    },
-    previewMore: {
-        fontSize: hp(1.2),
-        color: theme.colors.textLight,
-        alignSelf: 'center',
-    },
-    chipActiveSoftware: {
-        backgroundColor: theme.colors.secondary,
-        borderColor: theme.colors.secondary,
-    },
-    chipActiveCert: {
-        backgroundColor: theme.colors.success,
-        borderColor: theme.colors.success,
-    },
-
-    // Langues styles
-    languagesContainer: {
-        gap: hp(1.5),
-    },
-    languageCard: {
-        backgroundColor: theme.colors.background,
-        borderRadius: theme.radius.lg,
-        padding: hp(1.5),
-    },
-    languageHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: hp(1),
-    },
-    languageNumber: {
-        fontSize: hp(1.4),
-        fontFamily: theme.fonts.semiBold,
-        color: theme.colors.text,
-    },
-    removeLanguageButton: {
-        padding: hp(0.5),
-    },
-    languageLabel: {
-        fontSize: hp(1.3),
-        color: theme.colors.textLight,
-        marginBottom: hp(0.5),
-        marginTop: hp(0.5),
-    },
-    languageOptions: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: wp(1.5),
-    },
-    languageOption: {
-        paddingHorizontal: wp(3),
-        paddingVertical: hp(0.6),
-        borderRadius: theme.radius.md,
-        backgroundColor: theme.colors.card,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    languageOptionActive: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
-    },
-    languageOptionText: {
-        fontSize: hp(1.3),
-        color: theme.colors.text,
-    },
-    languageOptionTextActive: {
-        color: 'white',
-        fontFamily: theme.fonts.medium,
-    },
-    levelOptions: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: wp(1.5),
-    },
-    levelOption: {
-        paddingHorizontal: wp(2.5),
-        paddingVertical: hp(0.6),
-        borderRadius: theme.radius.md,
-        backgroundColor: theme.colors.card,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    levelOptionActive: {
-        backgroundColor: theme.colors.secondary,
-        borderColor: theme.colors.secondary,
-    },
-    levelOptionText: {
-        fontSize: hp(1.2),
-        color: theme.colors.text,
-    },
-    levelOptionTextActive: {
-        color: 'white',
-        fontFamily: theme.fonts.medium,
-    },
-    addLanguageButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: wp(2),
-        paddingVertical: hp(1.2),
-        borderRadius: theme.radius.lg,
-        borderWidth: 1,
-        borderColor: theme.colors.primary,
-        borderStyle: 'dashed',
-    },
-    addLanguageText: {
-        fontSize: hp(1.4),
-        color: theme.colors.primary,
-        fontFamily: theme.fonts.medium,
     },
 });

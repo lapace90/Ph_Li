@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { hp, wp } from '../../helpers/common';
 import { theme } from '../../constants/theme';
+import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
@@ -41,7 +42,7 @@ export default function Settings() {
   };
 
   const MenuItem = ({ icon, label, onPress, danger = false }) => (
-    <Pressable style={styles.menuItem} onPress={onPress}>
+    <Pressable style={commonStyles.menuItem} onPress={onPress}>
       <Icon name={icon} size={22} color={danger ? theme.colors.rose : theme.colors.text} />
       <Text style={[styles.menuLabel, danger && styles.menuLabelDanger]}>{label}</Text>
       <Icon name="chevronRight" size={20} color={theme.colors.textLight} />
@@ -55,7 +56,7 @@ export default function Settings() {
         <View style={styles.header}>
           <BackButton router={router} />
           <Text style={styles.title}>Paramètres</Text>
-          <View style={{ width: 36 }} />
+          <View style={commonStyles.headerSpacer} />
         </View>
 
         <View style={styles.section}>
@@ -157,14 +158,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     overflow: 'hidden',
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: hp(2),
-    paddingHorizontal: wp(4),
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
   },
   menuLabel: {
     flex: 1,

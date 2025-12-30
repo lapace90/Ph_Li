@@ -1,5 +1,3 @@
-// app/(screens)/editProfile.jsx
-
 import { Alert, ScrollView, StyleSheet, Text, View, Pressable, TextInput } from 'react-native';
 import { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
