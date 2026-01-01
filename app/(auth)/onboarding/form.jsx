@@ -17,22 +17,12 @@ import RadiusSlider from '../../../components/common/RadiusSlider';
 import AvailabilityPicker from '../../../components/common/AvailabilityPicker';
 import ContractTypePicker from '../../../components/common/ContractTypePicker.jsx';
 import RelocationToggle from '../../../components/common/RelocationToggle';
+import { SPECIALIZATIONS } from '../../../constants/profileOptions';
 
 const GENDERS = [
   { value: 'male', label: 'Homme' },
   { value: 'female', label: 'Femme' },
   { value: 'other', label: 'Autre' },
-];
-
-const SPECIALIZATIONS = [
-  'Orthopédie',
-  'Homéopathie',
-  'Phytothérapie',
-  'Aromathérapie',
-  'Dermocosmétique',
-  'Nutrition',
-  'Maintien à domicile',
-  'Vaccination',
 ];
 
 const STUDY_LEVELS = [

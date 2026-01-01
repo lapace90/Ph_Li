@@ -1,9 +1,11 @@
+// app/(screens)/privacySettings.jsx
+
 import { Alert, StyleSheet, Text, View, Switch } from 'react-native';
-import { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { hp, wp } from '../../helpers/common';
 import { theme } from '../../constants/theme';
+import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePrivacy } from '../../hooks/usePrivacy';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
@@ -12,8 +14,10 @@ import Icon from '../../assets/icons/Icon';
 
 export default function PrivacySettings() {
   const router = useRouter();
-  const { session, refreshUserData } = useAuth();
+  const { session, user } = useAuth();
   const { privacy, updatePrivacy } = usePrivacy(session?.user?.id);
+
+  const isRecruiter = user?.user_type === 'titulaire';
 
   const handleToggle = async (key, value) => {
     const { error } = await updatePrivacy({ [key]: value });
@@ -23,13 +27,13 @@ export default function PrivacySettings() {
   };
 
   const SettingRow = ({ icon, title, description, settingKey }) => (
-    <View style={styles.settingRow}>
+    <View style={[commonStyles.card, commonStyles.row, { padding: hp(2) }]}>
       <View style={styles.settingIcon}>
         <Icon name={icon} size={22} color={theme.colors.primary} />
       </View>
-      <View style={styles.settingContent}>
+      <View style={[commonStyles.flex1, { marginLeft: wp(3), marginRight: wp(2) }]}>
         <Text style={styles.settingTitle}>{title}</Text>
-        <Text style={styles.settingDescription}>{description}</Text>
+        <Text style={commonStyles.hint}>{description}</Text>
       </View>
       <Switch
         value={privacy?.[settingKey] || false}
@@ -43,57 +47,99 @@ export default function PrivacySettings() {
   return (
     <ScreenWrapper bg={theme.colors.background}>
       <StatusBar style="dark" />
-      <View style={styles.container}>
-        <View style={styles.header}>
+      <View style={[commonStyles.flex1, { paddingHorizontal: wp(5), paddingTop: hp(2) }]}>
+        {/* Header */}
+        <View style={[commonStyles.rowBetween, { marginBottom: hp(3) }]}>
           <BackButton router={router} />
-          <Text style={styles.title}>Confidentialité</Text>
+          <Text style={commonStyles.headerTitle}>Confidentialité</Text>
           <View style={{ width: 36 }} />
         </View>
 
-        <View style={styles.infoBox}>
+        {/* Info box */}
+        <View style={[commonStyles.row, styles.infoBox]}>
           <Icon name="lock" size={20} color={theme.colors.primary} />
-          <Text style={styles.infoText}>
-            Par défaut, votre profil est anonyme. Seules la région et les informations professionnelles sont visibles aux recruteurs.
+          <Text style={[commonStyles.flex1, commonStyles.hint, { lineHeight: hp(2.2) }]}>
+            {isRecruiter
+              ? 'Contrôlez les informations visibles sur vos annonces et votre profil recruteur.'
+              : 'Par défaut, votre profil est anonyme. Seules la région et les informations professionnelles sont visibles aux recruteurs.'
+            }
           </Text>
         </View>
 
-        <View style={styles.settings}>
-          <SettingRow
-            icon="user"
-            title="Afficher mon nom complet"
-            description="Votre prénom et nom seront visibles"
-            settingKey="show_full_name"
-          />
+        {/* Settings */}
+        <View style={{ gap: hp(1) }}>
+          {isRecruiter ? (
+            // Options pour les recruteurs
+            <>
+              <SettingRow
+                icon="user"
+                title="Afficher mon nom complet"
+                description="Votre nom sera visible sur vos annonces"
+                settingKey="show_full_name"
+              />
 
-          <SettingRow
-            icon="image"
-            title="Afficher ma photo"
-            description="Votre photo de profil sera visible"
-            settingKey="show_photo"
-          />
+              <SettingRow
+                icon="image"
+                title="Afficher ma photo"
+                description="Votre photo de profil sera visible sur vos annonces"
+                settingKey="show_photo"
+              />
 
-          <SettingRow
-            icon="mapPin"
-            title="Afficher ma ville exacte"
-            description="Sinon, seule la région est affichée"
-            settingKey="show_exact_location"
-          />
+              <SettingRow
+                icon="mail"
+                title="Afficher mon email"
+                description="Les candidats pourront vous contacter par email"
+                settingKey="show_email"
+              />
 
-          <SettingRow
-            icon="briefcase"
-            title="Afficher mon employeur actuel"
-            description="Votre employeur actuel sera visible"
-            settingKey="show_current_employer"
-          />
+              <SettingRow
+                icon="mapPin"
+                title="Afficher l'adresse complète"
+                description="Sinon, seule la ville est affichée"
+                settingKey="show_exact_location"
+              />
+            </>
+          ) : (
+            // Options pour les candidats
+            <>
+              <SettingRow
+                icon="user"
+                title="Afficher mon nom complet"
+                description="Votre prénom et nom seront visibles"
+                settingKey="show_full_name"
+              />
 
-          <View style={styles.divider} />
+              <SettingRow
+                icon="image"
+                title="Afficher ma photo"
+                description="Votre photo de profil sera visible"
+                settingKey="show_photo"
+              />
 
-          <SettingRow
-            icon="search"
-            title="Visible par les recruteurs"
-            description="Les employeurs peuvent voir votre profil"
-            settingKey="searchable_by_recruiters"
-          />
+              <SettingRow
+                icon="mapPin"
+                title="Afficher ma ville exacte"
+                description="Sinon, seule la région est affichée"
+                settingKey="show_exact_location"
+              />
+
+              <SettingRow
+                icon="briefcase"
+                title="Afficher mon employeur actuel"
+                description="Votre employeur actuel sera visible"
+                settingKey="show_current_employer"
+              />
+
+              <View style={{ height: hp(1) }} />
+
+              <SettingRow
+                icon="search"
+                title="Visible par les recruteurs"
+                description="Les employeurs peuvent voir votre profil"
+                settingKey="searchable_by_recruiters"
+              />
+            </>
+          )}
         </View>
       </View>
     </ScreenWrapper>
@@ -101,48 +147,13 @@ export default function PrivacySettings() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: wp(5),
-    paddingTop: hp(2),
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: hp(3),
-  },
-  title: {
-    fontSize: hp(2.2),
-    fontFamily: theme.fonts.semiBold,
-    color: theme.colors.text,
-  },
   infoBox: {
-    flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: theme.colors.primary + '10',
     padding: hp(2),
     borderRadius: theme.radius.lg,
     gap: wp(3),
     marginBottom: hp(3),
-  },
-  infoText: {
-    flex: 1,
-    fontSize: hp(1.5),
-    color: theme.colors.text,
-    lineHeight: hp(2.2),
-  },
-  settings: {
-    gap: hp(1),
-  },
-  settingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.card,
-    padding: hp(2),
-    borderRadius: theme.radius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
   },
   settingIcon: {
     width: wp(10),
@@ -152,22 +163,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  settingContent: {
-    flex: 1,
-    marginLeft: wp(3),
-    marginRight: wp(2),
-  },
   settingTitle: {
     fontSize: hp(1.7),
     color: theme.colors.text,
     fontFamily: theme.fonts.medium,
-  },
-  settingDescription: {
-    fontSize: hp(1.4),
-    color: theme.colors.textLight,
-    marginTop: 2,
-  },
-  divider: {
-    height: hp(1),
   },
 });

@@ -22,6 +22,7 @@ const iconMap = {
   check: { lib: 'feather', name: 'check' },
   x: { lib: 'feather', name: 'x' },
   plus: { lib: 'feather', name: 'plus' },
+  minus: { lib: 'feather', name: 'minus' },
   edit: { lib: 'feather', name: 'edit-2' },
   trash: { lib: 'feather', name: 'trash-2' },
   send: { lib: 'feather', name: 'send' },
@@ -85,6 +86,7 @@ const iconMap = {
   download: { lib: 'feather', name: 'download' },
   shield: { lib: 'feather', name: 'shield' },
   award: { lib: 'feather', name: 'award' },
+  maximize: { lib: 'feather', name: 'maximize' },
 
   // Material Icons (per icone non disponibili in Feather)
   school: { lib: 'material', name: 'school' },

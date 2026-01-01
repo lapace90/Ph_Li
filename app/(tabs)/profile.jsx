@@ -1,6 +1,7 @@
 // app/(tabs)/profile.jsx
 
 import { StyleSheet, Text, View, Pressable, ScrollView, Switch } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
@@ -10,7 +11,6 @@ import { usePrivacy } from '../../hooks/usePrivacy';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import RoleAvatar from '../../components/common/RoleAvatar';
 import Icon from '../../assets/icons/Icon';
-import Avatar from '../../components/common/Avatar';
 import RppsBadge from '../../components/common/RppsBadge';
 
 export default function Profile() {
@@ -80,13 +80,16 @@ export default function Profile() {
         return `${profile.experience_years} an${profile.experience_years > 1 ? 's' : ''} d'expérience`;
     };
 
-    const MenuItem = ({ icon, label, onPress, showBorder = true, highlight = false }) => (
+    const MenuItem = ({ icon, label, subtitle, onPress, showBorder = true, highlight = false }) => (
         <Pressable
             style={[commonStyles.menuItem, !showBorder && commonStyles.menuItemNoBorder]}
             onPress={onPress}
         >
             <Icon name={icon} size={20} color={highlight ? theme.colors.primary : theme.colors.text} />
-            <Text style={[commonStyles.menuItemLabel, highlight && { color: theme.colors.primary }]}>{label}</Text>
+            <View style={{ flex: 1, marginLeft: wp(3) }}>
+                <Text style={[styles.menuLabel, highlight && { color: theme.colors.primary }]}>{label}</Text>
+                {subtitle && <Text style={commonStyles.hint}>{subtitle}</Text>}
+            </View>
             <Icon name="chevronRight" size={18} color={theme.colors.textLight} />
         </Pressable>
     );
@@ -113,7 +116,11 @@ export default function Profile() {
                 <View style={commonStyles.card}>
                     <View style={commonStyles.row}>
                         {profile?.photo_url ? (
-                            <Avatar uri={profile.photo_url} size={hp(10)} rounded />
+                            <Image 
+                                source={{ uri: profile.photo_url }} 
+                                style={{ width: hp(10), height: hp(10), borderRadius: hp(5) }}
+                                contentFit="cover"
+                            />
                         ) : (
                             <RoleAvatar role={user?.user_type} gender={profile?.gender} size={hp(10)} />
                         )}
@@ -236,14 +243,9 @@ export default function Profile() {
                         <View style={[commonStyles.card, { padding: 0, overflow: 'hidden' }]}>
                             <MenuItem
                                 icon="briefcase"
-                                label="Mes offres d'emploi"
+                                label="Mes annonces"
+                                subtitle="Emplois, stages et pharmacies"
                                 onPress={() => router.push('/(screens)/recruiterDashboard')}
-                                highlight
-                            />
-                            <MenuItem
-                                icon="home"
-                                label="Mes annonces pharmacie"
-                                onPress={() => router.push('/(screens)/myListings')}
                                 showBorder={false}
                                 highlight
                             />
@@ -408,5 +410,9 @@ const styles = StyleSheet.create({
         fontSize: hp(1.6),
         color: theme.colors.rose,
         fontFamily: theme.fonts.medium,
+    },
+    menuLabel: {
+        fontSize: hp(1.6),
+        color: theme.colors.text,
     },
 });

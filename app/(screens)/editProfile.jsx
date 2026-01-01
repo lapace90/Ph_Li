@@ -19,17 +19,7 @@ import ContractTypePicker from '../../components/common/ContractTypePicker';
 import RelocationToggle from '../../components/common/RelocationToggle';
 import AvailabilityPicker from '../../components/common/AvailabilityPicker';
 import ImagePickerBox from '../../components/common/ImagePickerBox';
-
-const SPECIALIZATIONS = [
-    'Orthopédie',
-    'Homéopathie',
-    'Phytothérapie',
-    'Aromathérapie',
-    'Dermocosmétique',
-    'Nutrition',
-    'Maintien à domicile',
-    'Vaccination',
-];
+import { SPECIALIZATIONS } from '../../constants/profileOptions';
 
 export default function EditProfile() {
     const router = useRouter();

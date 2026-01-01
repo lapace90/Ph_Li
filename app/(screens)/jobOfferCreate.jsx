@@ -58,6 +58,7 @@ export default function JobOfferCreate() {
   
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [publishAsActive, setPublishAsActive] = useState(true);
   const [formData, setFormData] = useState({
     ...EMPTY_JOB_OFFER,
     city: profile?.current_city || '',
@@ -136,15 +137,18 @@ export default function JobOfferCreate() {
   const handlePublish = async () => {
     setLoading(true);
     try {
+      const status = publishAsActive ? 'active' : 'draft';
       const { error } = await createOffer({
         ...formData,
         required_diplomas: formData.required_diplomas?.length > 0 ? formData.required_diplomas : null,
-        status: 'active',
+        status,
       });
       if (error) throw error;
-      Alert.alert('Annonce publiée !', 'Votre annonce est maintenant visible.', [
-        { text: 'OK', onPress: () => router.replace('/(screens)/recruiterDashboard') }
-      ]);
+      Alert.alert(
+        publishAsActive ? 'Annonce publiée !' : 'Brouillon enregistré',
+        publishAsActive ? 'Votre annonce est maintenant visible.' : 'Vous pourrez la publier plus tard.',
+        [{ text: 'OK', onPress: () => router.replace('/(screens)/recruiterDashboard') }]
+      );
     } catch (error) {
       Alert.alert('Erreur', error.message || 'Impossible de publier');
     } finally {
@@ -182,13 +186,13 @@ export default function JobOfferCreate() {
           {currentStep === 0 && <StepBasics formData={formData} updateField={updateField} />}
           {currentStep === 1 && <StepLocation formData={formData} updateField={updateField} onCitySelect={handleCitySelect} profile={profile} />}
           {currentStep === 2 && <StepCriteria formData={formData} updateField={updateField} toggleDiploma={toggleDiploma} toggleBenefit={toggleBenefit} />}
-          {currentStep === 3 && <StepPreview formData={formData} />}
+          {currentStep === 3 && <StepPreview formData={formData} publishAsActive={publishAsActive} setPublishAsActive={setPublishAsActive} />}
         </ScrollView>
 
         {/* Footer */}
         <View style={commonStyles.footer}>
           <Button
-            title={currentStep === STEPS.length - 1 ? 'Publier l\'annonce' : 'Continuer'}
+            title={currentStep === STEPS.length - 1 ? (publishAsActive ? 'Publier l\'annonce' : 'Enregistrer le brouillon') : 'Continuer'}
             onPress={handleNext}
             loading={loading}
             disabled={!canGoNext()}
@@ -448,53 +452,89 @@ const StepCriteria = ({ formData, updateField, toggleDiploma, toggleBenefit }) =
   </View>
 );
 
-const StepPreview = ({ formData }) => (
-  <View style={commonStyles.card}>
-    <View style={[commonStyles.badge, { backgroundColor: getContractColor(formData.contract_type) + '15', alignSelf: 'flex-start', marginBottom: hp(1) }]}>
-      <Text style={[commonStyles.badgeText, { color: getContractColor(formData.contract_type) }]}>
-        {getContractTypeLabel(formData.contract_type)}
-      </Text>
+const StepPreview = ({ formData, publishAsActive, setPublishAsActive }) => (
+  <View>
+    <View style={commonStyles.card}>
+      <View style={[commonStyles.badge, { backgroundColor: getContractColor(formData.contract_type) + '15', alignSelf: 'flex-start', marginBottom: hp(1) }]}>
+        <Text style={[commonStyles.badgeText, { color: getContractColor(formData.contract_type) }]}>
+          {getContractTypeLabel(formData.contract_type)}
+        </Text>
+      </View>
+
+      <Text style={commonStyles.sectionTitle}>{formData.title || 'Titre'}</Text>
+      <Text style={commonStyles.hint}>{getPositionTypeLabel(formData.position_type)}</Text>
+
+      <View style={[commonStyles.section, { marginTop: hp(2), marginBottom: 0 }]}>
+        <InfoRow icon="mapPin" text={`${formData.city}, ${formData.region}`} />
+        {formData.salary_range && <InfoRow icon="briefcase" text={getSalaryRangeLabel(formData.salary_range)} />}
+        <InfoRow icon="award" text={getExperienceLabel(formData.required_experience)} />
+      </View>
+
+      <View style={commonStyles.divider} />
+
+      <Text style={commonStyles.sectionTitleSmall}>Description</Text>
+      <Text style={[commonStyles.hint, { lineHeight: hp(2.2) }]}>{formData.description}</Text>
+
+      {formData.required_diplomas?.length > 0 && (
+        <>
+          <Text style={[commonStyles.sectionTitleSmall, { marginTop: hp(2) }]}>Diplômes requis</Text>
+          <View style={commonStyles.chipsContainerCompact}>
+            {formData.required_diplomas.map((d, i) => (
+              <View key={i} style={[commonStyles.badge, commonStyles.badgePrimary]}>
+                <Text style={[commonStyles.badgeText, commonStyles.badgeTextPrimary]}>{getDiplomaLabel(d)}</Text>
+              </View>
+            ))}
+          </View>
+        </>
+      )}
+
+      {formData.benefits?.length > 0 && (
+        <>
+          <Text style={[commonStyles.sectionTitleSmall, { marginTop: hp(2) }]}>Avantages</Text>
+          <View style={commonStyles.chipsContainerCompact}>
+            {formData.benefits.map((b, i) => (
+              <View key={i} style={[commonStyles.badge, { backgroundColor: theme.colors.success + '15' }]}>
+                <Text style={[commonStyles.badgeText, { color: theme.colors.success }]}>{getBenefitLabel(b)}</Text>
+              </View>
+            ))}
+          </View>
+        </>
+      )}
     </View>
 
-    <Text style={commonStyles.sectionTitle}>{formData.title || 'Titre'}</Text>
-    <Text style={commonStyles.hint}>{getPositionTypeLabel(formData.position_type)}</Text>
+    {/* Option publication */}
+    <View style={[commonStyles.card, { marginTop: hp(2) }]}>
+      <Text style={commonStyles.sectionTitleSmall}>Statut de publication</Text>
+      <View style={[commonStyles.rowGapSmall, { marginTop: hp(1.5) }]}>
+        <Pressable
+          style={[styles.statusOption, publishAsActive && styles.statusOptionActive]}
+          onPress={() => setPublishAsActive(true)}
+        >
+          <Icon name="eye" size={20} color={publishAsActive ? theme.colors.primary : theme.colors.textLight} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.statusOptionTitle, publishAsActive && { color: theme.colors.primary }]}>
+              Publier maintenant
+            </Text>
+            <Text style={commonStyles.hint}>Visible immédiatement</Text>
+          </View>
+          {publishAsActive && <Icon name="check" size={20} color={theme.colors.primary} />}
+        </Pressable>
 
-    <View style={[commonStyles.section, { marginTop: hp(2), marginBottom: 0 }]}>
-      <InfoRow icon="mapPin" text={`${formData.city}, ${formData.region}`} />
-      {formData.salary_range && <InfoRow icon="briefcase" text={getSalaryRangeLabel(formData.salary_range)} />}
-      <InfoRow icon="award" text={getExperienceLabel(formData.required_experience)} />
+        <Pressable
+          style={[styles.statusOption, !publishAsActive && styles.statusOptionActive]}
+          onPress={() => setPublishAsActive(false)}
+        >
+          <Icon name="edit" size={20} color={!publishAsActive ? theme.colors.secondary : theme.colors.textLight} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.statusOptionTitle, !publishAsActive && { color: theme.colors.secondary }]}>
+              Brouillon
+            </Text>
+            <Text style={commonStyles.hint}>Enregistrer sans publier</Text>
+          </View>
+          {!publishAsActive && <Icon name="check" size={20} color={theme.colors.secondary} />}
+        </Pressable>
+      </View>
     </View>
-
-    <View style={commonStyles.divider} />
-
-    <Text style={commonStyles.sectionTitleSmall}>Description</Text>
-    <Text style={[commonStyles.hint, { lineHeight: hp(2.2) }]}>{formData.description}</Text>
-
-    {formData.required_diplomas?.length > 0 && (
-      <>
-        <Text style={[commonStyles.sectionTitleSmall, { marginTop: hp(2) }]}>Diplômes requis</Text>
-        <View style={commonStyles.chipsContainerCompact}>
-          {formData.required_diplomas.map((d, i) => (
-            <View key={i} style={[commonStyles.badge, commonStyles.badgePrimary]}>
-              <Text style={[commonStyles.badgeText, commonStyles.badgeTextPrimary]}>{getDiplomaLabel(d)}</Text>
-            </View>
-          ))}
-        </View>
-      </>
-    )}
-
-    {formData.benefits?.length > 0 && (
-      <>
-        <Text style={[commonStyles.sectionTitleSmall, { marginTop: hp(2) }]}>Avantages</Text>
-        <View style={commonStyles.chipsContainerCompact}>
-          {formData.benefits.map((b, i) => (
-            <View key={i} style={[commonStyles.badge, { backgroundColor: theme.colors.success + '15' }]}>
-              <Text style={[commonStyles.badgeText, { color: theme.colors.success }]}>{getBenefitLabel(b)}</Text>
-            </View>
-          ))}
-        </View>
-      </>
-    )}
   </View>
 );
 
@@ -550,5 +590,25 @@ const styles = StyleSheet.create({
   },
   progressLineActive: {
     backgroundColor: theme.colors.success,
+  },
+  statusOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(3),
+    padding: hp(1.5),
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.card,
+  },
+  statusOptionActive: {
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primary + '08',
+  },
+  statusOptionTitle: {
+    fontSize: hp(1.5),
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.text,
   },
 });

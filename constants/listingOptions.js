@@ -1,3 +1,6 @@
+// constants/listingOptions.js
+// Aligné sur les enums Supabase : listing_type, content_status
+
 import { theme } from './theme';
 
 // ============================================
@@ -6,7 +9,6 @@ import { theme } from './theme';
 export const LISTING_TYPES = [
   { value: 'vente', label: 'Vente', icon: 'briefcase', description: 'Vendre votre pharmacie' },
   { value: 'location', label: 'Location-gérance', icon: 'home', description: 'Mettre en location-gérance' },
-  { value: 'collaboration', label: 'Collaboration', icon: 'users', description: 'Rechercher un collaborateur' },
   { value: 'association', label: 'Association', icon: 'heart', description: 'Trouver un associé' },
 ];
 
@@ -18,7 +20,6 @@ export const getListingTypeColor = (value) => {
   const colors = {
     vente: theme.colors.primary,
     location: theme.colors.secondary,
-    collaboration: theme.colors.warning,
     association: theme.colors.success,
   };
   return colors[value] || theme.colors.primary;
@@ -96,16 +97,27 @@ export const EMPTY_LISTING = {
   latitude: null,
   longitude: null,
   characteristics: {
+    // Commun
     surface_m2: null,
     staff_count: null,
     annual_revenue: null,
-    annual_profit: null,
-    opening_hours: '',
     parking: false,
     has_robot: false,
     has_lab: false,
     has_drive: false,
     nearby: [],
+    // Vente
+    annual_profit: null,
+    // Location-gérance
+    monthly_rent: null,
+    lease_duration: null,
+    deposit: null,
+    lease_conditions: '',
+    // Association
+    shares_percentage: null,
+    valuation: null,
+    min_investment: null,
+    partner_profile: '',
   },
   anonymized: true,
   photos: [],

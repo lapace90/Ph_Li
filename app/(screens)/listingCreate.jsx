@@ -55,6 +55,7 @@ export default function ListingCreate() {
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [photoLoading, setPhotoLoading] = useState(false);
+  const [publishAsActive, setPublishAsActive] = useState(true);
   const [formData, setFormData] = useState({
     ...EMPTY_LISTING,
     city: profile?.current_city || '',
@@ -141,6 +142,17 @@ export default function ListingCreate() {
     currentStep > 0 ? setCurrentStep(prev => prev - 1) : router.back();
   };
 
+  const handleCancel = () => {
+    Alert.alert(
+      'Annuler',
+      'Voulez-vous vraiment quitter ? Les informations saisies seront perdues.',
+      [
+        { text: 'Non', style: 'cancel' },
+        { text: 'Oui, quitter', style: 'destructive', onPress: () => router.back() },
+      ]
+    );
+  };
+
   const handlePublish = async () => {
     setLoading(true);
     try {
@@ -170,15 +182,17 @@ export default function ListingCreate() {
         },
         anonymized: formData.anonymized,
         photos: formData.photos,
-        status: 'active',
+        status: publishAsActive ? 'active' : 'draft',
       };
 
       const { error } = await createListing(listingData);
       if (error) throw error;
 
-      Alert.alert('Annonce publiée !', 'Votre annonce est maintenant visible.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)/marketplace') }
-      ]);
+      Alert.alert(
+        publishAsActive ? 'Annonce publiée !' : 'Brouillon enregistré',
+        publishAsActive ? 'Votre annonce est maintenant visible.' : 'Vous pourrez la publier plus tard.',
+        [{ text: 'OK', onPress: () => router.replace('/(tabs)/marketplace') }]
+      );
     } catch (error) {
       Alert.alert('Erreur', error.message || 'Impossible de publier');
     } finally {
@@ -198,7 +212,9 @@ export default function ListingCreate() {
             <Text style={commonStyles.headerTitle}>{STEPS[currentStep].title}</Text>
             <Text style={commonStyles.hint}>{STEPS[currentStep].subtitle}</Text>
           </View>
-          <View style={commonStyles.headerSpacer} />
+          <Pressable style={commonStyles.headerButton} onPress={handleCancel}>
+            <Icon name="x" size={24} color={theme.colors.textLight} />
+          </Pressable>
         </View>
 
         {/* Progress */}
@@ -215,13 +231,13 @@ export default function ListingCreate() {
           {currentStep === 1 && <StepInfo formData={formData} updateField={updateField} onCitySelect={handleCitySelect} />}
           {currentStep === 2 && <StepDetails formData={formData} updateCharacteristic={updateCharacteristic} toggleNearby={toggleNearby} />}
           {currentStep === 3 && <StepPhotos formData={formData} onAddPhoto={handleAddPhoto} onRemovePhoto={handleRemovePhoto} photoLoading={photoLoading} />}
-          {currentStep === 4 && <StepPreview formData={formData} updateField={updateField} />}
+          {currentStep === 4 && <StepPreview formData={formData} updateField={updateField} publishAsActive={publishAsActive} setPublishAsActive={setPublishAsActive} />}
         </ScrollView>
 
         {/* Footer */}
         <View style={commonStyles.footer}>
           <Button
-            title={currentStep === STEPS.length - 1 ? 'Publier l\'annonce' : 'Continuer'}
+            title={currentStep === STEPS.length - 1 ? (publishAsActive ? 'Publier l\'annonce' : 'Enregistrer le brouillon') : 'Continuer'}
             onPress={handleNext}
             loading={loading}
             disabled={!canGoNext()}
@@ -266,156 +282,285 @@ const StepType = ({ formData, updateField }) => (
   <View style={commonStyles.section}>
     <Text style={commonStyles.sectionTitle}>Quel type d'annonce souhaitez-vous créer ?</Text>
     <View style={styles.typeCards}>
-      {LISTING_TYPES.map((type) => (
-        <Pressable
-          key={type.value}
-          style={[
-            styles.typeCard,
-            formData.type === type.value && { borderColor: getListingTypeColor(type.value) }
-          ]}
-          onPress={() => updateField('type', type.value)}
-        >
-          <Icon 
-            name={type.icon} 
-            size={28} 
-            color={formData.type === type.value ? getListingTypeColor(type.value) : theme.colors.textLight} 
-          />
-          <Text style={[styles.typeCardTitle, formData.type === type.value && { color: getListingTypeColor(type.value) }]}>
-            {type.label}
-          </Text>
-          <Text style={commonStyles.hint}>{type.description}</Text>
-        </Pressable>
-      ))}
-    </View>
-  </View>
-);
-
-const StepInfo = ({ formData, updateField, onCitySelect }) => (
-  <View style={commonStyles.section}>
-    <View style={commonStyles.formGroup}>
-      <Text style={commonStyles.label}>Titre de l'annonce *</Text>
-      <Input 
-        placeholder="Ex: Pharmacie de centre-ville à céder" 
-        value={formData.title} 
-        onChangeText={(v) => updateField('title', v)} 
-      />
-    </View>
-
-    <View style={commonStyles.formGroup}>
-      <Text style={commonStyles.label}>Description</Text>
-      <Input
-        placeholder="Décrivez votre pharmacie, son emplacement, sa clientèle..."
-        value={formData.description}
-        onChangeText={(v) => updateField('description', v)}
-        multiline
-        numberOfLines={5}
-        inputStyle={commonStyles.textArea}
-      />
-    </View>
-
-    <View style={commonStyles.formGroup}>
-      <Text style={commonStyles.label}>Ville *</Text>
-      <CityAutocomplete
-        value={formData.city ? { city: formData.city, postcode: formData.postal_code } : null}
-        onSelect={onCitySelect}
-        placeholder="Rechercher une ville..."
-      />
-    </View>
-
-    {formData.city && (
-      <View style={commonStyles.card}>
-        <View style={commonStyles.rowGapSmall}>
-          <Icon name="mapPin" size={16} color={theme.colors.primary} />
-          <Text style={[commonStyles.chipText, { fontFamily: theme.fonts.medium }]}>{formData.city}, {formData.postal_code}</Text>
-        </View>
-        <View style={[commonStyles.rowGapSmall, { marginTop: hp(0.8) }]}>
-          <Icon name="map" size={16} color={theme.colors.textLight} />
-          <Text style={commonStyles.hint}>{formData.department}, {formData.region}</Text>
-        </View>
-      </View>
-    )}
-
-    <View style={commonStyles.formGroup}>
-      <Text style={commonStyles.label}>Prix de vente (€)</Text>
-      <Input 
-        placeholder="Ex: 850000" 
-        value={formData.price?.toString() || ''} 
-        onChangeText={(v) => updateField('price', v.replace(/[^0-9]/g, ''))}
-        keyboardType="numeric"
-      />
-      <View style={[commonStyles.rowGapSmall, { marginTop: hp(1) }]}>
-        <Switch
-          value={formData.negotiable}
-          onValueChange={(v) => updateField('negotiable', v)}
-          trackColor={{ false: theme.colors.gray, true: theme.colors.primary + '50' }}
-          thumbColor={formData.negotiable ? theme.colors.primary : '#f4f3f4'}
-        />
-        <Text style={commonStyles.hint}>Prix négociable</Text>
-      </View>
-    </View>
-  </View>
-);
-
-const StepDetails = ({ formData, updateCharacteristic, toggleNearby }) => (
-  <View style={commonStyles.section}>
-    <View style={commonStyles.formGroup}>
-      <Text style={commonStyles.label}>Surface (m²)</Text>
-      <Input 
-        placeholder="Ex: 150" 
-        value={formData.characteristics.surface_m2?.toString() || ''} 
-        onChangeText={(v) => updateCharacteristic('surface_m2', v.replace(/[^0-9]/g, ''))}
-        keyboardType="numeric"
-      />
-    </View>
-
-    <View style={commonStyles.formGroup}>
-      <Text style={commonStyles.label}>Nombre d'employés</Text>
-      <Input 
-        placeholder="Ex: 5" 
-        value={formData.characteristics.staff_count?.toString() || ''} 
-        onChangeText={(v) => updateCharacteristic('staff_count', v.replace(/[^0-9]/g, ''))}
-        keyboardType="numeric"
-      />
-    </View>
-
-    <View style={commonStyles.formGroup}>
-      <Text style={commonStyles.label}>Chiffre d'affaires annuel (€)</Text>
-      <Input 
-        placeholder="Ex: 2500000" 
-        value={formData.characteristics.annual_revenue?.toString() || ''} 
-        onChangeText={(v) => updateCharacteristic('annual_revenue', v.replace(/[^0-9]/g, ''))}
-        keyboardType="numeric"
-      />
-    </View>
-
-    <View style={commonStyles.formGroup}>
-      <Text style={commonStyles.label}>Équipements</Text>
-      <View style={{ gap: hp(1) }}>
-        <ToggleRow label="Parking client" value={formData.characteristics.parking} onToggle={(v) => updateCharacteristic('parking', v)} />
-        <ToggleRow label="Robot de dispensation" value={formData.characteristics.has_robot} onToggle={(v) => updateCharacteristic('has_robot', v)} />
-        <ToggleRow label="Laboratoire de préparation" value={formData.characteristics.has_lab} onToggle={(v) => updateCharacteristic('has_lab', v)} />
-        <ToggleRow label="Drive / Click & Collect" value={formData.characteristics.has_drive} onToggle={(v) => updateCharacteristic('has_drive', v)} />
-      </View>
-    </View>
-
-    <View style={commonStyles.formGroup}>
-      <Text style={commonStyles.label}>À proximité</Text>
-      <View style={commonStyles.chipsContainer}>
-        {NEARBY_OPTIONS.map((item) => (
+      {LISTING_TYPES.map((type) => {
+        const isSelected = formData.type === type.value;
+        const color = getListingTypeColor(type.value);
+        return (
           <Pressable
-            key={item}
-            style={[commonStyles.chip, formData.characteristics.nearby?.includes(item) && commonStyles.chipActive]}
-            onPress={() => toggleNearby(item)}
+            key={type.value}
+            style={[
+              styles.typeCard,
+              isSelected && { borderColor: color, backgroundColor: color + '08' }
+            ]}
+            onPress={() => updateField('type', type.value)}
           >
-            <Text style={[commonStyles.chipText, formData.characteristics.nearby?.includes(item) && commonStyles.chipTextActive]}>
-              {item}
-            </Text>
+            <View style={[styles.typeCardIcon, isSelected && { backgroundColor: color + '20' }]}>
+              <Icon 
+                name={type.icon} 
+                size={24} 
+                color={isSelected ? color : theme.colors.textLight} 
+              />
+            </View>
+            <View style={styles.typeCardContent}>
+              <Text style={[styles.typeCardTitle, isSelected && { color }]}>
+                {type.label}
+              </Text>
+              <Text style={commonStyles.hint}>{type.description}</Text>
+            </View>
+            {isSelected && (
+              <Icon name="check" size={22} color={color} />
+            )}
           </Pressable>
-        ))}
-      </View>
+        );
+      })}
     </View>
   </View>
 );
+
+const StepInfo = ({ formData, updateField, onCitySelect }) => {
+  const isVente = formData.type === 'vente';
+  const isLocation = formData.type === 'location';
+  const isAssociation = formData.type === 'association';
+
+  return (
+    <View style={commonStyles.section}>
+      <View style={commonStyles.formGroup}>
+        <Text style={commonStyles.label}>Titre de l'annonce *</Text>
+        <Input 
+          placeholder={
+            isVente ? "Ex: Pharmacie de centre-ville à céder" :
+            isLocation ? "Ex: Pharmacie en location-gérance disponible" :
+            "Ex: Recherche associé pour pharmacie dynamique"
+          }
+          value={formData.title} 
+          onChangeText={(v) => updateField('title', v)} 
+        />
+      </View>
+
+      <View style={commonStyles.formGroup}>
+        <Text style={commonStyles.label}>Description</Text>
+        <Input
+          placeholder={
+            isVente ? "Décrivez votre pharmacie, son emplacement, sa clientèle..." :
+            isLocation ? "Décrivez les conditions de la location-gérance, la pharmacie..." :
+            "Décrivez votre projet d'association, le profil recherché..."
+          }
+          value={formData.description}
+          onChangeText={(v) => updateField('description', v)}
+          multiline
+          numberOfLines={5}
+          inputStyle={commonStyles.textArea}
+        />
+      </View>
+
+      <View style={commonStyles.formGroup}>
+        <Text style={commonStyles.label}>Ville *</Text>
+        <CityAutocomplete
+          value={formData.city ? { city: formData.city, postcode: formData.postal_code } : null}
+          onSelect={onCitySelect}
+          placeholder="Rechercher une ville..."
+        />
+      </View>
+
+      {/* Champs financiers selon le type */}
+      {isVente && (
+        <View style={commonStyles.formGroup}>
+          <Text style={commonStyles.label}>Prix de vente (€)</Text>
+          <Input 
+            placeholder="Ex: 850000" 
+            value={formData.price?.toString() || ''} 
+            onChangeText={(v) => updateField('price', v.replace(/[^0-9]/g, ''))}
+            keyboardType="numeric"
+          />
+          <View style={[commonStyles.rowGapSmall, { marginTop: hp(1) }]}>
+            <Switch
+              value={formData.negotiable}
+              onValueChange={(v) => updateField('negotiable', v)}
+              trackColor={{ false: theme.colors.gray, true: theme.colors.primary + '50' }}
+              thumbColor={formData.negotiable ? theme.colors.primary : '#f4f3f4'}
+            />
+            <Text style={commonStyles.hint}>Prix négociable</Text>
+          </View>
+        </View>
+      )}
+
+      {isLocation && (
+        <>
+          <View style={commonStyles.formGroup}>
+            <Text style={commonStyles.label}>Loyer mensuel (€)</Text>
+            <Input 
+              placeholder="Ex: 5000" 
+              value={formData.characteristics?.monthly_rent?.toString() || ''} 
+              onChangeText={(v) => updateField('characteristics', { ...formData.characteristics, monthly_rent: v.replace(/[^0-9]/g, '') })}
+              keyboardType="numeric"
+            />
+          </View>
+          <View style={commonStyles.formGroup}>
+            <Text style={commonStyles.label}>Durée minimale du bail (mois)</Text>
+            <Input 
+              placeholder="Ex: 36" 
+              value={formData.characteristics?.lease_duration?.toString() || ''} 
+              onChangeText={(v) => updateField('characteristics', { ...formData.characteristics, lease_duration: v.replace(/[^0-9]/g, '') })}
+              keyboardType="numeric"
+            />
+          </View>
+          <View style={commonStyles.formGroup}>
+            <Text style={commonStyles.label}>Dépôt de garantie (€)</Text>
+            <Input 
+              placeholder="Ex: 15000" 
+              value={formData.characteristics?.deposit?.toString() || ''} 
+              onChangeText={(v) => updateField('characteristics', { ...formData.characteristics, deposit: v.replace(/[^0-9]/g, '') })}
+              keyboardType="numeric"
+            />
+          </View>
+        </>
+      )}
+
+      {isAssociation && (
+        <>
+          <View style={commonStyles.formGroup}>
+            <Text style={commonStyles.label}>Pourcentage de parts à céder (%)</Text>
+            <Input 
+              placeholder="Ex: 49" 
+              value={formData.characteristics?.shares_percentage?.toString() || ''} 
+              onChangeText={(v) => updateField('characteristics', { ...formData.characteristics, shares_percentage: v.replace(/[^0-9]/g, '') })}
+              keyboardType="numeric"
+            />
+          </View>
+          <View style={commonStyles.formGroup}>
+            <Text style={commonStyles.label}>Valorisation de la pharmacie (€)</Text>
+            <Input 
+              placeholder="Ex: 1200000" 
+              value={formData.characteristics?.valuation?.toString() || ''} 
+              onChangeText={(v) => updateField('characteristics', { ...formData.characteristics, valuation: v.replace(/[^0-9]/g, '') })}
+              keyboardType="numeric"
+            />
+          </View>
+          <View style={commonStyles.formGroup}>
+            <Text style={commonStyles.label}>Apport minimum requis (€)</Text>
+            <Input 
+              placeholder="Ex: 300000" 
+              value={formData.characteristics?.min_investment?.toString() || ''} 
+              onChangeText={(v) => updateField('characteristics', { ...formData.characteristics, min_investment: v.replace(/[^0-9]/g, '') })}
+              keyboardType="numeric"
+            />
+          </View>
+          <View style={commonStyles.formGroup}>
+            <Text style={commonStyles.label}>Profil recherché</Text>
+            <Input
+              placeholder="Ex: Pharmacien avec 5 ans d'expérience minimum, spécialisé en..."
+              value={formData.characteristics?.partner_profile || ''}
+              onChangeText={(v) => updateField('characteristics', { ...formData.characteristics, partner_profile: v })}
+              multiline
+              numberOfLines={3}
+              inputStyle={commonStyles.textArea}
+            />
+          </View>
+        </>
+      )}
+    </View>
+  );
+};
+
+const StepDetails = ({ formData, updateCharacteristic, toggleNearby }) => {
+  const isVente = formData.type === 'vente';
+  const isLocation = formData.type === 'location';
+  const isAssociation = formData.type === 'association';
+
+  return (
+    <View style={commonStyles.section}>
+      <View style={commonStyles.formGroup}>
+        <Text style={commonStyles.label}>Surface (m²)</Text>
+        <Input 
+          placeholder="Ex: 150" 
+          value={formData.characteristics.surface_m2?.toString() || ''} 
+          onChangeText={(v) => updateCharacteristic('surface_m2', v.replace(/[^0-9]/g, ''))}
+          keyboardType="numeric"
+        />
+      </View>
+
+      <View style={commonStyles.formGroup}>
+        <Text style={commonStyles.label}>Nombre d'employés</Text>
+        <Input 
+          placeholder="Ex: 5" 
+          value={formData.characteristics.staff_count?.toString() || ''} 
+          onChangeText={(v) => updateCharacteristic('staff_count', v.replace(/[^0-9]/g, ''))}
+          keyboardType="numeric"
+        />
+      </View>
+
+      <View style={commonStyles.formGroup}>
+        <Text style={commonStyles.label}>Chiffre d'affaires annuel (€)</Text>
+        <Input 
+          placeholder="Ex: 2500000" 
+          value={formData.characteristics.annual_revenue?.toString() || ''} 
+          onChangeText={(v) => updateCharacteristic('annual_revenue', v.replace(/[^0-9]/g, ''))}
+          keyboardType="numeric"
+        />
+        {!isVente && (
+          <Text style={[commonStyles.hint, { marginTop: hp(0.5) }]}>
+            Information indicative pour les candidats
+          </Text>
+        )}
+      </View>
+
+      {/* Bénéfice net uniquement pour vente */}
+      {isVente && (
+        <View style={commonStyles.formGroup}>
+          <Text style={commonStyles.label}>Bénéfice net annuel (€)</Text>
+          <Input 
+            placeholder="Ex: 180000" 
+            value={formData.characteristics.annual_profit?.toString() || ''} 
+            onChangeText={(v) => updateCharacteristic('annual_profit', v.replace(/[^0-9]/g, ''))}
+            keyboardType="numeric"
+          />
+        </View>
+      )}
+
+      {/* Conditions spécifiques location-gérance */}
+      {isLocation && (
+        <View style={commonStyles.formGroup}>
+          <Text style={commonStyles.label}>Conditions particulières</Text>
+          <Input
+            placeholder="Ex: Option d'achat possible après 3 ans, formation assurée..."
+            value={formData.characteristics.lease_conditions || ''}
+            onChangeText={(v) => updateCharacteristic('lease_conditions', v)}
+            multiline
+            numberOfLines={3}
+            inputStyle={commonStyles.textArea}
+          />
+        </View>
+      )}
+
+      <View style={commonStyles.formGroup}>
+        <Text style={commonStyles.label}>Équipements</Text>
+        <View style={{ gap: hp(1) }}>
+          <ToggleRow label="Parking client" value={formData.characteristics.parking} onToggle={(v) => updateCharacteristic('parking', v)} />
+          <ToggleRow label="Robot de dispensation" value={formData.characteristics.has_robot} onToggle={(v) => updateCharacteristic('has_robot', v)} />
+          <ToggleRow label="Laboratoire de préparation" value={formData.characteristics.has_lab} onToggle={(v) => updateCharacteristic('has_lab', v)} />
+          <ToggleRow label="Drive / Click & Collect" value={formData.characteristics.has_drive} onToggle={(v) => updateCharacteristic('has_drive', v)} />
+        </View>
+      </View>
+
+      <View style={commonStyles.formGroup}>
+        <Text style={commonStyles.label}>À proximité</Text>
+        <View style={commonStyles.chipsContainer}>
+          {NEARBY_OPTIONS.map((item) => (
+            <Pressable
+              key={item}
+              style={[commonStyles.chip, formData.characteristics.nearby?.includes(item) && commonStyles.chipActive]}
+              onPress={() => toggleNearby(item)}
+            >
+              <Text style={[commonStyles.chipText, formData.characteristics.nearby?.includes(item) && commonStyles.chipTextActive]}>
+                {item}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+};
 
 const ToggleRow = ({ label, value, onToggle }) => (
   <View style={commonStyles.rowBetween}>
@@ -444,7 +589,7 @@ const StepPhotos = ({ formData, onAddPhoto, onRemovePhoto, photoLoading }) => (
   </View>
 );
 
-const StepPreview = ({ formData, updateField }) => (
+const StepPreview = ({ formData, updateField, publishAsActive, setPublishAsActive }) => (
   <View style={{ gap: hp(2) }}>
     {/* Anonymat */}
     <View style={commonStyles.card}>
@@ -492,6 +637,40 @@ const StepPreview = ({ formData, updateField }) => (
           📷 {formData.photos.length} photo{formData.photos.length > 1 ? 's' : ''}
         </Text>
       )}
+    </View>
+
+    {/* Option publication */}
+    <View style={commonStyles.card}>
+      <Text style={commonStyles.sectionTitleSmall}>Statut de publication</Text>
+      <View style={[commonStyles.rowGapSmall, { marginTop: hp(1.5) }]}>
+        <Pressable
+          style={[styles.statusOption, publishAsActive && styles.statusOptionActive]}
+          onPress={() => setPublishAsActive(true)}
+        >
+          <Icon name="eye" size={20} color={publishAsActive ? theme.colors.primary : theme.colors.textLight} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.statusOptionTitle, publishAsActive && { color: theme.colors.primary }]}>
+              Publier maintenant
+            </Text>
+            <Text style={commonStyles.hint}>Visible immédiatement</Text>
+          </View>
+          {publishAsActive && <Icon name="check" size={20} color={theme.colors.primary} />}
+        </Pressable>
+
+        <Pressable
+          style={[styles.statusOption, !publishAsActive && styles.statusOptionActive]}
+          onPress={() => setPublishAsActive(false)}
+        >
+          <Icon name="edit" size={20} color={!publishAsActive ? theme.colors.secondary : theme.colors.textLight} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.statusOptionTitle, !publishAsActive && { color: theme.colors.secondary }]}>
+              Brouillon
+            </Text>
+            <Text style={commonStyles.hint}>Enregistrer sans publier</Text>
+          </View>
+          {!publishAsActive && <Icon name="check" size={20} color={theme.colors.secondary} />}
+        </Pressable>
+      </View>
     </View>
   </View>
 );
@@ -550,24 +729,52 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.success,
   },
   typeCards: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: wp(3),
+    gap: hp(1.5),
   },
   typeCard: {
-    width: '47%',
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: hp(2),
     borderRadius: theme.radius.xl,
     borderWidth: 2,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.card,
+    gap: wp(4),
+  },
+  typeCardIcon: {
+    width: wp(12),
+    height: wp(12),
+    borderRadius: wp(6),
+    backgroundColor: theme.colors.primary + '10',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: hp(0.8),
+  },
+  typeCardContent: {
+    flex: 1,
   },
   typeCardTitle: {
+    fontSize: hp(1.7),
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.text,
+  },
+  statusOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(3),
+    padding: hp(1.5),
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.card,
+  },
+  statusOptionActive: {
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primary + '08',
+  },
+  statusOptionTitle: {
     fontSize: hp(1.5),
     fontFamily: theme.fonts.semiBold,
     color: theme.colors.text,
-    textAlign: 'center',
   },
 });

@@ -1,44 +1,67 @@
+// services/storageService.js
+
 import { supabase } from '../lib/supabase';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
 
 /**
  * Service pour gérer les uploads vers Supabase Storage
  */
 export const storageService = {
   /**
-   * Upload une image
-   * @param {string} bucket - Nom du bucket ('avatars', 'cvs', 'listings', etc.)
+   * Upload une image (compatible Android/iOS)
+   * @param {string} bucket - Nom du bucket ('avatars', 'cvs', 'pharmacy-listings', etc.)
    * @param {string} userId - ID de l'utilisateur
-   * @param {object} imageAsset - Asset de expo-image-picker
+   * @param {object} imageAsset - Asset de expo-image-picker ou { uri: string }
    * @param {string} folder - Sous-dossier optionnel
    * @returns {Promise<string>} URL publique de l'image
    */
   async uploadImage(bucket, userId, imageAsset, folder = '') {
-    const fileExt = imageAsset.uri.split('.').pop()?.toLowerCase() || 'jpg';
+    const uri = imageAsset.uri;
+    const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = folder 
       ? `${userId}/${folder}/${fileName}`
       : `${userId}/${fileName}`;
 
-    // Convertir l'URI en blob
-    const response = await fetch(imageAsset.uri);
-    const blob = await response.blob();
+    console.log('📤 Upload start:', { bucket, filePath });
 
-    // Upload
-    const { error } = await supabase.storage
-      .from(bucket)
-      .upload(filePath, blob, {
-        contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-        upsert: true,
+    try {
+      // Lire le fichier en base64
+      const base64Data = await FileSystem.readAsStringAsync(uri, {
+        encoding: 'base64',
       });
 
-    if (error) throw error;
+      console.log('📦 Base64 size:', Math.round(base64Data.length / 1024), 'KB');
 
-    // Récupérer l'URL publique
-    const { data: { publicUrl } } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(filePath);
+      // Convertir en ArrayBuffer
+      const arrayBuffer = decode(base64Data);
 
-    return publicUrl;
+      // Upload vers Supabase
+      const { error } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, arrayBuffer, {
+          contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+          upsert: true,
+        });
+
+      if (error) {
+        console.error('❌ Supabase upload error:', error);
+        throw error;
+      }
+
+      console.log('✅ Upload success');
+
+      // Récupérer l'URL publique
+      const { data: { publicUrl } } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('❌ Upload failed:', error);
+      throw error;
+    }
   },
 
   /**

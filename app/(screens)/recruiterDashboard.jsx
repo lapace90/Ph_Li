@@ -1,5 +1,8 @@
+// app/(screens)/recruiterDashboard.jsx
+
 import { useState } from 'react';
 import { View, Text, Pressable, FlatList, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
 import { commonStyles } from '../../constants/styles';
@@ -7,6 +10,7 @@ import { hp, wp } from '../../helpers/common';
 import { useAuth } from '../../contexts/AuthContext';
 import { useJobOffers } from '../../hooks/useJobOffers';
 import { useInternshipOffers } from '../../hooks/useInternshipOffers';
+import { useMyListings } from '../../hooks/usePharmacyListings';
 import {
   getPositionTypeLabel,
   getContractTypeLabel,
@@ -15,6 +19,12 @@ import {
   getInternshipColor,
   getContentStatusInfo,
 } from '../../constants/jobOptions';
+import {
+  getListingTypeLabel,
+  getListingTypeColor,
+  getListingStatusInfo,
+  formatNumber,
+} from '../../constants/listingOptions';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import Icon from '../../assets/icons/Icon';
 import RppsBadge from '../../components/common/RppsBadge';
@@ -23,8 +33,9 @@ import RppsBadge from '../../components/common/RppsBadge';
 const DEV_BYPASS_RPPS_CHECK = true;
 
 const TABS = [
-  { key: 'jobs', label: 'Emplois' },
-  { key: 'internships', label: 'Stages / Alternances' },
+  { key: 'jobs', label: 'Emplois', icon: 'briefcase' },
+  { key: 'internships', label: 'Stages', icon: 'book' },
+  { key: 'pharmacies', label: 'Pharmacies', icon: 'home' },
 ];
 
 export default function RecruiterDashboard() {
@@ -51,13 +62,38 @@ export default function RecruiterDashboard() {
     deleteOffer: deleteInternship, 
     setStatus: setInternshipStatus 
   } = useInternshipOffers(session?.user?.id);
+
+  const {
+    listings,
+    loading: loadingListings,
+    refresh: refreshListings,
+    deleteListing,
+    setStatus: setListingStatus,
+  } = useMyListings(session?.user?.id);
   
   const [activeTab, setActiveTab] = useState('jobs');
 
-  const isJobTab = activeTab === 'jobs';
-  const loading = isJobTab ? loadingJobs : loadingInternships;
-  const offers = isJobTab ? jobOffers : internshipOffers;
-  const refresh = isJobTab ? refreshJobs : refreshInternships;
+  // Données selon le tab actif
+  const getTabData = () => {
+    switch (activeTab) {
+      case 'jobs':
+        return { loading: loadingJobs, data: jobOffers, refresh: refreshJobs };
+      case 'internships':
+        return { loading: loadingInternships, data: internshipOffers, refresh: refreshInternships };
+      case 'pharmacies':
+        return { loading: loadingListings, data: listings, refresh: refreshListings };
+      default:
+        return { loading: false, data: [], refresh: () => {} };
+    }
+  };
+
+  const { loading, data, refresh } = getTabData();
+
+  // Stats listings
+  const listingStats = {
+    total: listings.length,
+    active: listings.filter(l => l.status === 'active').length,
+  };
 
   const handleCreateOffer = () => {
     if (!canPublish) {
@@ -71,25 +107,42 @@ export default function RecruiterDashboard() {
       );
       return;
     }
-    router.push(isJobTab ? '/(screens)/jobOfferCreate' : '/(screens)/internshipOfferCreate');
+    
+    const routes = {
+      jobs: '/(screens)/jobOfferCreate',
+      internships: '/(screens)/internshipOfferCreate',
+      pharmacies: '/(screens)/listingCreate',
+    };
+    router.push(routes[activeTab]);
   };
 
-  const handleOfferPress = (offer) => {
-    const screen = isJobTab ? 'jobOfferDetail' : 'internshipOfferDetail';
-    router.push({ pathname: `/(screens)/${screen}`, params: { id: offer.id } });
+  const handleOfferPress = (item) => {
+    const routes = {
+      jobs: '/(screens)/jobOfferDetail',
+      internships: '/(screens)/internshipOfferDetail',
+      pharmacies: '/(screens)/listingDetail',
+    };
+    router.push({ pathname: routes[activeTab], params: { id: item.id } });
   };
 
-  const handleDelete = (offer) => {
+  const handleDelete = (item) => {
     Alert.alert(
       'Supprimer l\'annonce',
-      `Voulez-vous vraiment supprimer "${offer.title}" ?`,
+      `Voulez-vous vraiment supprimer "${item.title}" ?`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
           text: 'Supprimer',
           style: 'destructive',
           onPress: async () => {
-            const { error } = isJobTab ? await deleteJob(offer.id) : await deleteInternship(offer.id);
+            let error;
+            if (activeTab === 'jobs') {
+              ({ error } = await deleteJob(item.id));
+            } else if (activeTab === 'internships') {
+              ({ error } = await deleteInternship(item.id));
+            } else {
+              ({ error } = await deleteListing(item.id));
+            }
             if (error) Alert.alert('Erreur', 'Impossible de supprimer');
           },
         },
@@ -97,10 +150,18 @@ export default function RecruiterDashboard() {
     );
   };
 
-  const handleToggleStatus = async (offer) => {
-    const newStatus = offer.status === 'active' ? 'inactive' : 'active';
-    const setStatus = isJobTab ? setJobStatus : setInternshipStatus;
-    const { error } = await setStatus(offer.id, newStatus);
+  const handleToggleStatus = async (item) => {
+    const newStatus = item.status === 'active' ? 'inactive' : 'active';
+    let error;
+    
+    if (activeTab === 'jobs') {
+      ({ error } = await setJobStatus(item.id, newStatus));
+    } else if (activeTab === 'internships') {
+      ({ error } = await setInternshipStatus(item.id, newStatus));
+    } else {
+      ({ error } = await setListingStatus(item.id, newStatus));
+    }
+    
     if (error) Alert.alert('Erreur', 'Impossible de modifier le statut');
   };
 
@@ -109,8 +170,10 @@ export default function RecruiterDashboard() {
     return new Date(dateString).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
 
+  // Render card emploi/stage
   const renderOfferCard = ({ item }) => {
     const statusInfo = getContentStatusInfo(item.status);
+    const isJobTab = activeTab === 'jobs';
     const typeColor = isJobTab ? getContractColor(item.contract_type) : getInternshipColor(item.type);
     const typeLabel = isJobTab ? getContractTypeLabel(item.contract_type) : getInternshipTypeLabel(item.type);
 
@@ -158,23 +221,99 @@ export default function RecruiterDashboard() {
     );
   };
 
-  const renderEmpty = () => (
-    <View style={commonStyles.emptyContainer}>
-      <View style={commonStyles.emptyIcon}>
-        <Icon name={isJobTab ? 'briefcase' : 'book'} size={40} color={theme.colors.primary} />
-      </View>
-      <Text style={commonStyles.emptyTitle}>
-        {isJobTab ? 'Aucune annonce emploi' : 'Aucune annonce stage/alternance'}
-      </Text>
-      <Text style={commonStyles.emptyText}>
-        Publiez votre première annonce pour trouver le candidat idéal
-      </Text>
-      <Pressable style={[commonStyles.buttonPrimary, commonStyles.rowGapSmall, { marginTop: hp(3) }]} onPress={handleCreateOffer}>
-        <Icon name="plus" size={18} color="white" />
-        <Text style={commonStyles.buttonPrimaryText}>Créer une annonce</Text>
+  // Render card pharmacie
+  const renderListingCard = ({ item }) => {
+    const statusInfo = getListingStatusInfo(item.status);
+    const typeColor = getListingTypeColor(item.type);
+    const photo = item.photos?.[0];
+
+    return (
+      <Pressable style={styles.listingCard} onPress={() => handleOfferPress(item)}>
+        {/* Photo */}
+        <View style={styles.listingPhoto}>
+          {photo ? (
+            <Image source={{ uri: photo }} style={styles.listingImage} contentFit="cover" />
+          ) : (
+            <View style={styles.listingImagePlaceholder}>
+              <Icon name="home" size={24} color={theme.colors.gray} />
+            </View>
+          )}
+        </View>
+
+        {/* Info */}
+        <View style={styles.listingInfo}>
+          <View style={commonStyles.rowBetween}>
+            <View style={[commonStyles.badge, { backgroundColor: theme.colors[statusInfo.color] + '15' }]}>
+              <Text style={[commonStyles.badgeText, { color: theme.colors[statusInfo.color] }]}>
+                {statusInfo.label}
+              </Text>
+            </View>
+            <View style={[commonStyles.badge, { backgroundColor: typeColor + '15' }]}>
+              <Text style={[commonStyles.badgeText, { color: typeColor }]}>{getListingTypeLabel(item.type)}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.listingTitle} numberOfLines={2}>{item.title}</Text>
+
+          <View style={commonStyles.rowGapSmall}>
+            <Icon name="mapPin" size={14} color={theme.colors.textLight} />
+            <Text style={commonStyles.hint}>
+              {item.anonymized ? item.region : `${item.city}, ${item.department}`}
+            </Text>
+          </View>
+
+          {item.price && (
+            <Text style={styles.listingPrice}>
+              {formatNumber(item.price)} €{item.negotiable ? ' (nég.)' : ''}
+            </Text>
+          )}
+
+          <View style={styles.listingFooter}>
+            <Text style={commonStyles.hint}>{formatDate(item.created_at)}</Text>
+            <View style={commonStyles.rowGapSmall}>
+              <Pressable style={styles.iconButtonSmall} onPress={() => handleToggleStatus(item)}>
+                <Icon 
+                  name={item.status === 'active' ? 'eyeOff' : 'eye'} 
+                  size={14} 
+                  color={item.status === 'active' ? theme.colors.warning : theme.colors.success} 
+                />
+              </Pressable>
+              <Pressable style={styles.iconButtonSmall} onPress={() => handleDelete(item)}>
+                <Icon name="trash" size={14} color={theme.colors.rose} />
+              </Pressable>
+            </View>
+          </View>
+        </View>
       </Pressable>
-    </View>
-  );
+    );
+  };
+
+  const renderItem = (props) => {
+    return activeTab === 'pharmacies' ? renderListingCard(props) : renderOfferCard(props);
+  };
+
+  const renderEmpty = () => {
+    const emptyConfig = {
+      jobs: { icon: 'briefcase', title: 'Aucune annonce emploi', text: 'Publiez votre première annonce pour trouver le candidat idéal' },
+      internships: { icon: 'book', title: 'Aucune annonce stage/alternance', text: 'Proposez des stages pour former vos futurs collaborateurs' },
+      pharmacies: { icon: 'home', title: 'Aucune annonce pharmacie', text: 'Publiez une annonce pour vendre ou louer votre pharmacie' },
+    };
+    const config = emptyConfig[activeTab];
+
+    return (
+      <View style={commonStyles.emptyContainer}>
+        <View style={commonStyles.emptyIcon}>
+          <Icon name={config.icon} size={40} color={theme.colors.primary} />
+        </View>
+        <Text style={commonStyles.emptyTitle}>{config.title}</Text>
+        <Text style={commonStyles.emptyText}>{config.text}</Text>
+        <Pressable style={[commonStyles.buttonPrimary, commonStyles.rowGapSmall, { marginTop: hp(3) }]} onPress={handleCreateOffer}>
+          <Icon name="plus" size={18} color="white" />
+          <Text style={commonStyles.buttonPrimaryText}>Créer une annonce</Text>
+        </Pressable>
+      </View>
+    );
+  };
 
   return (
     <ScreenWrapper bg={theme.colors.background}>
@@ -206,8 +345,8 @@ export default function RecruiterDashboard() {
 
       {/* Stats */}
       <View style={styles.statsRow}>
-        <StatCard value={jobStats.total + internshipStats.total} label="Total" />
-        <StatCard value={jobStats.active + internshipStats.active} label="Actives" color={theme.colors.success} />
+        <StatCard value={jobStats.total + internshipStats.total + listingStats.total} label="Total" />
+        <StatCard value={jobStats.active + internshipStats.active + listingStats.active} label="Actives" color={theme.colors.success} />
         <StatCard value={jobStats.total} label="Emplois" color={theme.colors.primary} />
         <StatCard value={internshipStats.total} label="Stages" color={theme.colors.secondary} />
       </View>
@@ -220,6 +359,11 @@ export default function RecruiterDashboard() {
             style={[styles.tab, activeTab === tab.key && styles.tabActive]}
             onPress={() => setActiveTab(tab.key)}
           >
+            <Icon 
+              name={tab.icon} 
+              size={16} 
+              color={activeTab === tab.key ? 'white' : theme.colors.textLight} 
+            />
             <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
               {tab.label}
             </Text>
@@ -234,11 +378,11 @@ export default function RecruiterDashboard() {
         </View>
       ) : (
         <FlatList
-          data={offers}
+          data={data}
           keyExtractor={(item) => item.id}
-          renderItem={renderOfferCard}
+          renderItem={renderItem}
           ListEmptyComponent={renderEmpty}
-          contentContainerStyle={offers.length === 0 ? commonStyles.flex1 : commonStyles.listContainer}
+          contentContainerStyle={data.length === 0 ? commonStyles.flex1 : commonStyles.listContainer}
           showsVerticalScrollIndicator={false}
           refreshing={loading}
           onRefresh={refresh}
@@ -317,15 +461,18 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    paddingVertical: hp(1.2),
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: wp(1.5),
+    paddingVertical: hp(1.2),
     borderRadius: theme.radius.md,
   },
   tabActive: {
     backgroundColor: theme.colors.primary,
   },
   tabText: {
-    fontSize: hp(1.4),
+    fontSize: hp(1.3),
     color: theme.colors.textLight,
     fontFamily: theme.fonts.medium,
   },
@@ -344,5 +491,62 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  iconButtonSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: theme.colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Styles spécifiques aux listings
+  listingCard: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    overflow: 'hidden',
+  },
+  listingPhoto: {
+    width: wp(28),
+    height: '100%',
+    minHeight: hp(16),
+  },
+  listingImage: {
+    width: '100%',
+    height: '100%',
+  },
+  listingImagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: theme.colors.backgroundDark,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listingInfo: {
+    flex: 1,
+    padding: hp(1.5),
+    gap: hp(0.8),
+  },
+  listingTitle: {
+    fontSize: hp(1.5),
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.text,
+  },
+  listingPrice: {
+    fontSize: hp(1.5),
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.primary,
+  },
+  listingFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 'auto',
+    paddingTop: hp(0.8),
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
   },
 });

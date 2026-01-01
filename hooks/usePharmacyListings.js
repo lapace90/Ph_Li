@@ -1,3 +1,5 @@
+// hooks/usePharmacyListings.js
+
 import { useState, useEffect, useCallback } from 'react';
 import { pharmacyListingService } from '../services/pharmacyListingService';
 
@@ -90,6 +92,16 @@ export const useMyListings = (userId) => {
     }
   };
 
+  const setStatus = async (id, status) => {
+    try {
+      const updated = await pharmacyListingService.update(id, { status });
+      setListings(prev => prev.map(l => l.id === id ? { ...l, status } : l));
+      return { error: null };
+    } catch (err) {
+      return { error: err };
+    }
+  };
+
   return {
     listings,
     loading,
@@ -98,5 +110,6 @@ export const useMyListings = (userId) => {
     createListing,
     updateListing,
     deleteListing,
+    setStatus,
   };
 };

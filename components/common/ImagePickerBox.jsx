@@ -1,3 +1,5 @@
+// components/common/ImagePickerBox.jsx
+
 import { useState } from 'react';
 import { StyleSheet, Text, View, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
@@ -74,8 +76,8 @@ const ImagePickerBox = ({
     try {
       const options = {
         mediaTypes: ['images'],
-        allowsEditing: false,
-        quality: 1,
+        allowsEditing: false,     // Pas de crop forcé
+        quality: 0.5,             // Compression 50% pour réduire la taille
       };
 
       const result = useCamera
@@ -84,6 +86,12 @@ const ImagePickerBox = ({
 
       if (!result.canceled && result.assets?.[0]) {
         const asset = result.assets[0];
+        
+        console.log('📷 Image selected:', {
+          width: asset.width,
+          height: asset.height,
+          fileSize: asset.fileSize ? `${(asset.fileSize / 1024 / 1024).toFixed(2)}MB` : 'unknown',
+        });
 
         // Ouvrir le modal de preview
         setPendingImage(asset.uri);
@@ -179,7 +187,7 @@ const ImagePickerBox = ({
           onPickGallery={() => pickImage(false)}
           onRemove={handleRemove}
           showRemove={!!value}
-          title={title}
+          title={value ? 'Modifier la photo' : 'Ajouter une photo'}
         />
 
         <ImagePreviewModal
@@ -359,12 +367,12 @@ const styles = StyleSheet.create({
   },
   mainBadge: {
     position: 'absolute',
-    bottom: 4,
-    left: 4,
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: theme.colors.primary,
-    paddingHorizontal: wp(1.5),
-    paddingVertical: hp(0.2),
-    borderRadius: theme.radius.sm,
+    paddingVertical: 4,
+    alignItems: 'center',
   },
   mainBadgeText: {
     fontSize: hp(1),
@@ -375,13 +383,13 @@ const styles = StyleSheet.create({
     width: wp(28),
     height: wp(28),
     borderRadius: theme.radius.lg,
-    backgroundColor: theme.colors.card,
     borderWidth: 2,
     borderColor: theme.colors.border,
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: hp(0.8),
+    backgroundColor: theme.colors.card,
+    gap: hp(0.5),
   },
   addIconContainer: {
     width: 40,
@@ -392,7 +400,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addButtonText: {
-    fontSize: hp(1.3),
+    fontSize: hp(1.2),
     color: theme.colors.textLight,
     fontFamily: theme.fonts.medium,
   },
