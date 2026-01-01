@@ -1,5 +1,3 @@
-// app/(screens)/privacySettings.jsx
-
 import { Alert, StyleSheet, Text, View, Switch } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';

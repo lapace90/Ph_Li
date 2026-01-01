@@ -1,5 +1,3 @@
-// app/(screens)/recruiterDashboard.jsx
-
 import { useState } from 'react';
 import { View, Text, Pressable, FlatList, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';

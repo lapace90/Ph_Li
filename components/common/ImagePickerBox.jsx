@@ -1,5 +1,3 @@
-// components/common/ImagePickerBox.jsx
-
 import { useState } from 'react';
 import { StyleSheet, Text, View, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';

@@ -1,5 +1,3 @@
-// hooks/usePharmacyListings.js
-
 import { useState, useEffect, useCallback } from 'react';
 import { pharmacyListingService } from '../services/pharmacyListingService';
 

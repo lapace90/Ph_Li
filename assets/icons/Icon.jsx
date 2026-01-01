@@ -93,6 +93,8 @@ const iconMap = {
   class: { lib: 'material', name: 'class' },
   work: { lib: 'material', name: 'work' },
   laptop: { lib: 'material', name: 'laptop' },
+  list: { lib: 'material', name: 'list' },
+  navigation: { lib: 'material', name: 'navigation' },
 
 };
 

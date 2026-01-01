@@ -1,4 +1,3 @@
-// constants/listingOptions.js
 // Aligné sur les enums Supabase : listing_type, content_status
 
 import { theme } from './theme';

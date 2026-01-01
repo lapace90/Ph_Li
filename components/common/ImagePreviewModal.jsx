@@ -1,5 +1,3 @@
-// components/common/ImagePreviewModal.jsx
-
 import { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,

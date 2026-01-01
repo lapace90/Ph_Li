@@ -1,5 +1,3 @@
-// app/(tabs)/profile.jsx
-
 import { StyleSheet, Text, View, Pressable, ScrollView, Switch } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
