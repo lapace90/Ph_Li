@@ -1,289 +1,197 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
-import { StyleSheet, Text, View, Pressable, FlatList, ActivityIndicator, Animated, Dimensions } from 'react-native';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { StyleSheet, Text, View, Pressable, ActivityIndicator, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { theme } from '../../constants/theme';
 import { commonStyles } from '../../constants/styles';
 import { hp, wp } from '../../helpers/common';
-import { FRANCE_METRO, REGION_OPTIONS } from '../../constants/regions';
-import { getContractColor, getContractTypeLabel } from '../../constants/jobOptions';
-import { useJobSearch } from '../../hooks/useJobSearch';
+import { supabase } from '../../lib/supabase';
+import { ALL_REGIONS, getRegionByDepartment } from '../../constants/francePaths';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import Icon from '../../assets/icons/Icon';
-import RegionSelector, { RegionButton } from '../../components/map/RegionSelector';
-import FilterModal, { FilterButton } from '../../components/map/FilterModal';
+import FranceMap from '../../components/map/FranceMap';
+import FilterModal from '../../components/map/FilterModal';
 import JobListItem from '../../components/map/JobListItem';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const LIST_MIN_HEIGHT = hp(30);
-const LIST_MAX_HEIGHT = SCREEN_HEIGHT - hp(20);
 
 export default function Search() {
   const router = useRouter();
-  const mapRef = useRef(null);
   
   // État
-  const [viewMode, setViewMode] = useState('map'); // 'map' ou 'list'
-  const [showRegionSelector, setShowRegionSelector] = useState(false);
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedRegion, setSelectedRegion] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedJob, setSelectedJob] = useState(null);
-  const [listExpanded, setListExpanded] = useState(false);
-  
-  // Hook de recherche
-  const {
-    jobs,
-    jobsInRadius,
-    loading,
-    error,
-    userLocation,
-    locationPermission,
-    filters,
-    selectedRegion,
-    stats,
-    updateFilters,
-    resetFilters,
-    changeRegion,
-    refresh,
-    requestLocationPermission,
-  } = useJobSearch();
+  const [filters, setFilters] = useState({
+    contract_type: null,
+    position_type: null,
+    experience_required: null,
+    radius: 50,
+    sortBy: 'date',
+  });
 
-  // Animation pour la liste
-  const listHeight = useRef(new Animated.Value(LIST_MIN_HEIGHT)).current;
+  // Charger les offres
+  const loadJobs = useCallback(async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('job_offers')
+        .select('*')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
 
-  // Changer de région sur la carte
-  const handleRegionSelect = useCallback((region) => {
-    changeRegion(region);
-    mapRef.current?.animateToRegion({
-      latitude: region.latitude,
-      longitude: region.longitude,
-      latitudeDelta: region.latitudeDelta,
-      longitudeDelta: region.longitudeDelta,
-    }, 500);
-  }, [changeRegion]);
-
-  // Centrer sur la position utilisateur
-  const handleCenterOnUser = useCallback(() => {
-    if (userLocation) {
-      mapRef.current?.animateToRegion({
-        ...userLocation,
-        latitudeDelta: 0.5,
-        longitudeDelta: 0.5,
-      }, 500);
-    } else {
-      requestLocationPermission();
-    }
-  }, [userLocation, requestLocationPermission]);
-
-  // Sélectionner une annonce
-  const handleJobPress = useCallback((job) => {
-    setSelectedJob(job);
-    if (job.latitude && job.longitude) {
-      mapRef.current?.animateToRegion({
-        latitude: job.latitude,
-        longitude: job.longitude,
-        latitudeDelta: 0.1,
-        longitudeDelta: 0.1,
-      }, 300);
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      setJobs(data || []);
+    } catch (err) {
+      console.error('Error loading jobs:', err);
+      setJobs([]);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  // Ouvrir le détail d'une annonce
-  const handleJobDetail = useCallback((job) => {
+  useEffect(() => {
+    loadJobs();
+  }, [loadJobs]);
+
+  // Calculer le nombre d'offres par région
+  const jobCountsByRegion = useMemo(() => {
+    const counts = {};
+    
+    jobs.forEach(job => {
+      let regionId = null;
+      
+      if (job.department) {
+        const region = getRegionByDepartment(job.department);
+        if (region) regionId = region.id;
+      }
+      
+      if (!regionId && job.region) {
+        const region = ALL_REGIONS.find(r => 
+          r.name.toLowerCase() === job.region.toLowerCase()
+        );
+        if (region) regionId = region.id;
+      }
+      
+      if (regionId) {
+        counts[regionId] = (counts[regionId] || 0) + 1;
+      }
+    });
+    
+    return counts;
+  }, [jobs]);
+
+  // Filtrer les jobs par région sélectionnée et filtres
+  const filteredJobs = useMemo(() => {
+    let result = jobs;
+
+    // Filtre par région
+    if (selectedRegion) {
+      const region = ALL_REGIONS.find(r => r.id === selectedRegion);
+      if (region) {
+        if (region.departments) {
+          result = result.filter(job => region.departments.includes(job.department));
+        } else if (region.code) {
+          result = result.filter(job => job.department === region.code);
+        }
+      }
+    }
+
+    // Filtre par type de contrat
+    if (filters.contract_type) {
+      result = result.filter(job => job.contract_type === filters.contract_type);
+    }
+
+    // Filtre par type de poste
+    if (filters.position_type) {
+      result = result.filter(job => job.position_type === filters.position_type);
+    }
+
+    // Filtre par expérience
+    if (filters.experience_required !== null) {
+      result = result.filter(job => 
+        job.required_experience === null || 
+        job.required_experience <= filters.experience_required
+      );
+    }
+
+    // Tri
+    if (filters.sortBy === 'date') {
+      result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }
+
+    return result;
+  }, [jobs, selectedRegion, filters]);
+
+  // Gérer le clic sur une région
+  const handleRegionPress = useCallback((region) => {
+    if (selectedRegion === region.id) {
+      setSelectedRegion(null);
+    } else {
+      setSelectedRegion(region.id);
+    }
+  }, [selectedRegion]);
+
+  // Ouvrir le détail d'une offre
+  const handleJobPress = useCallback((job) => {
     router.push({
       pathname: '/(screens)/jobOfferDetailCandidate',
       params: { id: job.id }
     });
   }, [router]);
 
-  // Toggle liste étendue
-  const toggleListExpanded = useCallback(() => {
-    const toValue = listExpanded ? LIST_MIN_HEIGHT : LIST_MAX_HEIGHT;
-    Animated.spring(listHeight, {
-      toValue,
-      useNativeDriver: false,
-      friction: 10,
-    }).start();
-    setListExpanded(!listExpanded);
-  }, [listExpanded, listHeight]);
+  // Appliquer les filtres
+  const handleApplyFilters = useCallback((newFilters) => {
+    setFilters(newFilters);
+  }, []);
+
+  // Réinitialiser les filtres
+  const handleResetFilters = useCallback(() => {
+    setFilters({
+      contract_type: null,
+      position_type: null,
+      experience_required: null,
+      radius: 50,
+      sortBy: 'date',
+    });
+    setSelectedRegion(null);
+  }, []);
 
   // Nombre de filtres actifs
   const activeFiltersCount = useMemo(() => {
     return Object.entries(filters).filter(
       ([key, value]) => value !== null && key !== 'radius' && key !== 'sortBy'
-    ).length;
-  }, [filters]);
+    ).length + (selectedRegion ? 1 : 0);
+  }, [filters, selectedRegion]);
 
-  // Rendu des markers
-  const renderMarkers = useCallback(() => {
-    return jobsInRadius.map((job) => {
-      if (!job.latitude || !job.longitude) return null;
-      
-      const isSelected = selectedJob?.id === job.id;
-      const contractColor = getContractColor(job.contract_type);
-      
-      return (
-        <Marker
-          key={job.id}
-          coordinate={{
-            latitude: job.latitude,
-            longitude: job.longitude,
-          }}
-          onPress={() => handleJobPress(job)}
-          tracksViewChanges={false}
-        >
-          <View style={[styles.marker, isSelected && styles.markerSelected]}>
-            <View style={[styles.markerInner, { backgroundColor: contractColor }]}>
-              <Icon name="briefcase" size={14} color="white" />
-            </View>
-            <View style={[styles.markerTail, { borderTopColor: contractColor }]} />
-          </View>
-        </Marker>
-      );
-    });
-  }, [jobsInRadius, selectedJob, handleJobPress]);
+  // Nom de la région sélectionnée
+  const selectedRegionName = useMemo(() => {
+    if (!selectedRegion) return null;
+    return ALL_REGIONS.find(r => r.id === selectedRegion)?.name;
+  }, [selectedRegion]);
 
-  // Rendu du header
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <Text style={styles.title}>Recherche</Text>
-      <View style={styles.viewToggle}>
-        <Pressable
-          style={[styles.viewButton, viewMode === 'map' && styles.viewButtonActive]}
-          onPress={() => setViewMode('map')}
-        >
-          <Icon name="map" size={18} color={viewMode === 'map' ? 'white' : theme.colors.textLight} />
-        </Pressable>
-        <Pressable
-          style={[styles.viewButton, viewMode === 'list' && styles.viewButtonActive]}
-          onPress={() => setViewMode('list')}
-        >
-          <Icon name="list" size={18} color={viewMode === 'list' ? 'white' : theme.colors.textLight} />
-        </Pressable>
-      </View>
-    </View>
-  );
+  // Total des offres
+  const totalJobs = Object.values(jobCountsByRegion).reduce((a, b) => a + b, 0);
 
-  // Rendu du panneau de contrôles sur la carte
-  const renderMapControls = () => (
-    <>
-      {/* Sélecteur de région en haut */}
-      <View style={styles.topControls}>
-        <RegionButton
-          selectedRegion={selectedRegion}
-          onPress={() => setShowRegionSelector(true)}
-          jobCount={stats.inRadius}
-        />
-      </View>
-
-      {/* Contrôles à droite */}
-      <View style={styles.rightControls}>
-        <FilterButton onPress={() => setShowFilters(true)} activeCount={activeFiltersCount} />
-        
-        <Pressable style={styles.controlButton} onPress={handleCenterOnUser}>
-          <Icon 
-            name="navigation" 
-            size={20} 
-            color={userLocation ? theme.colors.primary : theme.colors.textLight} 
-          />
-        </Pressable>
-
-        <Pressable style={styles.controlButton} onPress={refresh}>
-          <Icon name="refresh" size={20} color={theme.colors.text} />
-        </Pressable>
-      </View>
-    </>
-  );
-
-  // Rendu de la card de l'annonce sélectionnée
-  const renderSelectedJobCard = () => {
-    if (!selectedJob) return null;
-
-    const contractColor = getContractColor(selectedJob.contract_type);
-
-    return (
-      <Pressable 
-        style={styles.selectedJobCard}
-        onPress={() => handleJobDetail(selectedJob)}
-      >
-        <View style={styles.selectedJobHeader}>
-          <View style={[styles.contractBadge, { backgroundColor: contractColor + '15' }]}>
-            <Text style={[styles.contractText, { color: contractColor }]}>
-              {getContractTypeLabel(selectedJob.contract_type)}
-            </Text>
-          </View>
-          {selectedJob.match_score && (
-            <View style={styles.matchBadge}>
-              <Text style={styles.matchText}>{selectedJob.match_score}%</Text>
-            </View>
-          )}
-          <Pressable style={styles.closeCard} onPress={() => setSelectedJob(null)}>
-            <Icon name="x" size={18} color={theme.colors.textLight} />
+  return (
+    <ScreenWrapper bg={theme.colors.background}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Recherche</Text>
+        <View style={styles.headerActions}>
+          <Pressable 
+            style={[styles.filterButton, activeFiltersCount > 0 && styles.filterButtonActive]} 
+            onPress={() => setShowFilters(true)}
+          >
+            <Icon name="filter" size={18} color={activeFiltersCount > 0 ? 'white' : theme.colors.text} />
+            {activeFiltersCount > 0 && (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
+              </View>
+            )}
           </Pressable>
-        </View>
-        
-        <Text style={styles.selectedJobTitle} numberOfLines={2}>
-          {selectedJob.title}
-        </Text>
-        
-        <View style={styles.selectedJobLocation}>
-          <Icon name="mapPin" size={14} color={theme.colors.textLight} />
-          <Text style={styles.selectedJobCity}>{selectedJob.city}</Text>
-          {selectedJob.distance !== null && (
-            <Text style={styles.selectedJobDistance}>• {selectedJob.distance} km</Text>
-          )}
-        </View>
-
-        <View style={styles.selectedJobAction}>
-          <Text style={styles.selectedJobActionText}>Voir l'annonce</Text>
-          <Icon name="chevronRight" size={16} color={theme.colors.primary} />
-        </View>
-      </Pressable>
-    );
-  };
-
-  // Vue carte
-  const renderMapView = () => (
-    <View style={styles.mapContainer}>
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        provider={PROVIDER_DEFAULT}
-        initialRegion={FRANCE_METRO}
-        showsUserLocation={locationPermission}
-        showsMyLocationButton={false}
-        showsCompass={false}
-        rotateEnabled={false}
-        onPress={() => setSelectedJob(null)}
-      >
-        {renderMarkers()}
-      </MapView>
-
-      {renderMapControls()}
-      {renderSelectedJobCard()}
-
-      {/* Indicateur de chargement */}
-      {loading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="small" color={theme.colors.primary} />
-        </View>
-      )}
-    </View>
-  );
-
-  // Vue liste
-  const renderListView = () => (
-    <View style={styles.listContainer}>
-      {/* Filtres en haut */}
-      <View style={styles.listHeader}>
-        <RegionButton
-          selectedRegion={selectedRegion}
-          onPress={() => setShowRegionSelector(true)}
-          jobCount={stats.inRadius}
-        />
-        <View style={styles.listHeaderRight}>
-          <FilterButton onPress={() => setShowFilters(true)} activeCount={activeFiltersCount} />
-          <Pressable style={styles.controlButton} onPress={refresh}>
-            <Icon name="refresh" size={20} color={theme.colors.text} />
+          <Pressable style={styles.refreshButton} onPress={loadJobs}>
+            <Icon name="refresh" size={18} color={theme.colors.text} />
           </Pressable>
         </View>
       </View>
@@ -291,85 +199,102 @@ export default function Search() {
       {/* Stats */}
       <View style={styles.statsBar}>
         <Text style={styles.statsText}>
-          {stats.inRadius} offre{stats.inRadius > 1 ? 's' : ''} dans un rayon de {filters.radius} km
+          {loading ? 'Chargement...' : `${totalJobs} offre${totalJobs > 1 ? 's' : ''} disponible${totalJobs > 1 ? 's' : ''}`}
         </Text>
+        {selectedRegionName && (
+          <Pressable 
+            style={styles.regionTag}
+            onPress={() => setSelectedRegion(null)}
+          >
+            <Text style={styles.regionTagText}>{selectedRegionName}</Text>
+            <Icon name="x" size={14} color={theme.colors.primary} />
+          </Pressable>
+        )}
       </View>
 
-      {/* Liste */}
-      {loading ? (
-        <View style={commonStyles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-        </View>
-      ) : jobsInRadius.length === 0 ? (
-        <View style={commonStyles.emptyContainer}>
-          <View style={commonStyles.emptyIcon}>
-            <Icon name="search" size={40} color={theme.colors.primary} />
-          </View>
-          <Text style={commonStyles.emptyTitle}>Aucune offre trouvée</Text>
-          <Text style={commonStyles.emptyText}>
-            Essayez d'élargir votre rayon de recherche ou de modifier vos filtres
-          </Text>
-          <Pressable 
-            style={[commonStyles.buttonPrimary, { marginTop: hp(2) }]}
-            onPress={() => setShowFilters(true)}
-          >
-            <Text style={commonStyles.buttonPrimaryText}>Modifier les filtres</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <FlatList
-          data={jobsInRadius}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <JobListItem 
-              job={item} 
-              onPress={handleJobDetail}
-              showDistance={userLocation !== null}
+      <ScrollView 
+        style={commonStyles.flex1}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Carte de France */}
+        <View style={styles.mapSection}>
+          <Text style={styles.sectionTitle}>Sélectionnez une région</Text>
+          {loading ? (
+            <View style={styles.mapLoading}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+            </View>
+          ) : (
+            <FranceMap
+              jobCounts={jobCountsByRegion}
+              selectedRegion={selectedRegion}
+              onRegionPress={handleRegionPress}
+              showDomTom={true}
             />
           )}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
-    </View>
-  );
+        </View>
 
-  // Bannière de permission de localisation
-  const renderLocationBanner = () => {
-    if (locationPermission !== false) return null;
+        {/* Liste des offres */}
+        <View style={styles.listSection}>
+          <View style={styles.listHeader}>
+            <Text style={styles.sectionTitle}>
+              {selectedRegionName 
+                ? `Offres en ${selectedRegionName}` 
+                : 'Toutes les offres'}
+            </Text>
+            <Text style={styles.listCount}>
+              {filteredJobs.length} résultat{filteredJobs.length > 1 ? 's' : ''}
+            </Text>
+          </View>
 
-    return (
-      <Pressable style={styles.locationBanner} onPress={requestLocationPermission}>
-        <Icon name="mapPin" size={18} color={theme.colors.warning} />
-        <Text style={styles.locationBannerText}>
-          Activez la localisation pour voir les offres près de vous
-        </Text>
-        <Icon name="chevronRight" size={16} color={theme.colors.warning} />
-      </Pressable>
-    );
-  };
+          {filteredJobs.length === 0 ? (
+            <View style={styles.emptyList}>
+              <Icon name="search" size={40} color={theme.colors.gray} />
+              <Text style={styles.emptyTitle}>Aucune offre trouvée</Text>
+              <Text style={styles.emptyText}>
+                {selectedRegion 
+                  ? 'Aucune offre dans cette région pour le moment'
+                  : 'Modifiez vos filtres ou revenez plus tard'}
+              </Text>
+              {(selectedRegion || activeFiltersCount > 0) && (
+                <Pressable 
+                  style={styles.resetButton}
+                  onPress={handleResetFilters}
+                >
+                  <Text style={styles.resetButtonText}>Réinitialiser les filtres</Text>
+                </Pressable>
+              )}
+            </View>
+          ) : (
+            <View style={styles.jobsList}>
+              {filteredJobs.slice(0, 10).map((job) => (
+                <JobListItem
+                  key={job.id}
+                  job={job}
+                  onPress={handleJobPress}
+                  showDistance={false}
+                />
+              ))}
+              {filteredJobs.length > 10 && (
+                <Pressable style={styles.showMoreButton}>
+                  <Text style={styles.showMoreText}>
+                    Voir les {filteredJobs.length - 10} autres offres
+                  </Text>
+                  <Icon name="chevronRight" size={16} color={theme.colors.primary} />
+                </Pressable>
+              )}
+            </View>
+          )}
+        </View>
+      </ScrollView>
 
-  return (
-    <ScreenWrapper bg={theme.colors.background}>
-      {renderHeader()}
-      {renderLocationBanner()}
-      
-      {viewMode === 'map' ? renderMapView() : renderListView()}
-
-      {/* Modals */}
-      <RegionSelector
-        visible={showRegionSelector}
-        onClose={() => setShowRegionSelector(false)}
-        selectedRegion={selectedRegion}
-        onSelect={handleRegionSelect}
-      />
-
+      {/* Modal Filtres */}
       <FilterModal
         visible={showFilters}
         onClose={() => setShowFilters(false)}
         filters={filters}
-        onApply={updateFilters}
-        onReset={resetFilters}
+        onApply={handleApplyFilters}
+        onReset={handleResetFilters}
       />
     </ScreenWrapper>
   );
@@ -389,195 +314,57 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.bold,
     color: theme.colors.text,
   },
-  viewToggle: {
-    flexDirection: 'row',
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.radius.lg,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  viewButton: {
-    paddingHorizontal: wp(3),
-    paddingVertical: hp(0.8),
-    borderRadius: theme.radius.md,
-  },
-  viewButtonActive: {
-    backgroundColor: theme.colors.primary,
-  },
-  // Map styles
-  mapContainer: {
-    flex: 1,
-    position: 'relative',
-  },
-  map: {
-    flex: 1,
-  },
-  topControls: {
-    position: 'absolute',
-    top: hp(1.5),
-    left: wp(4),
-    right: wp(4),
-  },
-  rightControls: {
-    position: 'absolute',
-    top: hp(8),
-    right: wp(4),
-    gap: hp(1),
-  },
-  controlButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: hp(8),
-    left: wp(4),
-    backgroundColor: 'white',
-    padding: hp(1),
-    borderRadius: theme.radius.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  // Marker styles
-  marker: {
-    alignItems: 'center',
-  },
-  markerSelected: {
-    transform: [{ scale: 1.2 }],
-  },
-  markerInner: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'white',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  markerTail: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 6,
-    borderRightWidth: 6,
-    borderTopWidth: 8,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    marginTop: -2,
-  },
-  // Selected job card
-  selectedJobCard: {
-    position: 'absolute',
-    bottom: hp(2),
-    left: wp(4),
-    right: wp(4),
-    backgroundColor: 'white',
-    borderRadius: theme.radius.xl,
-    padding: hp(2),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  selectedJobHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: hp(1),
-  },
-  contractBadge: {
-    paddingHorizontal: wp(2.5),
-    paddingVertical: hp(0.4),
-    borderRadius: theme.radius.md,
-  },
-  contractText: {
-    fontSize: hp(1.3),
-    fontFamily: theme.fonts.semiBold,
-  },
-  matchBadge: {
-    marginLeft: wp(2),
-    backgroundColor: theme.colors.success + '20',
-    paddingHorizontal: wp(2),
-    paddingVertical: hp(0.3),
-    borderRadius: theme.radius.sm,
-  },
-  matchText: {
-    fontSize: hp(1.3),
-    fontFamily: theme.fonts.bold,
-    color: theme.colors.success,
-  },
-  closeCard: {
-    marginLeft: 'auto',
-    padding: hp(0.5),
-  },
-  selectedJobTitle: {
-    fontSize: hp(1.8),
-    fontFamily: theme.fonts.semiBold,
-    color: theme.colors.text,
-    marginBottom: hp(0.5),
-  },
-  selectedJobLocation: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: wp(1),
-    marginBottom: hp(1),
-  },
-  selectedJobCity: {
-    fontSize: hp(1.4),
-    color: theme.colors.textLight,
-  },
-  selectedJobDistance: {
-    fontSize: hp(1.4),
-    color: theme.colors.textLight,
-  },
-  selectedJobAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: wp(1),
-    paddingTop: hp(1),
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
-  selectedJobActionText: {
-    fontSize: hp(1.5),
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.primary,
-  },
-  // List styles
-  listContainer: {
-    flex: 1,
-  },
-  listHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: wp(4),
-    paddingVertical: hp(1),
-  },
-  listHeaderRight: {
+  headerActions: {
     flexDirection: 'row',
     gap: wp(2),
   },
+  filterButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  filterButtonActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: theme.colors.rose,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.background,
+  },
+  filterBadgeText: {
+    fontSize: hp(1),
+    fontFamily: theme.fonts.bold,
+    color: 'white',
+  },
+  refreshButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
   statsBar: {
-    paddingHorizontal: wp(4),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: wp(5),
     paddingVertical: hp(1),
     backgroundColor: theme.colors.card,
     borderTopWidth: 1,
@@ -588,24 +375,93 @@ const styles = StyleSheet.create({
     fontSize: hp(1.4),
     color: theme.colors.textLight,
   },
-  listContent: {
-    padding: wp(4),
-  },
-  // Location banner
-  locationBanner: {
+  regionTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: wp(2),
-    marginHorizontal: wp(4),
-    marginBottom: hp(1),
-    padding: hp(1.2),
-    backgroundColor: theme.colors.warning + '15',
+    gap: wp(1),
+    backgroundColor: theme.colors.primary + '15',
+    paddingHorizontal: wp(2.5),
+    paddingVertical: hp(0.4),
     borderRadius: theme.radius.lg,
   },
-  locationBannerText: {
-    flex: 1,
-    fontSize: hp(1.4),
-    color: theme.colors.warning,
+  regionTagText: {
+    fontSize: hp(1.3),
     fontFamily: theme.fonts.medium,
+    color: theme.colors.primary,
+  },
+  scrollContent: {
+    paddingBottom: hp(4),
+  },
+  mapSection: {
+    paddingHorizontal: wp(5),
+    paddingTop: hp(2),
+  },
+  sectionTitle: {
+    fontSize: hp(1.8),
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.text,
+    marginBottom: hp(1.5),
+  },
+  mapLoading: {
+    height: hp(45),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listSection: {
+    paddingHorizontal: wp(5),
+    paddingTop: hp(2),
+  },
+  listHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: hp(1.5),
+  },
+  listCount: {
+    fontSize: hp(1.4),
+    color: theme.colors.textLight,
+  },
+  emptyList: {
+    alignItems: 'center',
+    paddingVertical: hp(4),
+    gap: hp(1),
+  },
+  emptyTitle: {
+    fontSize: hp(1.8),
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.text,
+  },
+  emptyText: {
+    fontSize: hp(1.4),
+    color: theme.colors.textLight,
+    textAlign: 'center',
+  },
+  resetButton: {
+    marginTop: hp(2),
+    paddingHorizontal: wp(5),
+    paddingVertical: hp(1.2),
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radius.lg,
+  },
+  resetButtonText: {
+    fontSize: hp(1.5),
+    fontFamily: theme.fonts.medium,
+    color: 'white',
+  },
+  jobsList: {
+    gap: hp(1.5),
+  },
+  showMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: wp(1),
+    paddingVertical: hp(1.5),
+    marginTop: hp(1),
+  },
+  showMoreText: {
+    fontSize: hp(1.5),
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.primary,
   },
 });
