@@ -18,6 +18,7 @@ import { theme } from '../../constants/theme';
 import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCVs } from '../../hooks/useCVs';
+import CityAutocomplete from '../../components/common/CityAutocomplete';
 import {
     EMPTY_CV_STRUCTURE,
     ALL_SKILLS,
@@ -208,67 +209,112 @@ export default function CVCreate() {
         }
     };
 
-    const renderStepInfo = () => (
-        <View style={styles.stepContent}>
-            <Text style={styles.stepTitle}>Informations générales</Text>
+    const renderStepInfo = () => {
+        const handleCitySelect = (cityData) => {
+            setCvData(prev => ({
+                ...prev,
+                current_city: cityData.city,
+                current_region: cityData.region,
+            }));
+        };
 
-            <View style={commonStyles.formGroup}>
-                <Text style={commonStyles.label}>Titre du CV *</Text>
-                <TextInput
-                    style={commonStyles.input}
-                    placeholder="Ex: CV Officine, CV Temps partiel..."
-                    placeholderTextColor={theme.colors.textLight}
-                    value={title}
-                    onChangeText={setTitle}
-                />
-            </View>
+        return (
+            <View style={styles.stepContent}>
+                <Text style={styles.stepTitle}>Informations générales</Text>
 
-            <View style={commonStyles.formGroup}>
-                <Text style={commonStyles.label}>Visibilité par défaut</Text>
-                <View style={styles.visibilityRow}>
-                    <Pressable
-                        style={[styles.visibilityOption, visibility === 'anonymous' && styles.visibilityActive]}
-                        onPress={() => setVisibility('anonymous')}
-                    >
-                        <Icon name="eyeOff" size={20} color={visibility === 'anonymous' ? 'white' : theme.colors.textLight} />
-                        <Text style={[styles.visibilityText, visibility === 'anonymous' && styles.visibilityTextActive]}>
-                            Anonyme
-                        </Text>
-                        <Text style={[styles.visibilityHint, visibility === 'anonymous' && styles.visibilityHintActive]}>
-                            Noms et villes masqués
-                        </Text>
-                    </Pressable>
-                    <Pressable
-                        style={[styles.visibilityOption, visibility === 'public' && styles.visibilityActive]}
-                        onPress={() => setVisibility('public')}
-                    >
-                        <Icon name="eye" size={20} color={visibility === 'public' ? 'white' : theme.colors.textLight} />
-                        <Text style={[styles.visibilityText, visibility === 'public' && styles.visibilityTextActive]}>
-                            Public
-                        </Text>
-                        <Text style={[styles.visibilityHint, visibility === 'public' && styles.visibilityHintActive]}>
-                            Toutes les infos visibles
-                        </Text>
-                    </Pressable>
+                <View style={commonStyles.formGroup}>
+                    <Text style={commonStyles.label}>Titre du CV *</Text>
+                    <TextInput
+                        style={commonStyles.input}
+                        placeholder="Ex: CV Officine, CV Temps partiel..."
+                        placeholderTextColor={theme.colors.textLight}
+                        value={title}
+                        onChangeText={setTitle}
+                    />
+                </View>
+
+                <View style={commonStyles.formGroup}>
+                    <Text style={commonStyles.label}>Profession recherchée *</Text>
+                    <TextInput
+                        style={commonStyles.input}
+                        placeholder="Ex: Préparateur en pharmacie, Pharmacien adjoint..."
+                        placeholderTextColor={theme.colors.textLight}
+                        value={cvData.profession_title}
+                        onChangeText={(v) => setCvData(prev => ({ ...prev, profession_title: v }))}
+                    />
+                    <Text style={commonStyles.hint}>Ce titre apparaîtra en en-tête de votre CV</Text>
+                </View>
+
+                <View style={commonStyles.formGroup}>
+                    <Text style={commonStyles.label}>Votre localisation actuelle *</Text>
+                    <CityAutocomplete
+                        placeholder="Rechercher votre ville..."
+                        onSelect={handleCitySelect}
+                        initialValue={cvData.current_city}
+                    />
+                    {cvData.current_city && (
+                        <View style={[commonStyles.card, { marginTop: hp(1) }]}>
+                            <View style={commonStyles.rowGapSmall}>
+                                <Icon name="mapPin" size={16} color={theme.colors.primary} />
+                                <Text style={{ fontFamily: theme.fonts.medium, color: theme.colors.text }}>
+                                    {cvData.current_city}
+                                </Text>
+                            </View>
+                            <Text style={[commonStyles.hint, { marginTop: hp(0.5), marginLeft: wp(6) }]}>
+                                {cvData.current_region}
+                            </Text>
+                        </View>
+                    )}
+                    <Text style={commonStyles.hint}>En mode anonyme, seule la région sera visible</Text>
+                </View>
+
+                <View style={commonStyles.formGroup}>
+                    <Text style={commonStyles.label}>Visibilité par défaut</Text>
+                    <View style={styles.visibilityRow}>
+                        <Pressable
+                            style={[styles.visibilityOption, visibility === 'anonymous' && styles.visibilityActive]}
+                            onPress={() => setVisibility('anonymous')}
+                        >
+                            <Icon name="eyeOff" size={20} color={visibility === 'anonymous' ? 'white' : theme.colors.textLight} />
+                            <Text style={[styles.visibilityText, visibility === 'anonymous' && styles.visibilityTextActive]}>
+                                Anonyme
+                            </Text>
+                            <Text style={[styles.visibilityHint, visibility === 'anonymous' && styles.visibilityHintActive]}>
+                                Noms et villes masqués
+                            </Text>
+                        </Pressable>
+                        <Pressable
+                            style={[styles.visibilityOption, visibility === 'public' && styles.visibilityActive]}
+                            onPress={() => setVisibility('public')}
+                        >
+                            <Icon name="eye" size={20} color={visibility === 'public' ? 'white' : theme.colors.textLight} />
+                            <Text style={[styles.visibilityText, visibility === 'public' && styles.visibilityTextActive]}>
+                                Public
+                            </Text>
+                            <Text style={[styles.visibilityHint, visibility === 'public' && styles.visibilityHintActive]}>
+                                Toutes les infos visibles
+                            </Text>
+                        </Pressable>
+                    </View>
+                </View>
+
+                <View style={commonStyles.formGroup}>
+                    <Text style={commonStyles.label}>Résumé / À propos</Text>
+                    <TextInput
+                        style={[commonStyles.textArea, styles.textAreaLarge]}
+                        placeholder="Présentez-vous en quelques lignes : votre parcours, vos points forts, ce que vous recherchez..."
+                        placeholderTextColor={theme.colors.textLight}
+                        value={cvData.summary}
+                        onChangeText={(v) => setCvData(prev => ({ ...prev, summary: v }))}
+                        multiline
+                        numberOfLines={5}
+                        maxLength={500}
+                    />
+                    <Text style={styles.charCount}>{cvData.summary?.length || 0}/500</Text>
                 </View>
             </View>
-
-            <View style={commonStyles.formGroup}>
-                <Text style={commonStyles.label}>Résumé / À propos</Text>
-                <TextInput
-                    style={[commonStyles.textArea, styles.textAreaLarge]}
-                    placeholder="Présentez-vous en quelques lignes : votre parcours, vos points forts, ce que vous recherchez..."
-                    placeholderTextColor={theme.colors.textLight}
-                    value={cvData.summary}
-                    onChangeText={(v) => setCvData(prev => ({ ...prev, summary: v }))}
-                    multiline
-                    numberOfLines={5}
-                    maxLength={500}
-                />
-                <Text style={styles.charCount}>{cvData.summary?.length || 0}/500</Text>
-            </View>
-        </View>
-    );
+        );
+    };
 
     const renderStepExperiences = () => (
         <View style={styles.stepContent}>

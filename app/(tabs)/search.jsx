@@ -6,17 +6,42 @@ import { commonStyles } from '../../constants/styles';
 import { hp, wp } from '../../helpers/common';
 import { supabase } from '../../lib/supabase';
 import { ALL_REGIONS, getRegionByDepartment } from '../../constants/francePaths';
+import { useAuth } from '../../contexts/AuthContext';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import Icon from '../../assets/icons/Icon';
 import FranceMap from '../../components/map/FranceMap';
 import FilterModal from '../../components/map/FilterModal';
 import JobListItem from '../../components/map/JobListItem';
+import ListingCard from '../../components/marketplace/ListingCard';
+
+// Types d'annonces disponibles selon le profil
+const OFFER_TYPES = {
+  jobs: { key: 'jobs', label: 'Emploi', icon: 'briefcase' },
+  internships: { key: 'internships', label: 'Stages', icon: 'book' },
+};
+
+// Types de pharmacies pour les titulaires
+const PHARMACY_TYPES = [
+  { key: null, label: 'Tout', icon: 'home' },
+  { key: 'vente', label: 'Ventes', icon: 'tag' },
+  { key: 'location-gerance', label: 'Locations', icon: 'key' },
+  { key: 'association', label: 'Associations', icon: 'users' },
+];
 
 export default function Search() {
   const router = useRouter();
+  const { user } = useAuth();
   
-  // État
+  // Type d'annonce sélectionné (pour candidats)
+  const [offerType, setOfferType] = useState('jobs');
+  
+  // Type de pharmacie sélectionné (pour titulaires)
+  const [pharmacyType, setPharmacyType] = useState(null);
+  
+  // État des données
   const [jobs, setJobs] = useState([]);
+  const [internships, setInternships] = useState([]);
+  const [pharmacies, setPharmacies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRegion, setSelectedRegion] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -28,47 +53,126 @@ export default function Search() {
     sortBy: 'date',
   });
 
-  // Charger les offres
+  // Vérifier si l'utilisateur est titulaire
+  const isTitulaire = user?.user_type === 'titulaire';
+
+  // Déterminer les types disponibles selon le profil (pour candidats)
+  const availableTypes = useMemo(() => {
+    if (isTitulaire) return []; // Titulaires utilisent pharmacyType
+    return ['jobs', 'internships'];
+  }, [isTitulaire]);
+
+  // Définir le type par défaut selon le profil
+  useEffect(() => {
+    if (isTitulaire) {
+      // Titulaires : pas besoin de changer offerType
+      return;
+    }
+    if (user?.user_type === 'etudiant') {
+      setOfferType('internships');
+    } else {
+      setOfferType('jobs');
+    }
+  }, [user?.user_type, isTitulaire]);
+
+  // Charger les offres d'emploi
   const loadJobs = useCallback(async () => {
-    setLoading(true);
+    if (isTitulaire) return;
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('job_offers')
         .select('*')
         .eq('status', 'active')
         .order('created_at', { ascending: false });
 
-      const { data, error } = await query;
       if (error) throw error;
-      
       setJobs(data || []);
     } catch (err) {
       console.error('Error loading jobs:', err);
       setJobs([]);
-    } finally {
-      setLoading(false);
     }
-  }, []);
+  }, [isTitulaire]);
+
+  // Charger les stages/alternances
+  const loadInternships = useCallback(async () => {
+    if (isTitulaire) return;
+    try {
+      const { data, error } = await supabase
+        .from('internship_offers')
+        .select('*')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setInternships(data || []);
+    } catch (err) {
+      console.error('Error loading internships:', err);
+      setInternships([]);
+    }
+  }, [isTitulaire]);
+
+  // Charger les pharmacies à vendre/louer (titulaires uniquement)
+  const loadPharmacies = useCallback(async () => {
+    if (!isTitulaire) return;
+    try {
+      const { data, error } = await supabase
+        .from('pharmacy_listings')
+        .select('*')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setPharmacies(data || []);
+    } catch (err) {
+      console.error('Error loading pharmacies:', err);
+      setPharmacies([]);
+    }
+  }, [isTitulaire]);
+
+  // Charger tout selon le profil
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([loadJobs(), loadInternships(), loadPharmacies()]);
+    setLoading(false);
+  }, [loadJobs, loadInternships, loadPharmacies]);
 
   useEffect(() => {
-    loadJobs();
-  }, [loadJobs]);
+    loadAll();
+  }, [loadAll]);
+
+  // Données actuelles selon le type sélectionné
+  const currentData = useMemo(() => {
+    if (isTitulaire) {
+      // Filtrer par type de pharmacie si sélectionné
+      if (pharmacyType) {
+        return pharmacies.filter(p => p.type === pharmacyType);
+      }
+      return pharmacies;
+    }
+    switch (offerType) {
+      case 'jobs': return jobs;
+      case 'internships': return internships;
+      default: return [];
+    }
+  }, [isTitulaire, offerType, pharmacyType, jobs, internships, pharmacies]);
 
   // Calculer le nombre d'offres par région
-  const jobCountsByRegion = useMemo(() => {
+  const countsByRegion = useMemo(() => {
     const counts = {};
     
-    jobs.forEach(job => {
+    currentData.forEach(item => {
       let regionId = null;
       
-      if (job.department) {
-        const region = getRegionByDepartment(job.department);
+      // Chercher par code département
+      if (item.department) {
+        const region = getRegionByDepartment(item.department);
         if (region) regionId = region.id;
       }
       
-      if (!regionId && job.region) {
+      // Sinon chercher par nom de région
+      if (!regionId && item.region) {
         const region = ALL_REGIONS.find(r => 
-          r.name.toLowerCase() === job.region.toLowerCase()
+          r.name.toLowerCase() === item.region.toLowerCase()
         );
         if (region) regionId = region.id;
       }
@@ -79,49 +183,55 @@ export default function Search() {
     });
     
     return counts;
-  }, [jobs]);
+  }, [currentData]);
 
-  // Filtrer les jobs par région sélectionnée et filtres
-  const filteredJobs = useMemo(() => {
-    let result = jobs;
+  // Filtrer les données par région et filtres
+  const filteredData = useMemo(() => {
+    let result = currentData;
 
     // Filtre par région
     if (selectedRegion) {
       const region = ALL_REGIONS.find(r => r.id === selectedRegion);
       if (region) {
         if (region.departments) {
-          result = result.filter(job => region.departments.includes(job.department));
+          // Métropole : comparer par code OU par nom de région
+          result = result.filter(item => 
+            region.departments.includes(item.department) || 
+            item.region?.toLowerCase() === region.name.toLowerCase()
+          );
         } else if (region.code) {
-          result = result.filter(job => job.department === region.code);
+          // DOM-TOM
+          result = result.filter(item => 
+            item.department === region.code ||
+            item.region?.toLowerCase() === region.name.toLowerCase()
+          );
         }
       }
     }
 
-    // Filtre par type de contrat
-    if (filters.contract_type) {
-      result = result.filter(job => job.contract_type === filters.contract_type);
+    // Filtres spécifiques aux emplois (candidats)
+    if (!isTitulaire && offerType === 'jobs') {
+      if (filters.contract_type) {
+        result = result.filter(item => item.contract_type === filters.contract_type);
+      }
+      if (filters.position_type) {
+        result = result.filter(item => item.position_type === filters.position_type);
+      }
+      if (filters.experience_required !== null) {
+        result = result.filter(item => 
+          item.required_experience === null || 
+          item.required_experience <= filters.experience_required
+        );
+      }
     }
 
-    // Filtre par type de poste
-    if (filters.position_type) {
-      result = result.filter(job => job.position_type === filters.position_type);
-    }
-
-    // Filtre par expérience
-    if (filters.experience_required !== null) {
-      result = result.filter(job => 
-        job.required_experience === null || 
-        job.required_experience <= filters.experience_required
-      );
-    }
-
-    // Tri
+    // Tri par date
     if (filters.sortBy === 'date') {
       result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }
 
     return result;
-  }, [jobs, selectedRegion, filters]);
+  }, [currentData, selectedRegion, filters, offerType, isTitulaire]);
 
   // Gérer le clic sur une région
   const handleRegionPress = useCallback((region) => {
@@ -133,12 +243,26 @@ export default function Search() {
   }, [selectedRegion]);
 
   // Ouvrir le détail d'une offre
-  const handleJobPress = useCallback((job) => {
-    router.push({
-      pathname: '/(screens)/jobOfferDetailCandidate',
-      params: { id: job.id }
-    });
-  }, [router]);
+  const handleOfferPress = useCallback((item) => {
+    if (isTitulaire) {
+      router.push({
+        pathname: '/(screens)/listingDetail',
+        params: { id: item.id }
+      });
+      return;
+    }
+    if (offerType === 'jobs') {
+      router.push({
+        pathname: '/(screens)/jobOfferDetailCandidate',
+        params: { id: item.id }
+      });
+    } else if (offerType === 'internships') {
+      router.push({
+        pathname: '/(screens)/internshipOfferDetailCandidate',
+        params: { id: item.id }
+      });
+    }
+  }, [router, offerType, isTitulaire]);
 
   // Appliquer les filtres
   const handleApplyFilters = useCallback((newFilters) => {
@@ -155,7 +279,10 @@ export default function Search() {
       sortBy: 'date',
     });
     setSelectedRegion(null);
-  }, []);
+    if (isTitulaire) {
+      setPharmacyType(null);
+    }
+  }, [isTitulaire]);
 
   // Nombre de filtres actifs
   const activeFiltersCount = useMemo(() => {
@@ -170,8 +297,54 @@ export default function Search() {
     return ALL_REGIONS.find(r => r.id === selectedRegion)?.name;
   }, [selectedRegion]);
 
-  // Total des offres
-  const totalJobs = Object.values(jobCountsByRegion).reduce((a, b) => a + b, 0);
+  // Total des offres du type actuel
+  const totalOffers = currentData.length;
+
+  // Obtenir le compteur pour chaque type (candidats)
+  const getTypeCount = (type) => {
+    switch (type) {
+      case 'jobs': return jobs.length;
+      case 'internships': return internships.length;
+      default: return 0;
+    }
+  };
+
+  // Obtenir le compteur pour chaque type de pharmacie (titulaires)
+  const getPharmacyTypeCount = (type) => {
+    if (type === null) return pharmacies.length;
+    return pharmacies.filter(p => p.type === type).length;
+  };
+
+  // Label du type actuel pour l'affichage
+  const currentTypeLabel = useMemo(() => {
+    if (isTitulaire) {
+      const found = PHARMACY_TYPES.find(t => t.key === pharmacyType);
+      return found?.label || 'Pharmacies';
+    }
+    return OFFER_TYPES[offerType]?.label || '';
+  }, [isTitulaire, pharmacyType, offerType]);
+
+  // Rendu d'un item selon le type
+  const renderItem = (item) => {
+    if (isTitulaire) {
+      return (
+        <ListingCard
+          key={item.id}
+          listing={item}
+          onPress={() => handleOfferPress(item)}
+        />
+      );
+    }
+    return (
+      <JobListItem
+        key={item.id}
+        job={item}
+        onPress={() => handleOfferPress(item)}
+        showDistance={false}
+        isInternship={offerType === 'internships'}
+      />
+    );
+  };
 
   return (
     <ScreenWrapper bg={theme.colors.background}>
@@ -190,16 +363,66 @@ export default function Search() {
               </View>
             )}
           </Pressable>
-          <Pressable style={styles.refreshButton} onPress={loadJobs}>
+          <Pressable style={styles.refreshButton} onPress={loadAll}>
             <Icon name="refresh" size={18} color={theme.colors.text} />
           </Pressable>
         </View>
       </View>
 
+      {/* Tabs type d'annonce */}
+      <View style={styles.tabsContainer}>
+        {isTitulaire ? (
+          // Titulaires : tabs par type de pharmacie
+          PHARMACY_TYPES.map((type) => {
+            const isActive = pharmacyType === type.key;
+            
+            return (
+              <Pressable
+                key={type.key || 'all'}
+                style={[styles.tab, isActive && styles.tabActive]}
+                onPress={() => setPharmacyType(type.key)}
+              >
+                <Icon 
+                  name={type.icon} 
+                  size={14} 
+                  color={isActive ? 'white' : theme.colors.textLight} 
+                />
+                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+                  {type.label}
+                </Text>
+              </Pressable>
+            );
+          })
+        ) : (
+          // Candidats : tabs emploi/stages
+          availableTypes.map((type) => {
+            const config = OFFER_TYPES[type];
+            const isActive = offerType === type;
+            
+            return (
+              <Pressable
+                key={type}
+                style={[styles.tab, isActive && styles.tabActive]}
+                onPress={() => setOfferType(type)}
+              >
+                <Icon 
+                  name={config.icon} 
+                  size={14} 
+                  color={isActive ? 'white' : theme.colors.textLight} 
+                />
+                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+                  {config.label}
+                </Text>
+              </Pressable>
+            );
+          })
+        )}
+      </View>
+
       {/* Stats */}
       <View style={styles.statsBar}>
         <Text style={styles.statsText}>
-          {loading ? 'Chargement...' : `${totalJobs} offre${totalJobs > 1 ? 's' : ''} disponible${totalJobs > 1 ? 's' : ''}`}
+          {loading ? 'Chargement...' : `${totalOffers} annonce${totalOffers > 1 ? 's' : ''}`}
         </Text>
         {selectedRegionName && (
           <Pressable 
@@ -226,7 +449,7 @@ export default function Search() {
             </View>
           ) : (
             <FranceMap
-              jobCounts={jobCountsByRegion}
+              jobCounts={countsByRegion}
               selectedRegion={selectedRegion}
               onRegionPress={handleRegionPress}
               showDomTom={true}
@@ -239,21 +462,21 @@ export default function Search() {
           <View style={styles.listHeader}>
             <Text style={styles.sectionTitle}>
               {selectedRegionName 
-                ? `Offres en ${selectedRegionName}` 
-                : 'Toutes les offres'}
+                ? `${currentTypeLabel} en ${selectedRegionName}` 
+                : `Toutes les annonces`}
             </Text>
             <Text style={styles.listCount}>
-              {filteredJobs.length} résultat{filteredJobs.length > 1 ? 's' : ''}
+              {filteredData.length} résultat{filteredData.length > 1 ? 's' : ''}
             </Text>
           </View>
 
-          {filteredJobs.length === 0 ? (
+          {filteredData.length === 0 ? (
             <View style={styles.emptyList}>
-              <Icon name="search" size={40} color={theme.colors.gray} />
-              <Text style={styles.emptyTitle}>Aucune offre trouvée</Text>
+              <Icon name={isTitulaire ? 'home' : OFFER_TYPES[offerType]?.icon || 'briefcase'} size={40} color={theme.colors.gray} />
+              <Text style={styles.emptyTitle}>Aucune annonce trouvée</Text>
               <Text style={styles.emptyText}>
                 {selectedRegion 
-                  ? 'Aucune offre dans cette région pour le moment'
+                  ? 'Aucune annonce dans cette région pour le moment'
                   : 'Modifiez vos filtres ou revenez plus tard'}
               </Text>
               {(selectedRegion || activeFiltersCount > 0) && (
@@ -266,19 +489,12 @@ export default function Search() {
               )}
             </View>
           ) : (
-            <View style={styles.jobsList}>
-              {filteredJobs.slice(0, 10).map((job) => (
-                <JobListItem
-                  key={job.id}
-                  job={job}
-                  onPress={handleJobPress}
-                  showDistance={false}
-                />
-              ))}
-              {filteredJobs.length > 10 && (
+            <View style={styles.itemsList}>
+              {filteredData.slice(0, 10).map((item) => renderItem(item))}
+              {filteredData.length > 10 && (
                 <Pressable style={styles.showMoreButton}>
                   <Text style={styles.showMoreText}>
-                    Voir les {filteredJobs.length - 10} autres offres
+                    Voir les {filteredData.length - 10} autres annonces
                   </Text>
                   <Icon name="chevronRight" size={16} color={theme.colors.primary} />
                 </Pressable>
@@ -295,6 +511,7 @@ export default function Search() {
         filters={filters}
         onApply={handleApplyFilters}
         onReset={handleResetFilters}
+        offerType={isTitulaire ? 'pharmacies' : offerType}
       />
     </ScreenWrapper>
   );
@@ -307,11 +524,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: wp(5),
     paddingTop: hp(1),
-    paddingBottom: hp(1.5),
+    paddingBottom: hp(1),
   },
   title: {
     fontSize: hp(2.8),
-    fontFamily: theme.fonts.bold,
+    fontWeight: '700',
     color: theme.colors.text,
   },
   headerActions: {
@@ -319,57 +536,72 @@ const styles = StyleSheet.create({
     gap: wp(2),
   },
   filterButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
     backgroundColor: theme.colors.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    padding: wp(2.5),
+    borderRadius: theme.radius.md,
+    position: 'relative',
   },
   filterButtonActive: {
     backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
   },
   filterBadge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
+    top: -5,
+    right: -5,
     backgroundColor: theme.colors.rose,
     width: 18,
     height: 18,
     borderRadius: 9,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: theme.colors.background,
   },
   filterBadgeText: {
-    fontSize: hp(1),
-    fontFamily: theme.fonts.bold,
     color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   refreshButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
     backgroundColor: theme.colors.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    padding: wp(2.5),
+    borderRadius: theme.radius.md,
   },
-  statsBar: {
+  
+  // Tabs - même style que recruiterDashboard
+  tabsContainer: {
+    flexDirection: 'row',
+    marginHorizontal: wp(5),
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.lg,
+    padding: 4,
+    marginBottom: hp(1),
+  },
+  tab: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: wp(1.5),
+    paddingVertical: hp(1.2),
+    borderRadius: theme.radius.md,
+  },
+  tabActive: {
+    backgroundColor: theme.colors.primary,
+  },
+  tabText: {
+    fontSize: hp(1.3),
+    color: theme.colors.textLight,
+  },
+  tabTextActive: {
+    color: 'white',
+  },
+  
+  // Stats
+  statsBar: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: wp(5),
-    paddingVertical: hp(1),
-    backgroundColor: theme.colors.card,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: theme.colors.border,
+    paddingVertical: hp(0.5),
   },
   statsText: {
     fontSize: hp(1.4),
@@ -379,37 +611,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: wp(1),
-    backgroundColor: theme.colors.primary + '15',
+    backgroundColor: theme.colors.primaryLight,
+    paddingVertical: hp(0.5),
     paddingHorizontal: wp(2.5),
-    paddingVertical: hp(0.4),
-    borderRadius: theme.radius.lg,
+    borderRadius: theme.radius.full,
   },
   regionTagText: {
     fontSize: hp(1.3),
-    fontFamily: theme.fonts.medium,
     color: theme.colors.primary,
+    fontWeight: '500',
   },
+  
   scrollContent: {
-    paddingBottom: hp(4),
+    paddingBottom: hp(10),
   },
+  
+  // Map
   mapSection: {
     paddingHorizontal: wp(5),
-    paddingTop: hp(2),
+    marginBottom: hp(2),
   },
   sectionTitle: {
     fontSize: hp(1.8),
-    fontFamily: theme.fonts.semiBold,
+    fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: hp(1.5),
+    marginBottom: hp(1),
   },
   mapLoading: {
-    height: hp(45),
+    height: 300,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  
+  // List
   listSection: {
     paddingHorizontal: wp(5),
-    paddingTop: hp(2),
   },
   listHeader: {
     flexDirection: 'row',
@@ -421,35 +657,36 @@ const styles = StyleSheet.create({
     fontSize: hp(1.4),
     color: theme.colors.textLight,
   },
+  itemsList: {
+    gap: hp(1.5),
+  },
   emptyList: {
     alignItems: 'center',
-    paddingVertical: hp(4),
-    gap: hp(1),
+    paddingVertical: hp(5),
+    paddingHorizontal: wp(5),
   },
   emptyTitle: {
-    fontSize: hp(1.8),
-    fontFamily: theme.fonts.semiBold,
+    fontSize: hp(2),
+    fontWeight: '600',
     color: theme.colors.text,
+    marginTop: hp(2),
   },
   emptyText: {
-    fontSize: hp(1.4),
+    fontSize: hp(1.5),
     color: theme.colors.textLight,
     textAlign: 'center',
+    marginTop: hp(1),
   },
   resetButton: {
     marginTop: hp(2),
-    paddingHorizontal: wp(5),
-    paddingVertical: hp(1.2),
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radius.lg,
+    paddingVertical: hp(1),
+    paddingHorizontal: wp(4),
+    backgroundColor: theme.colors.primaryLight,
+    borderRadius: theme.radius.md,
   },
   resetButtonText: {
-    fontSize: hp(1.5),
-    fontFamily: theme.fonts.medium,
-    color: 'white',
-  },
-  jobsList: {
-    gap: hp(1.5),
+    color: theme.colors.primary,
+    fontWeight: '500',
   },
   showMoreButton: {
     flexDirection: 'row',
@@ -457,11 +694,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: wp(1),
     paddingVertical: hp(1.5),
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.md,
     marginTop: hp(1),
   },
   showMoreText: {
-    fontSize: hp(1.5),
-    fontFamily: theme.fonts.medium,
     color: theme.colors.primary,
+    fontWeight: '500',
   },
 });

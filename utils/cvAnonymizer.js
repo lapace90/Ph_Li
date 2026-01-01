@@ -7,6 +7,18 @@ import { COMPANY_TYPE_ANONYMOUS_LABELS } from '../constants/cvOptions';
  */
 
 /**
+ * Parser une date au format YYYY-MM ou YYYY-MM-DD
+ */
+const parseDate = (dateStr) => {
+  if (!dateStr) return null;
+  const parts = dateStr.split('-');
+  if (parts.length >= 2) {
+    return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
+  }
+  return null;
+};
+
+/**
  * Anonymise complètement un CV
  * @param {Object} structuredData - Données structurées du CV
  * @param {Object} profile - Profil utilisateur (prénom, etc.)
@@ -15,10 +27,13 @@ import { COMPANY_TYPE_ANONYMOUS_LABELS } from '../constants/cvOptions';
 export const anonymizeCV = (structuredData, profile = {}) => {
   if (!structuredData) return null;
 
+  // Récupérer la région depuis les données du CV ou le profil
+  const location = structuredData.current_region || profile.current_region || 'France';
+
   return {
     // Identité anonymisée
     display_name: profile.first_name || 'Candidat',
-    location: profile.current_region || 'France',
+    location: location,
 
     // Résumé nettoyé
     summary: cleanPersonalInfo(structuredData.summary),
@@ -44,8 +59,8 @@ export const anonymizeCV = (structuredData, profile = {}) => {
  * Anonymise une expérience
  */
 const anonymizeExperience = (exp) => {
-  const startDate = exp.start_date ? new Date(exp.start_date + '-01') : null;
-  const endDate = exp.end_date ? new Date(exp.end_date + '-01') : new Date();
+  const startDate = parseDate(exp.start_date);
+  const endDate = exp.end_date ? parseDate(exp.end_date) : new Date();
 
   return {
     job_title: exp.job_title,
@@ -57,7 +72,13 @@ const anonymizeExperience = (exp) => {
     description: cleanPersonalInfo(exp.description),
     skills: exp.skills || [],
     is_current: exp.is_current,
-    // Champs MASQUÉS : company_name, city
+    // Conserver aussi les données brutes pour le mode complet
+    start_date: exp.start_date,
+    end_date: exp.end_date,
+    region: exp.region,
+    city: exp.city,
+    company_name: exp.company_name,
+    company_type: exp.company_type,
   };
 };
 
@@ -71,7 +92,10 @@ const anonymizeFormation = (form) => {
     year: form.year,
     mention: form.mention,
     region: form.school_region || 'France',
-    // Champs MASQUÉS : school_name, school_city
+    // Conserver aussi pour mode complet
+    school_name: form.school_name,
+    school_city: form.school_city,
+    school_region: form.school_region,
   };
 };
 
@@ -84,30 +108,19 @@ const getAnonymousCompanyLabel = (companyType) => {
 
 /**
  * Nettoie les informations personnelles dans un texte libre
- * Masque : noms de pharmacies, codes postaux, téléphones, emails
  */
 const cleanPersonalInfo = (text) => {
   if (!text) return '';
 
   let cleaned = text;
 
-  // Patterns à masquer
   const patterns = [
-    // Noms de pharmacies courants
     { regex: /\bPharmacie\s+[A-Z][a-zéèêëàâäîïôöùûü]+(?:\s+[A-Z][a-zéèêëàâäîïôöùûü]+)*/g, replacement: 'Pharmacie [confidentiel]' },
     { regex: /\b[A-Z][a-zéèêëàâäîïôöùûü]+\s+Pharma(?:cie)?\b/g, replacement: '[confidentiel]' },
-    
-    // Codes postaux
     { regex: /\b\d{5}\b/g, replacement: '' },
-    
-    // Numéros de téléphone
     { regex: /\b0[1-9](?:[\s.-]?\d{2}){4}\b/g, replacement: '[téléphone masqué]' },
     { regex: /\+33\s?\d(?:[\s.-]?\d{2}){4}/g, replacement: '[téléphone masqué]' },
-    
-    // Emails
     { regex: /\b[\w.-]+@[\w.-]+\.\w{2,}\b/gi, replacement: '[email masqué]' },
-    
-    // Adresses avec numéro
     { regex: /\b\d{1,4}(?:bis|ter)?\s+(?:rue|avenue|boulevard|place|allée|impasse|chemin)\s+[A-Za-zéèêëàâäîïôöùûü\s-]+/gi, replacement: '' },
   ];
 
@@ -115,7 +128,6 @@ const cleanPersonalInfo = (text) => {
     cleaned = cleaned.replace(regex, replacement);
   });
 
-  // Nettoyer les espaces multiples
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
 
   return cleaned;
@@ -128,18 +140,20 @@ const formatPeriod = (startDate, endDate, isCurrent) => {
   if (!startDate) return '';
 
   const formatMonth = (dateStr) => {
-    const [year, month] = dateStr.split('-');
-    const date = new Date(year, parseInt(month) - 1);
-    return date.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+    const parsed = parseDate(dateStr);
+    if (!parsed) return '';
+    return parsed.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
   };
 
   const start = formatMonth(startDate);
+  if (!start) return '';
 
   if (isCurrent || !endDate) {
     return `${start} - Présent`;
   }
 
-  return `${start} - ${formatMonth(endDate)}`;
+  const end = formatMonth(endDate);
+  return `${start} - ${end}`;
 };
 
 /**
@@ -174,10 +188,11 @@ export const calculateTotalExperience = (experiences = []) => {
   experiences.forEach(exp => {
     if (!exp.start_date) return;
 
-    const startDate = new Date(exp.start_date + '-01');
-    const endDate = exp.end_date 
-      ? new Date(exp.end_date + '-01') 
-      : new Date();
+    const startDate = parseDate(exp.start_date);
+    if (!startDate) return;
+
+    const endDate = exp.end_date ? parseDate(exp.end_date) : new Date();
+    if (!endDate) return;
 
     const months = (endDate.getFullYear() - startDate.getFullYear()) * 12 
                    + (endDate.getMonth() - startDate.getMonth());
@@ -209,19 +224,16 @@ const formatDurationFromMonths = (months) => {
 export const extractMainSkills = (structuredData, maxSkills = 5) => {
   const skillCounts = {};
 
-  // Compter les skills des expériences
   (structuredData.experiences || []).forEach(exp => {
     (exp.skills || []).forEach(skill => {
       skillCounts[skill] = (skillCounts[skill] || 0) + 1;
     });
   });
 
-  // Ajouter les skills globales
   (structuredData.skills || []).forEach(skill => {
     skillCounts[skill] = (skillCounts[skill] || 0) + 1;
   });
 
-  // Trier par fréquence et retourner les top
   return Object.entries(skillCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, maxSkills)

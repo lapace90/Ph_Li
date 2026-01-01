@@ -1,22 +1,36 @@
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { theme } from '../../constants/theme';
-import { commonStyles } from '../../constants/styles';
 import { hp, wp } from '../../helpers/common';
-import { getContractTypeLabel, getContractColor, getPositionTypeLabel } from '../../constants/jobOptions';
+import { 
+  getContractTypeLabel, 
+  getContractColor, 
+  getPositionTypeLabel,
+  getInternshipTypeLabel,
+  getInternshipColor,
+  getDurationLabel,
+} from '../../constants/jobOptions';
 import Icon from '../../assets/icons/Icon';
 
 /**
- * Item d'annonce pour la liste (vue alternative à la carte)
+ * Item d'annonce pour la liste
+ * Supporte les offres d'emploi ET les stages/alternances
  */
-const JobListItem = ({ job, onPress, showDistance = true }) => {
-  const contractColor = getContractColor(job.contract_type);
+const JobListItem = ({ job, onPress, showDistance = true, isInternship = false }) => {
+  // Pour les stages, utiliser job.type (stage/alternance), sinon job.contract_type
+  const typeValue = isInternship ? job.type : job.contract_type;
+  const typeLabel = isInternship 
+    ? getInternshipTypeLabel(typeValue) 
+    : getContractTypeLabel(typeValue);
+  const typeColor = isInternship 
+    ? getInternshipColor(typeValue) 
+    : getContractColor(typeValue);
 
   return (
     <Pressable style={styles.container} onPress={() => onPress?.(job)}>
       <View style={styles.header}>
-        <View style={[styles.contractBadge, { backgroundColor: contractColor + '15' }]}>
-          <Text style={[styles.contractText, { color: contractColor }]}>
-            {getContractTypeLabel(job.contract_type)}
+        <View style={[styles.contractBadge, { backgroundColor: typeColor + '15' }]}>
+          <Text style={[styles.contractText, { color: typeColor }]}>
+            {typeLabel || 'Non spécifié'}
           </Text>
         </View>
         {job.match_score && (
@@ -28,7 +42,15 @@ const JobListItem = ({ job, onPress, showDistance = true }) => {
       </View>
 
       <Text style={styles.title} numberOfLines={2}>{job.title}</Text>
-      <Text style={styles.position}>{getPositionTypeLabel(job.position_type)}</Text>
+      
+      {/* Sous-titre différent selon le type */}
+      {isInternship ? (
+        <Text style={styles.position}>
+          {job.duration_months ? getDurationLabel(job.duration_months) : 'Durée non précisée'}
+        </Text>
+      ) : (
+        <Text style={styles.position}>{getPositionTypeLabel(job.position_type)}</Text>
+      )}
 
       <View style={styles.footer}>
         <View style={styles.locationRow}>
@@ -47,10 +69,16 @@ const JobListItem = ({ job, onPress, showDistance = true }) => {
 
       {/* Infos supplémentaires */}
       <View style={styles.extras}>
-        {job.salary_range && (
+        {!isInternship && job.salary_range && (
           <View style={styles.extraItem}>
             <Icon name="briefcase" size={12} color={theme.colors.textLight} />
             <Text style={styles.extraText}>{job.salary_range}</Text>
+          </View>
+        )}
+        {isInternship && job.required_level && (
+          <View style={styles.extraItem}>
+            <Icon name="book" size={12} color={theme.colors.textLight} />
+            <Text style={styles.extraText}>{job.required_level}</Text>
           </View>
         )}
         {job.created_at && (
@@ -70,22 +98,19 @@ const formatDate = (dateString) => {
   const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
   
   if (diffDays === 0) return "Aujourd'hui";
-  if (diffDays === 1) return 'Hier';
+  if (diffDays === 1) return "Hier";
   if (diffDays < 7) return `Il y a ${diffDays} jours`;
   if (diffDays < 30) return `Il y a ${Math.floor(diffDays / 7)} sem.`;
   return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 };
 
-export default JobListItem;
-
 const styles = StyleSheet.create({
   container: {
     backgroundColor: theme.colors.card,
-    borderRadius: theme.radius.xl,
+    borderRadius: theme.radius.lg,
     padding: hp(2),
     borderWidth: 1,
     borderColor: theme.colors.border,
-    marginBottom: hp(1.5),
   },
   header: {
     flexDirection: 'row',
@@ -96,11 +121,11 @@ const styles = StyleSheet.create({
   contractBadge: {
     paddingHorizontal: wp(2.5),
     paddingVertical: hp(0.4),
-    borderRadius: theme.radius.md,
+    borderRadius: theme.radius.sm,
   },
   contractText: {
     fontSize: hp(1.3),
-    fontFamily: theme.fonts.semiBold,
+    fontWeight: '600',
   },
   matchBadge: {
     flexDirection: 'row',
@@ -112,20 +137,20 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.sm,
   },
   matchText: {
-    fontSize: hp(1.3),
-    fontFamily: theme.fonts.bold,
+    fontSize: hp(1.2),
+    fontWeight: '600',
     color: theme.colors.success,
   },
   title: {
     fontSize: hp(1.8),
-    fontFamily: theme.fonts.semiBold,
+    fontWeight: '600',
     color: theme.colors.text,
     marginBottom: hp(0.3),
   },
   position: {
     fontSize: hp(1.4),
     color: theme.colors.textLight,
-    marginBottom: hp(1.2),
+    marginBottom: hp(1),
   },
   footer: {
     flexDirection: 'row',
@@ -133,32 +158,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   locationRow: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: wp(1),
+    flex: 1,
   },
   location: {
-    flex: 1,
     fontSize: hp(1.4),
     color: theme.colors.textLight,
+    flex: 1,
   },
   distanceBadge: {
-    backgroundColor: theme.colors.primary + '15',
+    backgroundColor: theme.colors.primaryLight,
     paddingHorizontal: wp(2),
     paddingVertical: hp(0.3),
     borderRadius: theme.radius.sm,
   },
   distanceText: {
-    fontSize: hp(1.3),
-    fontFamily: theme.fonts.medium,
+    fontSize: hp(1.2),
+    fontWeight: '500',
     color: theme.colors.primary,
   },
   extras: {
     flexDirection: 'row',
-    gap: wp(4),
-    marginTop: hp(1.2),
-    paddingTop: hp(1.2),
+    flexWrap: 'wrap',
+    gap: wp(3),
+    marginTop: hp(1),
+    paddingTop: hp(1),
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },
@@ -168,7 +194,9 @@ const styles = StyleSheet.create({
     gap: wp(1),
   },
   extraText: {
-    fontSize: hp(1.3),
+    fontSize: hp(1.2),
     color: theme.colors.textLight,
   },
 });
+
+export default JobListItem;

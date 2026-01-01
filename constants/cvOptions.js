@@ -233,6 +233,9 @@ export const REGIONS = [
 // Structure vide d'un CV
 export const EMPTY_CV_STRUCTURE = {
   summary: '',
+  profession_title: '', // Titre de profession recherchée (affiché en en-tête)
+  current_city: '',     // Ville actuelle du candidat
+  current_region: '',   // Région actuelle du candidat
   experiences: [],
   formations: [],
   skills: [],

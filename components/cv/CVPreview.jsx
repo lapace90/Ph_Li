@@ -1,9 +1,11 @@
 import { StyleSheet, Text, View, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { useState } from 'react';
 import { theme } from '../../constants/theme';
+import { commonStyles } from '../../constants/styles';
 import { hp, wp } from '../../helpers/common';
 import { anonymizeCV, calculateTotalExperience, getCVCompleteness } from '../../utils/cvAnonymizer';
-import { LANGUAGE_LEVELS, DIPLOMA_TYPES } from '../../constants/cvOptions';
+import { shareCVPdf } from '../../utils/cvPdfExport';
+import { LANGUAGE_LEVELS, DIPLOMA_TYPES, DIPLOMA_MENTIONS } from '../../constants/cvOptions';
 import Icon from '../../assets/icons/Icon';
 
 /**
@@ -28,9 +30,37 @@ const CVPreview = ({
     );
   }
 
+  // Préparer les données selon le mode
+  // Récupérer la localisation depuis les données du CV
+  const getLocationFromCV = () => {
+    // Priorité 1: données du CV lui-même (saisies dans le formulaire)
+    if (structuredData.current_city) {
+      if (viewMode === 'anonymous') return structuredData.current_region || 'France';
+      return `${structuredData.current_city}, ${structuredData.current_region}`;
+    }
+    // Priorité 2: fallback sur le profil
+    if (viewMode === 'anonymous') return profile.current_region || 'France';
+    return profile.current_city 
+      ? `${profile.current_city}, ${profile.current_region}` 
+      : profile.current_region || 'France';
+  };
+
+  // Titre de profession (depuis le CV ou la première expérience)
+  const getProfessionTitle = () => {
+    // Priorité 1: titre saisi dans le CV
+    if (structuredData.profession_title) return structuredData.profession_title;
+    // Priorité 2: première expérience
+    const firstExp = structuredData.experiences?.[0];
+    return firstExp?.job_title || 'Professionnel de santé';
+  };
+
   const displayData = viewMode === 'anonymous'
     ? anonymizeCV(structuredData, profile)
-    : { ...structuredData, display_name: `${profile.first_name} ${profile.last_name}`, location: profile.current_city };
+    : { 
+        ...structuredData, 
+        display_name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Candidat', 
+        location: getLocationFromCV()
+      };
 
   const totalExp = calculateTotalExperience(structuredData.experiences);
   const completeness = getCVCompleteness(structuredData);
@@ -41,6 +71,24 @@ const CVPreview = ({
 
   const getDiplomaLabel = (typeValue) => {
     return DIPLOMA_TYPES.find(d => d.value === typeValue)?.label || typeValue;
+  };
+
+  const getMentionLabel = (mentionValue) => {
+    return DIPLOMA_MENTIONS.find(m => m.value === mentionValue)?.label || mentionValue;
+  };
+
+  const formatPeriod = (startDate, endDate, isCurrent) => {
+    if (!startDate) return '';
+    const formatMonth = (dateStr) => {
+      if (!dateStr) return '';
+      const parts = dateStr.split('-');
+      if (parts.length < 2) return dateStr;
+      const date = new Date(parts[0], parseInt(parts[1]) - 1);
+      return date.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+    };
+    const start = formatMonth(startDate);
+    if (isCurrent || !endDate) return `${start} - Présent`;
+    return `${start} - ${formatMonth(endDate)}`;
   };
 
   const handleExportPdf = async () => {
@@ -135,15 +183,20 @@ const CVPreview = ({
           </View>
           <View style={styles.headerInfo}>
             <Text style={styles.name}>{displayData.display_name}</Text>
+            <Text style={styles.professionTitle}>{getProfessionTitle()}</Text>
             <View style={styles.locationRow}>
               <Icon name="mapPin" size={14} color={theme.colors.textLight} />
-              <Text style={styles.location}>{displayData.location}</Text>
+              <Text style={styles.location}>{displayData.location || getLocationFromCV()}</Text>
             </View>
-            <Text style={styles.experience}>{totalExp.formatted} d'expérience</Text>
+            {totalExp.formatted && (
+              <Text style={styles.experience}>{totalExp.formatted} d'expérience</Text>
+            )}
           </View>
-          <View style={styles.completenessCircle}>
-            <Text style={styles.completenessPercent}>{completeness.percent}%</Text>
-          </View>
+          {completeness && (
+            <View style={styles.completenessCircle}>
+              <Text style={styles.completenessPercent}>{completeness.percent}%</Text>
+            </View>
+          )}
         </View>
 
         {/* Résumé */}
@@ -169,17 +222,19 @@ const CVPreview = ({
                   )}
                 </View>
                 <Text style={styles.expCompany}>
-                  {viewMode === 'anonymous' ? exp.company_display : exp.company_name}
+                  {viewMode === 'anonymous' ? exp.company_display : (exp.company_name || exp.company_display)}
                 </Text>
                 <View style={styles.expMeta}>
                   <Icon name="mapPin" size={12} color={theme.colors.textLight} />
                   <Text style={styles.expMetaText}>
-                    {viewMode === 'anonymous' ? exp.location_display : `${exp.city}, ${exp.region}`}
+                    {viewMode === 'anonymous' 
+                      ? (exp.location_display || exp.region) 
+                      : (exp.city ? `${exp.city}, ${exp.region}` : exp.region)}
                   </Text>
                   <Text style={styles.expMetaDot}>•</Text>
                   <Icon name="calendar" size={12} color={theme.colors.textLight} />
                   <Text style={styles.expMetaText}>
-                    {exp.period || `${exp.start_date} - ${exp.end_date || 'Présent'}`}
+                    {exp.period || formatPeriod(exp.start_date, exp.end_date, exp.is_current)}
                   </Text>
                 </View>
                 {exp.duration && (
@@ -220,14 +275,14 @@ const CVPreview = ({
                 <View style={styles.formMeta}>
                   <Icon name="mapPin" size={12} color={theme.colors.textLight} />
                   <Text style={styles.expMetaText}>
-                    {viewMode === 'anonymous' ? form.region : form.school_city}
+                    {viewMode === 'anonymous' ? (form.region || 'France') : (form.school_city || form.school_region)}
                   </Text>
                   <Text style={styles.expMetaDot}>•</Text>
                   <Text style={styles.expMetaText}>{form.year}</Text>
                   {form.mention && (
                     <>
                       <Text style={styles.expMetaDot}>•</Text>
-                      <Text style={styles.expMetaText}>{form.mention}</Text>
+                      <Text style={styles.expMetaText}>{getMentionLabel(form.mention)}</Text>
                     </>
                   )}
                 </View>
@@ -271,9 +326,11 @@ const CVPreview = ({
             <Text style={styles.sectionTitle}>Certifications</Text>
             {displayData.certifications.map((cert, index) => (
               <View key={index} style={styles.certRow}>
-                <Icon name="checkCircle" size={16} color={theme.colors.success} />
-                <Text style={styles.certText}>{cert.name}</Text>
-                {cert.year && <Text style={styles.certYear}>{cert.year}</Text>}
+                <Icon name="check" size={16} color={theme.colors.success} />
+                <Text style={styles.certText}>
+                  {typeof cert === 'string' ? cert : cert.name}
+                  {cert.year ? ` (${cert.year})` : ''}
+                </Text>
               </View>
             ))}
           </View>
@@ -286,11 +343,9 @@ const CVPreview = ({
             {displayData.languages.map((lang, index) => (
               <View key={index} style={styles.langRow}>
                 <Text style={styles.langName}>
-                  {lang.language.charAt(0).toUpperCase() + lang.language.slice(1)}
+                  {lang.language?.charAt(0).toUpperCase() + lang.language?.slice(1)}
                 </Text>
-                <View style={styles.langLevel}>
-                  <Text style={styles.langLevelText}>{getLevelLabel(lang.level)}</Text>
-                </View>
+                <Text style={styles.langLevel}>{getLevelLabel(lang.level)}</Text>
               </View>
             ))}
           </View>
@@ -305,17 +360,17 @@ export default CVPreview;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: hp(1),
+    padding: hp(4),
   },
   emptyText: {
     fontSize: hp(1.6),
     color: theme.colors.textLight,
+    marginTop: hp(1),
   },
   toggleContainer: {
     flexDirection: 'row',
@@ -330,57 +385,72 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: wp(1.5),
     paddingVertical: hp(1),
     borderRadius: theme.radius.md,
-    gap: wp(1.5),
   },
   toggleButtonActive: {
     backgroundColor: theme.colors.primary,
   },
   toggleText: {
-    fontSize: hp(1.5),
-    fontFamily: theme.fonts.medium,
+    fontSize: hp(1.4),
     color: theme.colors.textLight,
   },
   toggleTextActive: {
     color: 'white',
+    fontFamily: theme.fonts.medium,
+  },
+  exportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: wp(2),
+    paddingVertical: hp(1),
+    marginHorizontal: wp(4),
+    marginBottom: hp(1),
+    backgroundColor: theme.colors.primary + '10',
+    borderRadius: theme.radius.md,
+  },
+  exportButtonText: {
+    fontSize: hp(1.4),
+    color: theme.colors.primary,
+    fontFamily: theme.fonts.medium,
   },
   anonymeBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.primary + '10',
+    gap: wp(2),
     paddingVertical: hp(0.8),
     marginHorizontal: wp(4),
     marginBottom: hp(1),
-    borderRadius: theme.radius.md,
-    gap: wp(1.5),
+    backgroundColor: theme.colors.primary + '10',
+    borderRadius: theme.radius.sm,
   },
   anonymeText: {
-    fontSize: hp(1.3),
+    fontSize: hp(1.2),
     color: theme.colors.primary,
-    fontFamily: theme.fonts.medium,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: wp(4),
+    padding: wp(4),
     paddingBottom: hp(4),
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.card,
-    padding: hp(2),
     borderRadius: theme.radius.xl,
+    padding: hp(2),
     marginBottom: hp(2),
   },
   avatar: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: theme.colors.primary + '15',
+    backgroundColor: theme.colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -390,65 +460,74 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: hp(2),
-    fontFamily: theme.fonts.semiBold,
+    fontFamily: theme.fonts.bold,
     color: theme.colors.text,
+  },
+  professionTitle: {
+    fontSize: hp(1.5),
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.primary,
+    marginTop: 2,
   },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: wp(1),
-    marginTop: hp(0.3),
+    marginTop: 2,
   },
   location: {
     fontSize: hp(1.4),
     color: theme.colors.textLight,
   },
   experience: {
-    fontSize: hp(1.4),
+    fontSize: hp(1.3),
     color: theme.colors.primary,
     fontFamily: theme.fonts.medium,
-    marginTop: hp(0.3),
+    marginTop: 4,
   },
   completenessCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: theme.colors.primary + '15',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: theme.colors.success + '20',
     justifyContent: 'center',
     alignItems: 'center',
   },
   completenessPercent: {
     fontSize: hp(1.4),
     fontFamily: theme.fonts.bold,
-    color: theme.colors.primary,
+    color: theme.colors.success,
   },
   section: {
-    marginBottom: hp(2),
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.xl,
+    padding: hp(2),
+    marginBottom: hp(1.5),
   },
   sectionTitle: {
-    fontSize: hp(1.7),
+    fontSize: hp(1.6),
     fontFamily: theme.fonts.semiBold,
     color: theme.colors.text,
-    marginBottom: hp(1),
+    marginBottom: hp(1.5),
   },
   summaryText: {
-    fontSize: hp(1.5),
+    fontSize: hp(1.4),
     color: theme.colors.text,
     lineHeight: hp(2.2),
   },
   experienceCard: {
-    backgroundColor: theme.colors.card,
-    padding: hp(1.5),
-    borderRadius: theme.radius.lg,
-    marginBottom: hp(1),
+    paddingBottom: hp(1.5),
+    marginBottom: hp(1.5),
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   expHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: wp(2),
   },
   expTitle: {
-    fontSize: hp(1.6),
+    fontSize: hp(1.5),
     fontFamily: theme.fonts.semiBold,
     color: theme.colors.text,
     flex: 1,
@@ -466,63 +545,62 @@ const styles = StyleSheet.create({
   },
   expCompany: {
     fontSize: hp(1.4),
-    color: theme.colors.primary,
-    marginTop: hp(0.3),
+    color: theme.colors.textLight,
+    marginTop: 2,
   },
   expMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: hp(0.5),
     flexWrap: 'wrap',
+    gap: wp(1),
+    marginTop: hp(0.5),
   },
   expMetaText: {
-    fontSize: hp(1.3),
+    fontSize: hp(1.2),
     color: theme.colors.textLight,
-    marginLeft: wp(1),
   },
   expMetaDot: {
-    fontSize: hp(1.3),
+    fontSize: hp(1.2),
     color: theme.colors.textLight,
-    marginHorizontal: wp(1.5),
   },
   expDuration: {
     fontSize: hp(1.2),
-    color: theme.colors.textLight,
-    fontStyle: 'italic',
-    marginTop: hp(0.3),
+    color: theme.colors.primary,
+    fontFamily: theme.fonts.medium,
+    marginTop: hp(0.5),
   },
   expDescription: {
-    fontSize: hp(1.4),
+    fontSize: hp(1.3),
     color: theme.colors.text,
-    marginTop: hp(0.8),
+    marginTop: hp(1),
     lineHeight: hp(2),
   },
   skillsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: hp(1),
     gap: wp(1.5),
+    marginTop: hp(1),
   },
   skillChip: {
-    backgroundColor: theme.colors.primary + '12',
+    backgroundColor: theme.colors.primary + '15',
     paddingHorizontal: wp(2),
     paddingVertical: hp(0.3),
     borderRadius: theme.radius.sm,
   },
   skillChipText: {
-    fontSize: hp(1.2),
+    fontSize: hp(1.1),
     color: theme.colors.primary,
   },
   moreSkills: {
-    fontSize: hp(1.2),
+    fontSize: hp(1.1),
     color: theme.colors.textLight,
     alignSelf: 'center',
   },
   formationCard: {
-    backgroundColor: theme.colors.card,
-    padding: hp(1.5),
-    borderRadius: theme.radius.lg,
-    marginBottom: hp(1),
+    paddingBottom: hp(1.5),
+    marginBottom: hp(1.5),
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   diplomaName: {
     fontSize: hp(1.5),
@@ -531,12 +609,13 @@ const styles = StyleSheet.create({
   },
   schoolName: {
     fontSize: hp(1.4),
-    color: theme.colors.primary,
-    marginTop: hp(0.2),
+    color: theme.colors.textLight,
+    marginTop: 2,
   },
   formMeta: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: wp(1),
     marginTop: hp(0.5),
   },
   skillsContainer: {
@@ -545,21 +624,20 @@ const styles = StyleSheet.create({
     gap: wp(2),
   },
   skillTag: {
-    backgroundColor: theme.colors.primary + '12',
+    backgroundColor: theme.colors.primary + '15',
     paddingHorizontal: wp(3),
-    paddingVertical: hp(0.6),
-    borderRadius: theme.radius.full,
+    paddingVertical: hp(0.5),
+    borderRadius: theme.radius.md,
   },
   skillTagText: {
-    fontSize: hp(1.4),
+    fontSize: hp(1.3),
     color: theme.colors.primary,
-    fontFamily: theme.fonts.medium,
   },
   softwareTag: {
-    backgroundColor: theme.colors.secondary + '12',
     flexDirection: 'row',
     alignItems: 'center',
     gap: wp(1),
+    backgroundColor: theme.colors.secondary + '15',
   },
   softwareTagText: {
     color: theme.colors.secondary,
@@ -568,52 +646,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: wp(2),
-    paddingVertical: hp(0.6),
+    paddingVertical: hp(0.5),
   },
   certText: {
-    flex: 1,
     fontSize: hp(1.4),
     color: theme.colors.text,
   },
-  certYear: {
-    fontSize: hp(1.3),
-    color: theme.colors.textLight,
-  },
   langRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: hp(0.6),
+    alignItems: 'center',
+    paddingVertical: hp(0.8),
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   langName: {
-    fontSize: hp(1.5),
-    color: theme.colors.text,
+    fontSize: hp(1.4),
     fontFamily: theme.fonts.medium,
+    color: theme.colors.text,
   },
   langLevel: {
-    backgroundColor: theme.colors.card,
-    paddingHorizontal: wp(2),
-    paddingVertical: hp(0.4),
-    borderRadius: theme.radius.sm,
-  },
-  langLevelText: {
     fontSize: hp(1.3),
     color: theme.colors.textLight,
-  },
-  exportButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: wp(2),
-    backgroundColor: theme.colors.primary + '15',
-    marginHorizontal: wp(4),
-    marginBottom: hp(1),
-    paddingVertical: hp(1.2),
-    borderRadius: theme.radius.lg,
-  },
-  exportButtonText: {
-    fontSize: hp(1.5),
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.primary,
   },
 });

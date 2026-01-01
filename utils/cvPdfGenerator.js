@@ -1,13 +1,14 @@
-import { COMPANY_TYPE_ANONYMOUS_LABELS, LANGUAGE_LEVELS, DIPLOMA_TYPES } from '../constants/cvOptions';
+import { COMPANY_TYPE_ANONYMOUS_LABELS, LANGUAGE_LEVELS, DIPLOMA_TYPES, DIPLOMA_MENTIONS } from '../constants/cvOptions';
 
 /**
  * Génère le HTML pour l'export PDF du CV
  * @param {Object} structuredData - Données du CV
  * @param {Object} profile - Profil utilisateur
  * @param {boolean} anonymous - Mode anonyme ou complet
+ * @param {string} cvTitle - Titre du CV (profession recherchée)
  * @returns {string} HTML complet
  */
-export const generateCVHtml = (structuredData, profile = {}, anonymous = false) => {
+export const generateCVHtml = (structuredData, profile = {}, anonymous = false, cvTitle = '') => {
   if (!structuredData) return '';
 
   const colors = {
@@ -26,11 +27,28 @@ export const generateCVHtml = (structuredData, profile = {}, anonymous = false) 
     return `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Candidat';
   };
 
+  // Récupérer la localisation depuis les données du CV
   const getLocation = () => {
+    // Priorité 1: données saisies dans le formulaire CV
+    if (structuredData.current_city) {
+      if (anonymous) return structuredData.current_region || 'France';
+      return `${structuredData.current_city}, ${structuredData.current_region}`;
+    }
+    // Priorité 2: fallback sur le profil
     if (anonymous) return profile.current_region || 'France';
     return profile.current_city 
       ? `${profile.current_city}, ${profile.current_region}` 
       : profile.current_region || 'France';
+  };
+
+  // Titre de profession (depuis le CV ou la première expérience)
+  const getProfessionTitle = () => {
+    if (cvTitle) return cvTitle;
+    // Priorité 1: titre saisi dans le CV
+    if (structuredData.profession_title) return structuredData.profession_title;
+    // Priorité 2: première expérience
+    const firstExp = structuredData.experiences?.[0];
+    return firstExp?.job_title || 'Professionnel de santé';
   };
 
   const getCompanyDisplay = (exp) => {
@@ -50,33 +68,91 @@ export const generateCVHtml = (structuredData, profile = {}, anonymous = false) 
     return form.school_name || 'Non renseigné';
   };
 
+  const getSchoolLocation = (form) => {
+    if (anonymous) return form.school_region || 'France';
+    return form.school_city 
+      ? `${form.school_city}, ${form.school_region}` 
+      : form.school_region || 'France';
+  };
+
+  // Parser une date au format YYYY-MM ou YYYY-MM-DD
+  const parseDate = (dateStr) => {
+    if (!dateStr) return null;
+    const parts = dateStr.split('-');
+    if (parts.length >= 2) {
+      return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
+    }
+    return null;
+  };
+
   const formatPeriod = (startDate, endDate, isCurrent) => {
     if (!startDate) return '';
-    const formatMonth = (dateStr) => {
-      const [year, month] = dateStr.split('-');
-      const date = new Date(year, parseInt(month) - 1);
-      return date.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
-    };
-    const start = formatMonth(startDate);
-    if (isCurrent || !endDate) return `${start} - Présent`;
-    return `${start} - ${formatMonth(endDate)}`;
+    const start = parseDate(startDate);
+    if (!start) return '';
+    
+    const startFormatted = start.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+    
+    if (isCurrent || !endDate) return `${startFormatted} - Présent`;
+    
+    const end = parseDate(endDate);
+    if (!end) return `${startFormatted} - Présent`;
+    
+    const endFormatted = end.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+    return `${startFormatted} - ${endFormatted}`;
   };
 
   const calculateDuration = (startDate, endDate, isCurrent) => {
     if (!startDate) return '';
-    const start = new Date(startDate + '-01');
-    const end = isCurrent || !endDate ? new Date() : new Date(endDate + '-01');
+    
+    const start = parseDate(startDate);
+    if (!start) return '';
+    
+    const end = (isCurrent || !endDate) ? new Date() : parseDate(endDate);
+    if (!end) return '';
+    
     const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+    
     if (months < 1) return '';
     if (months < 12) return `${months} mois`;
+    
     const years = Math.floor(months / 12);
     const remaining = months % 12;
+    
     if (remaining === 0) return `${years} an${years > 1 ? 's' : ''}`;
     return `${years} an${years > 1 ? 's' : ''} ${remaining} mois`;
   };
 
+  const calculateTotalExperience = () => {
+    let totalMonths = 0;
+    
+    (structuredData.experiences || []).forEach(exp => {
+      if (!exp.start_date) return;
+      
+      const start = parseDate(exp.start_date);
+      if (!start) return;
+      
+      const end = (exp.is_current || !exp.end_date) ? new Date() : parseDate(exp.end_date);
+      if (!end) return;
+      
+      const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+      totalMonths += Math.max(0, months);
+    });
+    
+    if (totalMonths < 12) return `${totalMonths} mois d'expérience`;
+    const years = Math.floor(totalMonths / 12);
+    return `${years} an${years > 1 ? 's' : ''} d'expérience`;
+  };
+
   const getLevelLabel = (level) => {
     return LANGUAGE_LEVELS.find(l => l.value === level)?.label || level;
+  };
+
+  const getMentionLabel = (mention) => {
+    return DIPLOMA_MENTIONS.find(m => m.value === mention)?.label || mention;
+  };
+
+  const getDiplomaLabel = (diplomaType) => {
+    return DIPLOMA_TYPES.find(d => d.value === diplomaType)?.label || diplomaType;
   };
 
   // Sections HTML
@@ -103,12 +179,12 @@ export const generateCVHtml = (structuredData, profile = {}, anonymous = false) 
 
   const formationsHtml = (structuredData.formations || []).map(form => `
     <div class="formation-item">
-      <div class="form-diploma">${form.diploma_name || DIPLOMA_TYPES.find(d => d.value === form.diploma_type)?.label || 'Diplôme'}</div>
+      <div class="form-diploma">${form.diploma_name || getDiplomaLabel(form.diploma_type) || 'Diplôme'}</div>
       <div class="form-school">${getSchoolDisplay(form)}</div>
       <div class="form-meta">
-        <span>📍 ${anonymous ? (form.school_region || 'France') : (form.school_city || form.school_region || 'France')}</span>
+        <span>📍 ${getSchoolLocation(form)}</span>
         <span>🎓 ${form.year || ''}</span>
-        ${form.mention ? `<span>${form.mention}</span>` : ''}
+        ${form.mention ? `<span>Mention ${getMentionLabel(form.mention)}</span>` : ''}
       </div>
     </div>
   `).join('');
@@ -121,13 +197,17 @@ export const generateCVHtml = (structuredData, profile = {}, anonymous = false) 
     `<span class="software-chip">💻 ${s}</span>`
   ).join('');
 
-  const certsHtml = (structuredData.certifications || []).map(c => `
-    <div class="cert-item">
-      <span class="cert-check">✓</span>
-      <span>${c.name}</span>
-      ${c.year ? `<span class="cert-year">${c.year}</span>` : ''}
-    </div>
-  `).join('');
+  const certsHtml = (structuredData.certifications || []).map(c => {
+    const certName = typeof c === 'string' ? c : c.name;
+    const certYear = typeof c === 'object' ? c.year : null;
+    return `
+      <div class="cert-item">
+        <span class="cert-check">✓</span>
+        <span>${certName}</span>
+        ${certYear ? `<span class="cert-year">${certYear}</span>` : ''}
+      </div>
+    `;
+  }).join('');
 
   const languagesHtml = (structuredData.languages || []).map(l => `
     <div class="lang-item">
@@ -180,28 +260,36 @@ export const generateCVHtml = (structuredData, profile = {}, anonymous = false) 
       margin-bottom: 4px;
     }
     
+    .profession-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: ${colors.primary};
+      margin-bottom: 8px;
+    }
+    
     .location {
       font-size: 12px;
       color: ${colors.textLight};
       margin-bottom: 4px;
     }
     
-    .contact-info {
-      font-size: 11px;
-      color: ${colors.textLight};
+    .experience-summary {
+      font-size: 12px;
+      color: ${colors.primary};
+      font-weight: 500;
     }
     
     .header-badge {
-      background: ${anonymous ? colors.primary : colors.secondary};
-      color: white;
-      padding: 6px 12px;
-      border-radius: 16px;
-      font-size: 10px;
+      background: ${anonymous ? colors.primary + '15' : colors.secondary + '15'};
+      color: ${anonymous ? colors.primary : colors.secondary};
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 11px;
       font-weight: 600;
     }
     
     .section {
-      margin-bottom: 20px;
+      margin-bottom: 24px;
     }
     
     .section-title {
@@ -213,19 +301,10 @@ export const generateCVHtml = (structuredData, profile = {}, anonymous = false) 
       border-bottom: 1px solid ${colors.border};
     }
     
-    .summary {
-      font-size: 11px;
-      color: ${colors.text};
-      line-height: 1.6;
-      background: ${colors.background};
-      padding: 12px;
-      border-radius: 6px;
-    }
-    
     .experience-item, .formation-item {
       margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px dashed ${colors.border};
+      padding-bottom: 16px;
+      border-bottom: 1px solid ${colors.border};
     }
     
     .experience-item:last-child, .formation-item:last-child {
@@ -236,13 +315,13 @@ export const generateCVHtml = (structuredData, profile = {}, anonymous = false) 
     
     .exp-header {
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 2px;
+      margin-bottom: 4px;
     }
     
     .exp-title, .form-diploma {
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 600;
       color: ${colors.text};
     }
@@ -250,79 +329,80 @@ export const generateCVHtml = (structuredData, profile = {}, anonymous = false) 
     .current-badge {
       background: ${colors.primary};
       color: white;
+      padding: 2px 8px;
+      border-radius: 4px;
       font-size: 9px;
-      padding: 2px 6px;
-      border-radius: 10px;
+      font-weight: 600;
     }
     
     .exp-company, .form-school {
-      font-size: 11px;
-      color: ${colors.primary};
+      font-size: 12px;
+      color: ${colors.textLight};
       margin-bottom: 4px;
     }
     
     .exp-meta, .form-meta {
-      font-size: 10px;
-      color: ${colors.textLight};
       display: flex;
-      gap: 12px;
-      margin-bottom: 6px;
+      gap: 16px;
+      font-size: 11px;
+      color: ${colors.textLight};
+      margin-bottom: 8px;
     }
     
     .duration {
-      font-style: italic;
+      color: ${colors.primary};
+      font-weight: 500;
     }
     
     .exp-description {
-      font-size: 10px;
+      font-size: 11px;
       color: ${colors.text};
-      margin-top: 6px;
-      line-height: 1.5;
+      line-height: 1.6;
+      margin-bottom: 8px;
     }
     
     .exp-skills {
       display: flex;
       flex-wrap: wrap;
-      gap: 4px;
-      margin-top: 8px;
+      gap: 6px;
     }
     
     .skill-tag {
-      background: ${colors.primary}20;
+      background: ${colors.primary}15;
       color: ${colors.primary};
-      font-size: 9px;
-      padding: 2px 6px;
-      border-radius: 10px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
     }
     
-    .chips-container {
+    .skills-container {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 8px;
     }
     
     .skill-chip {
       background: ${colors.primary}15;
       color: ${colors.primary};
-      font-size: 10px;
-      padding: 4px 10px;
-      border-radius: 12px;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 11px;
       font-weight: 500;
     }
     
     .software-chip {
       background: ${colors.secondary}15;
       color: ${colors.secondary};
-      font-size: 10px;
-      padding: 4px 10px;
-      border-radius: 12px;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 11px;
     }
     
     .cert-item {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 4px 0;
+      margin-bottom: 6px;
     }
     
     .cert-check {
@@ -333,14 +413,13 @@ export const generateCVHtml = (structuredData, profile = {}, anonymous = false) 
     .cert-year {
       color: ${colors.textLight};
       font-size: 10px;
-      margin-left: auto;
     }
     
     .lang-item {
       display: flex;
       justify-content: space-between;
-      padding: 4px 0;
-      border-bottom: 1px dotted ${colors.border};
+      padding: 6px 0;
+      border-bottom: 1px solid ${colors.border};
     }
     
     .lang-item:last-child {
@@ -353,7 +432,6 @@ export const generateCVHtml = (structuredData, profile = {}, anonymous = false) 
     
     .lang-level {
       color: ${colors.textLight};
-      font-size: 10px;
     }
     
     .two-columns {
@@ -365,57 +443,41 @@ export const generateCVHtml = (structuredData, profile = {}, anonymous = false) 
       flex: 1;
     }
     
-    .footer {
-      margin-top: 24px;
-      padding-top: 12px;
-      border-top: 1px solid ${colors.border};
-      text-align: center;
-      font-size: 9px;
-      color: ${colors.textLight};
-    }
-    
-    .anonymous-notice {
-      background: ${colors.primary}10;
-      border: 1px solid ${colors.primary}30;
-      border-radius: 6px;
-      padding: 8px 12px;
-      margin-bottom: 16px;
-      font-size: 10px;
-      color: ${colors.primary};
-      text-align: center;
+    .summary-text {
+      font-size: 12px;
+      line-height: 1.7;
+      color: ${colors.text};
     }
   </style>
 </head>
 <body>
-  ${anonymous ? `
-    <div class="anonymous-notice">
-      🔒 CV anonymisé - Les noms d'entreprises, écoles et villes exactes sont masqués
-    </div>
-  ` : ''}
-  
   <div class="header">
     <div class="header-info">
       <div class="name">${getDisplayName()}</div>
+      <div class="profession-title">${getProfessionTitle()}</div>
       <div class="location">📍 ${getLocation()}</div>
+      <div class="experience-summary">${calculateTotalExperience()}</div>
     </div>
-    <div class="header-badge">${anonymous ? 'CV Anonyme' : 'CV Complet'}</div>
+    <div class="header-badge">
+      ${anonymous ? '🔒 CV Anonyme' : '👤 CV Complet'}
+    </div>
   </div>
   
   ${structuredData.summary ? `
     <div class="section">
       <div class="section-title">À propos</div>
-      <div class="summary">${structuredData.summary}</div>
+      <div class="summary-text">${structuredData.summary}</div>
     </div>
   ` : ''}
   
-  ${structuredData.experiences?.length ? `
+  ${experiencesHtml ? `
     <div class="section">
       <div class="section-title">Expériences professionnelles</div>
       ${experiencesHtml}
     </div>
   ` : ''}
   
-  ${structuredData.formations?.length ? `
+  ${formationsHtml ? `
     <div class="section">
       <div class="section-title">Formations</div>
       ${formationsHtml}
@@ -424,30 +486,30 @@ export const generateCVHtml = (structuredData, profile = {}, anonymous = false) 
   
   <div class="two-columns">
     <div class="column">
-      ${structuredData.skills?.length ? `
+      ${skillsHtml ? `
         <div class="section">
           <div class="section-title">Compétences</div>
-          <div class="chips-container">${skillsHtml}</div>
+          <div class="skills-container">${skillsHtml}</div>
         </div>
       ` : ''}
       
-      ${structuredData.software?.length ? `
+      ${softwareHtml ? `
         <div class="section">
           <div class="section-title">Logiciels</div>
-          <div class="chips-container">${softwareHtml}</div>
+          <div class="skills-container">${softwareHtml}</div>
         </div>
       ` : ''}
     </div>
     
     <div class="column">
-      ${structuredData.certifications?.length ? `
+      ${certsHtml ? `
         <div class="section">
           <div class="section-title">Certifications</div>
           ${certsHtml}
         </div>
       ` : ''}
       
-      ${structuredData.languages?.length ? `
+      ${languagesHtml ? `
         <div class="section">
           <div class="section-title">Langues</div>
           ${languagesHtml}
@@ -455,11 +517,7 @@ export const generateCVHtml = (structuredData, profile = {}, anonymous = false) 
       ` : ''}
     </div>
   </div>
-  
-  <div class="footer">
-    CV généré via Pharma Link • ${new Date().toLocaleDateString('fr-FR')}
-  </div>
 </body>
 </html>
-  `;
+`;
 };

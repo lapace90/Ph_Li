@@ -60,6 +60,8 @@ const iconMap = {
   file: { lib: 'feather', name: 'file' },
   fileText: { lib: 'feather', name: 'file-text' },
   clipboard: { lib: 'feather', name: 'clipboard' },
+  // key: { lib: 'feather', name: 'key' },
+  tag: { lib: 'feather', name: 'tag' },
 
   // Media
   camera: { lib: 'feather', name: 'camera' },
@@ -95,6 +97,8 @@ const iconMap = {
   laptop: { lib: 'material', name: 'laptop' },
   list: { lib: 'material', name: 'list' },
   navigation: { lib: 'material', name: 'navigation' },
+  key: { lib: 'material', name: 'key' },
+
 
 };
 

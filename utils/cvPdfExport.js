@@ -1,6 +1,5 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
 import { generateCVHtml } from './cvPdfGenerator';
 
 /**
@@ -16,22 +15,13 @@ export const exportCVToPdf = async (structuredData, profile, anonymous = false, 
     // Générer le HTML
     const html = generateCVHtml(structuredData, profile, anonymous);
 
-    // Générer le PDF
+    // Générer le PDF (le fichier est créé dans le cache)
     const { uri } = await Print.printToFileAsync({
       html,
       base64: false,
     });
 
-    // Renommer le fichier avec un nom plus propre
-    const fileName = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_${anonymous ? 'anonyme' : 'complet'}.pdf`;
-    const newUri = `${FileSystem.documentDirectory}${fileName}`;
-
-    await FileSystem.moveAsync({
-      from: uri,
-      to: newUri,
-    });
-
-    return { success: true, uri: newUri };
+    return { success: true, uri };
   } catch (error) {
     console.error('Erreur export PDF:', error);
     return { success: false, error: error.message };
@@ -56,7 +46,10 @@ export const shareCVPdf = async (structuredData, profile, anonymous = false, tit
       throw new Error('Le partage n\'est pas disponible sur cet appareil');
     }
 
-    // Ouvrir le dialogue de partage
+    // Construire le nom du fichier pour le partage
+    const fileName = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_${anonymous ? 'anonyme' : 'complet'}.pdf`;
+
+    // Ouvrir le dialogue de partage avec le fichier généré
     await Sharing.shareAsync(result.uri, {
       mimeType: 'application/pdf',
       dialogTitle: `Partager ${title}`,

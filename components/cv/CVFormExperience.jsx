@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../constants/theme';
+import { commonStyles } from '../../constants/styles';
 import { hp, wp } from '../../helpers/common';
 import { 
   COMPANY_TYPES, 
@@ -24,6 +25,7 @@ import {
 } from '../../constants/cvOptions';
 import Icon from '../../assets/icons/Icon';
 import CityAutocomplete from '../common/CityAutocomplete';
+import MonthYearPicker from '../common/MonthYearPicker';
 
 const CVFormExperience = ({ 
   experience = null, 
@@ -75,18 +77,6 @@ const CVFormExperience = ({
     onSave(formData);
   };
 
-  const formatDateForInput = (dateStr) => {
-    if (!dateStr) return '';
-    return dateStr;
-  };
-
-  const handleDateChange = (field, value) => {
-    const cleaned = value.replace(/[^0-9-]/g, '');
-    if (cleaned.length <= 7) {
-      updateField(field, cleaned);
-    }
-  };
-
   return (
     <KeyboardAvoidingView 
       style={[styles.container, { paddingTop: insets.top }]}
@@ -98,10 +88,10 @@ const CVFormExperience = ({
           <Icon name="x" size={24} color={theme.colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>
-          {experience ? 'Modifier' : 'Nouvelle expérience'}
+          {experience ? 'Modifier l\'expérience' : 'Ajouter une expérience'}
         </Text>
-        <Pressable style={styles.saveHeaderButton} onPress={handleSave}>
-          <Text style={styles.saveHeaderText}>OK</Text>
+        <Pressable style={styles.saveButton} onPress={handleSave}>
+          <Icon name="check" size={24} color={theme.colors.primary} />
         </Pressable>
       </View>
 
@@ -123,36 +113,23 @@ const CVFormExperience = ({
           />
         </View>
 
-        {/* Nom de l'entreprise */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Nom de l'entreprise</Text>
-          <Text style={styles.hint}>Masqué en mode anonyme</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Ex: Pharmacie du Soleil"
-            placeholderTextColor={theme.colors.textLight}
-            value={formData.company_name}
-            onChangeText={(v) => updateField('company_name', v)}
-          />
-        </View>
-
         {/* Type de structure */}
         <View style={styles.field}>
           <Text style={styles.label}>Type de structure *</Text>
-          <Text style={styles.hint}>Affiché même en mode anonyme</Text>
-          <View style={styles.optionsWrap}>
+          <Text style={styles.hint}>Cette information sera affichée en mode anonyme</Text>
+          <View style={styles.chipsContainer}>
             {COMPANY_TYPES.map((type) => (
               <Pressable
                 key={type.value}
                 style={[
-                  styles.optionChip,
-                  formData.company_type === type.value && styles.optionChipActive,
+                  styles.chip,
+                  formData.company_type === type.value && styles.chipActive,
                 ]}
                 onPress={() => updateField('company_type', type.value)}
               >
                 <Text style={[
-                  styles.optionChipText,
-                  formData.company_type === type.value && styles.optionChipTextActive,
+                  styles.chipText,
+                  formData.company_type === type.value && styles.chipTextActive,
                 ]}>
                   {type.label}
                 </Text>
@@ -161,22 +138,37 @@ const CVFormExperience = ({
           </View>
         </View>
 
+        {/* Nom de la structure (optionnel) */}
+        <View style={styles.field}>
+          <Text style={styles.label}>Nom de l'établissement (optionnel)</Text>
+          <Text style={styles.hint}>Non affiché en mode anonyme</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Ex: Pharmacie du Centre"
+            placeholderTextColor={theme.colors.textLight}
+            value={formData.company_name}
+            onChangeText={(v) => updateField('company_name', v)}
+          />
+        </View>
+
         {/* Taille de la structure */}
         <View style={styles.field}>
           <Text style={styles.label}>Taille de la structure</Text>
-          <View style={styles.sizesRow}>
+          <View style={styles.chipsContainer}>
             {COMPANY_SIZES.map((size) => (
               <Pressable
                 key={size.value}
                 style={[
-                  styles.sizeChip,
-                  formData.company_size === size.value && styles.sizeChipActive,
+                  styles.chip,
+                  formData.company_size === size.value && styles.chipActive,
                 ]}
-                onPress={() => updateField('company_size', size.value)}
+                onPress={() => updateField('company_size', 
+                  formData.company_size === size.value ? null : size.value
+                )}
               >
                 <Text style={[
-                  styles.sizeChipText,
-                  formData.company_size === size.value && styles.sizeChipTextActive,
+                  styles.chipText,
+                  formData.company_size === size.value && styles.chipTextActive,
                 ]}>
                   {size.label}
                 </Text>
@@ -199,32 +191,36 @@ const CVFormExperience = ({
           )}
         </View>
 
-        {/* Dates */}
+        {/* Dates avec MonthYearPicker */}
         <View style={styles.datesRow}>
           <View style={[styles.field, { flex: 1 }]}>
-            <Text style={styles.label}>Date début *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="AAAA-MM"
-              placeholderTextColor={theme.colors.textLight}
-              value={formatDateForInput(formData.start_date)}
-              onChangeText={(v) => handleDateChange('start_date', v)}
-              keyboardType="numeric"
-              maxLength={7}
+            <MonthYearPicker
+              label="Date début *"
+              value={formData.start_date}
+              onChange={(v) => updateField('start_date', v)}
+              placeholder="Sélectionner"
+              maxDate="now"
             />
           </View>
           <View style={[styles.field, { flex: 1 }]}>
-            <Text style={styles.label}>Date fin</Text>
-            <TextInput
-              style={[styles.input, formData.is_current && styles.inputDisabled]}
-              placeholder="AAAA-MM"
-              placeholderTextColor={theme.colors.textLight}
-              value={formatDateForInput(formData.end_date)}
-              onChangeText={(v) => handleDateChange('end_date', v)}
-              keyboardType="numeric"
-              maxLength={7}
-              editable={!formData.is_current}
-            />
+            {!formData.is_current ? (
+              <MonthYearPicker
+                label="Date fin"
+                value={formData.end_date}
+                onChange={(v) => updateField('end_date', v)}
+                placeholder="Sélectionner"
+                maxDate="now"
+                minDate={formData.start_date}
+              />
+            ) : (
+              <View>
+                <Text style={styles.label}>Date fin</Text>
+                <View style={[styles.input, styles.inputDisabled, commonStyles.rowGapSmall]}>
+                  <Icon name="calendar" size={20} color={theme.colors.textLight} />
+                  <Text style={{ color: theme.colors.textLight, fontSize: hp(1.6) }}>Poste actuel</Text>
+                </View>
+              </View>
+            )}
           </View>
         </View>
 
@@ -323,9 +319,18 @@ const CVFormExperience = ({
 
         {/* Bouton supprimer (si édition) */}
         {experience && onDelete && (
-          <Pressable 
+          <Pressable
             style={styles.deleteButton}
-            onPress={() => onDelete(experience.id)}
+            onPress={() => {
+              Alert.alert(
+                'Supprimer l\'expérience',
+                'Êtes-vous sûr de vouloir supprimer cette expérience ?',
+                [
+                  { text: 'Annuler', style: 'cancel' },
+                  { text: 'Supprimer', style: 'destructive', onPress: () => onDelete(experience.id) },
+                ]
+              );
+            }}
           >
             <Icon name="trash" size={18} color={theme.colors.rose} />
             <Text style={styles.deleteButtonText}>Supprimer cette expérience</Text>
@@ -354,49 +359,36 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.card,
   },
   closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: wp(2),
   },
   headerTitle: {
     fontSize: hp(1.8),
     fontFamily: theme.fonts.semiBold,
     color: theme.colors.text,
   },
-  saveHeaderButton: {
-    paddingHorizontal: wp(4),
-    paddingVertical: hp(1),
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radius.lg,
-  },
-  saveHeaderText: {
-    fontSize: hp(1.5),
-    fontFamily: theme.fonts.semiBold,
-    color: 'white',
+  saveButton: {
+    padding: wp(2),
   },
   scrollView: {
     flex: 1,
   },
   content: {
     padding: wp(5),
-    paddingBottom: hp(4),
+    paddingBottom: hp(10),
   },
   field: {
-    marginBottom: hp(2),
+    marginBottom: hp(2.5),
   },
   label: {
-    fontSize: hp(1.6),
+    fontSize: hp(1.5),
     fontFamily: theme.fonts.medium,
     color: theme.colors.text,
     marginBottom: hp(0.5),
   },
   hint: {
-    fontSize: hp(1.3),
+    fontSize: hp(1.25),
     color: theme.colors.textLight,
-    marginBottom: hp(0.5),
+    marginBottom: hp(0.8),
   },
   input: {
     backgroundColor: theme.colors.card,
@@ -406,70 +398,45 @@ const styles = StyleSheet.create({
     paddingHorizontal: wp(4),
     paddingVertical: hp(1.5),
     fontSize: hp(1.6),
-    fontFamily: theme.fonts.regular,
     color: theme.colors.text,
   },
   inputDisabled: {
-    backgroundColor: theme.colors.gray + '30',
+    backgroundColor: theme.colors.gray + '20',
   },
   textArea: {
-    minHeight: hp(10),
+    minHeight: hp(12),
     textAlignVertical: 'top',
   },
-  optionsWrap: {
+  chipsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: wp(2),
   },
-  optionChip: {
+  chip: {
     paddingHorizontal: wp(3),
     paddingVertical: hp(0.8),
-    borderRadius: theme.radius.full,
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  optionChipActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  optionChipText: {
-    fontSize: hp(1.3),
-    color: theme.colors.text,
-  },
-  optionChipTextActive: {
-    color: 'white',
-    fontFamily: theme.fonts.medium,
-  },
-  sizesRow: {
-    flexDirection: 'row',
-    gap: wp(2),
-  },
-  sizeChip: {
-    flex: 1,
-    paddingVertical: hp(1.2),
     borderRadius: theme.radius.lg,
     backgroundColor: theme.colors.card,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    alignItems: 'center',
   },
-  sizeChipActive: {
-    backgroundColor: theme.colors.primary + '15',
+  chipActive: {
+    backgroundColor: theme.colors.primary,
     borderColor: theme.colors.primary,
   },
-  sizeChipText: {
-    fontSize: hp(1.3),
+  chipText: {
+    fontSize: hp(1.4),
     color: theme.colors.text,
   },
-  sizeChipTextActive: {
-    color: theme.colors.primary,
+  chipTextActive: {
+    color: 'white',
     fontFamily: theme.fonts.medium,
   },
   regionText: {
+    marginTop: hp(0.8),
     fontSize: hp(1.3),
     color: theme.colors.primary,
-    marginTop: hp(0.5),
+    fontFamily: theme.fonts.medium,
   },
   datesRow: {
     flexDirection: 'row',
@@ -478,13 +445,14 @@ const styles = StyleSheet.create({
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: wp(2),
-    marginBottom: hp(2),
+    gap: wp(3),
+    marginBottom: hp(2.5),
+    marginTop: -hp(1),
   },
   checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
+    width: 24,
+    height: 24,
+    borderRadius: theme.radius.sm,
     borderWidth: 2,
     borderColor: theme.colors.border,
     justifyContent: 'center',
@@ -585,4 +553,4 @@ const styles = StyleSheet.create({
     color: theme.colors.rose,
     fontFamily: theme.fonts.medium,
   },
-});
+})
