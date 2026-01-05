@@ -40,20 +40,20 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="matching"
+        options={{
+          title: 'Matching',
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="heart" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="marketplace"
         options={{
           title: 'Pharmacies',
           tabBarIcon: ({ color, size }) => (
             <Icon name="briefcase" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="messages"
-        options={{
-          title: 'Messages',
-          tabBarIcon: ({ color, size }) => (
-            <Icon name="messageCircle" size={size} color={color} />
           ),
         }}
       />
@@ -64,6 +64,13 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Icon name="user" size={size} color={color} />
           ),
+        }}
+      />
+      {/* Messages caché des tabs - accessible via header */}
+      <Tabs.Screen
+        name="messages"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

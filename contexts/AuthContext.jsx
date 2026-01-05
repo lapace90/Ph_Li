@@ -38,7 +38,6 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const loadUserData = async (userId, email) => {
-    console.log('Loading user data for:', userId);
     try {
       // Charger toutes les données en parallèle
       const [userData, profileData, privacyData, rppsData] = await Promise.all([
@@ -57,7 +56,7 @@ export const AuthProvider = ({ children }) => {
           .catch(() => null),
       ]);
 
-      console.log('Loaded data:', { userData, profileData, privacyData, rppsData });
+      // console.log('Loaded data:', { userData, profileData, privacyData, rppsData });
 
       // Ajouter rpps_verified au userData
       const userWithRpps = userData ? {

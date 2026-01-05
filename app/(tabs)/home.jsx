@@ -14,7 +14,7 @@ import ActivityItem from '../../components/home/ActivityItem';
 const MOCK_STATS = {
   matches: 3,
   applications: 7,
-  messages: 2,
+  profileViews: 12,
 };
 
 const MOCK_JOBS = [
@@ -100,19 +100,29 @@ export default function Home() {
               <Icon name="chevronRight" size={14} color={theme.colors.textLight} />
             </Pressable>
           </View>
-          <Pressable 
-            style={styles.notifButton}
-            onPress={() => {}}
-          >
-            <Icon name="bell" size={24} color={theme.colors.text} />
-            <View style={styles.notifBadge}>
-              <Text style={styles.notifBadgeText}>2</Text>
-            </View>
-          </Pressable>
+          
+          {/* Messages + Notifications */}
+          <View style={styles.headerButtons}>
+            <Pressable 
+              style={styles.headerButton}
+              onPress={() => router.push('/(tabs)/messages')}
+            >
+              <Icon name="messageCircle" size={22} color={theme.colors.text} />
+            </Pressable>
+            <Pressable 
+              style={styles.headerButton}
+              onPress={() => router.push('/(screens)/notifications')}
+            >
+              <Icon name="bell" size={22} color={theme.colors.text} />
+              <View style={styles.notifBadge}>
+                <Text style={styles.notifBadgeText}>2</Text>
+              </View>
+            </Pressable>
+          </View>
         </View>
 
         {/* Stats */}
-        <StatsCard stats={MOCK_STATS} />
+        <StatsCard stats={MOCK_STATS} isSearchActive={isSearchActive} />
 
         {/* Offres recommandées */}
         <View style={styles.section}>
@@ -136,7 +146,10 @@ export default function Home() {
             renderItem={({ item }) => (
               <JobCard 
                 job={item} 
-                onPress={() => {}} 
+                onPress={() => router.push({ 
+                  pathname: '/(screens)/jobOfferDetailCandidate', 
+                  params: { id: item.id } 
+                })} 
               />
             )}
           />
@@ -177,7 +190,7 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: hp(2.8),
-    fontFamily: theme.fonts.bold,
+    fontWeight: '700',
     color: theme.colors.text,
   },
   statusRow: {
@@ -189,7 +202,11 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
-  notifButton: {
+  headerButtons: {
+    flexDirection: 'row',
+    gap: wp(2),
+  },
+  headerButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -212,7 +229,7 @@ const styles = StyleSheet.create({
   },
   notifBadgeText: {
     fontSize: 10,
-    fontFamily: theme.fonts.bold,
+    fontWeight: '700',
     color: 'white',
   },
   section: {
@@ -221,7 +238,7 @@ const styles = StyleSheet.create({
   seeAllText: {
     fontSize: hp(1.5),
     color: theme.colors.primary,
-    fontFamily: theme.fonts.medium,
+    fontWeight: '500',
   },
   jobsList: {
     paddingRight: wp(5),

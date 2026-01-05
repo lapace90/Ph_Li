@@ -22,7 +22,7 @@ export const storageService = {
       ? `${userId}/${folder}/${fileName}`
       : `${userId}/${fileName}`;
 
-    console.log('📤 Upload start:', { bucket, filePath });
+    // console.log('📤 Upload start:', { bucket, filePath });
 
     try {
       // Lire le fichier en base64
@@ -30,7 +30,7 @@ export const storageService = {
         encoding: 'base64',
       });
 
-      console.log('📦 Base64 size:', Math.round(base64Data.length / 1024), 'KB');
+      // console.log('📦 Base64 size:', Math.round(base64Data.length / 1024), 'KB');
 
       // Convertir en ArrayBuffer
       const arrayBuffer = decode(base64Data);
@@ -47,8 +47,6 @@ export const storageService = {
         console.error('❌ Supabase upload error:', error);
         throw error;
       }
-
-      console.log('✅ Upload success');
 
       // Récupérer l'URL publique
       const { data: { publicUrl } } = supabase.storage

@@ -55,12 +55,16 @@ const iconMap = {
   thumbsUp: { lib: 'feather', name: 'thumbs-up' },
   thumbsDown: { lib: 'feather', name: 'thumbs-down' },
   star: { lib: 'feather', name: 'star' },
+  starHalf: { lib: 'feather', name: 'star-half' },
+  starOff: { lib: 'feather', name: 'star-off' },
+  smile: { lib: 'feather', name: 'smile' },
+  frown: { lib: 'feather', name: 'frown' },
+  close: { lib: 'feather', name: 'x' },
 
   // Files & Documents
   file: { lib: 'feather', name: 'file' },
   fileText: { lib: 'feather', name: 'file-text' },
   clipboard: { lib: 'feather', name: 'clipboard' },
-  // key: { lib: 'feather', name: 'key' },
   tag: { lib: 'feather', name: 'tag' },
 
   // Media
