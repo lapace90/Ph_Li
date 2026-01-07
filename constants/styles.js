@@ -451,6 +451,21 @@ export const commonStyles = StyleSheet.create({
         textAlign: 'center',
         marginTop: hp(1),
     },
+     emptyButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(2),
+        backgroundColor: theme.colors.primary,
+        paddingHorizontal: wp(6),
+        paddingVertical: hp(1.5),
+        borderRadius: theme.radius.lg,
+        marginTop: hp(2),
+    },
+    emptyButtonText: {
+        color: 'white',
+        fontSize: hp(1.7),
+        fontFamily: theme.fonts.semiBold,
+    },
 
     // ============================================
     // LOADING

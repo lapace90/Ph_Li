@@ -133,7 +133,7 @@ export default function MatchesScreen() {
       </Text>
       <Pressable 
         style={styles.discoverButton}
-        onPress={() => router.push('/(screens)/swipe')}
+        onPress={() => router.push('/(tabs)/matching')}
       >
         <Icon name="search" size={18} color="white" />
         <Text style={styles.discoverButtonText}>Découvrir des offres</Text>

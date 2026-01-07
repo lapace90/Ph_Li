@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View, Pressable, ActivityIndicator } from 'react-native';
 import { theme } from '../../constants/theme';
+import { commonStyles } from '../../constants/styles';
 import { hp, wp } from '../../helpers/common';
 import Icon from '../../assets/icons/Icon';
 import SwipeCard from './SwipeCard';
@@ -19,27 +20,27 @@ const SwipeStack = ({
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={commonStyles.emptyContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Recherche d'opportunités...</Text>
+        <Text style={commonStyles.emptyText}>Recherche d'opportunités...</Text>
       </View>
     );
   }
 
   if (cards.length === 0) {
     return (
-      <View style={styles.centerContainer}>
-        <View style={styles.emptyIcon}>
+      <View style={commonStyles.emptyContainer}>
+        <View style={commonStyles.emptyIcon}>
           <Icon name="search" size={50} color={theme.colors.primary} />
         </View>
-        <Text style={styles.emptyTitle}>Plus d'offres pour le moment</Text>
-        <Text style={styles.emptyText}>
+        <Text style={commonStyles.emptyTitle}>Plus d'offres pour le moment</Text>
+        <Text style={commonStyles.emptyText}>
           Revenez plus tard ou élargissez vos critères de recherche
         </Text>
         {onRefresh && (
-          <Pressable style={styles.refreshButton} onPress={onRefresh}>
+          <Pressable style={commonStyles.emptyButton} onPress={onRefresh}>
             <Icon name="refresh" size={18} color="white" />
-            <Text style={styles.refreshText}>Actualiser</Text>
+            <Text style={commonStyles.emptyButtonText}>Actualiser</Text>
           </Pressable>
         )}
       </View>
@@ -89,12 +90,9 @@ const SwipeStack = ({
             size={24} 
             color={superLikesRemaining > 0 ? theme.colors.warning : theme.colors.gray} 
           />
-          <Text style={[
-            styles.superLikeCount,
-            superLikesRemaining <= 0 && styles.countDisabled
-          ]}>
-            {superLikesRemaining}
-          </Text>
+          {superLikesRemaining > 0 && (
+            <Text style={styles.superLikeCount}>{superLikesRemaining}</Text>
+          )}
         </Pressable>
 
         {/* Like */}
@@ -106,26 +104,27 @@ const SwipeStack = ({
         </Pressable>
       </View>
 
-      {/* Compteur de cartes */}
-      <View style={styles.counter}>
-        <Text style={styles.counterText}>{cards.length} offres restantes</Text>
-      </View>
+      {/* Compteur */}
+      <Text style={styles.remainingText}>
+        {cards.length} offre{cards.length > 1 ? 's' : ''} restante{cards.length > 1 ? 's' : ''}
+      </Text>
     </View>
   );
 };
 
-export default SwipeStack;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    alignItems: 'center',
   },
   cardsContainer: {
     flex: 1,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: wp(5),
   },
+
+  // Actions
   actionsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -143,95 +142,48 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    shadowRadius: 4,
+    elevation: 3,
   },
   dislikeButton: {
-    borderColor: theme.colors.rose + '30',
-  },
-  likeButton: {
-    borderColor: theme.colors.success + '30',
+    borderWidth: 2,
+    borderColor: theme.colors.rose,
   },
   superLikeButton: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    borderColor: theme.colors.warning + '30',
-    position: 'relative',
+    borderWidth: 2,
+    borderColor: theme.colors.warning,
+  },
+  likeButton: {
+    borderWidth: 2,
+    borderColor: theme.colors.success,
   },
   buttonDisabled: {
-    opacity: 0.5,
     borderColor: theme.colors.gray,
+    opacity: 0.5,
   },
   superLikeCount: {
     position: 'absolute',
-    bottom: -8,
-    fontSize: hp(1.2),
-    color: theme.colors.warning,
-    fontWeight: '700',
-    backgroundColor: theme.colors.card,
-    paddingHorizontal: wp(1.5),
-    borderRadius: 8,
-  },
-  countDisabled: {
-    color: theme.colors.gray,
-  },
-  counter: {
-    alignItems: 'center',
-    paddingBottom: hp(2),
-  },
-  counterText: {
-    fontSize: hp(1.4),
-    color: theme.colors.textLight,
-  },
-  // Empty state
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: wp(10),
-    gap: hp(2),
-  },
-  loadingText: {
-    fontSize: hp(1.8),
-    color: theme.colors.textLight,
-    marginTop: hp(2),
-  },
-  emptyIcon: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: theme.colors.primary + '15',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    fontSize: hp(2.2),
-    fontWeight: '600',
-    color: theme.colors.text,
-    textAlign: 'center',
-  },
-  emptyText: {
-    fontSize: hp(1.6),
-    color: theme.colors.textLight,
-    textAlign: 'center',
-    lineHeight: hp(2.4),
-  },
-  refreshButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: wp(2),
-    backgroundColor: theme.colors.primary,
-    paddingHorizontal: wp(6),
-    paddingVertical: hp(1.5),
-    borderRadius: theme.radius.lg,
-    marginTop: hp(2),
-  },
-  refreshText: {
+    bottom: -5,
+    right: -5,
+    backgroundColor: theme.colors.warning,
     color: 'white',
-    fontSize: hp(1.7),
-    fontWeight: '600',
+    fontSize: hp(1.1),
+    fontWeight: '700',
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    textAlign: 'center',
+    lineHeight: 18,
+    overflow: 'hidden',
+  },
+  remainingText: {
+    fontSize: hp(1.3),
+    color: theme.colors.textLight,
+    paddingBottom: hp(1),
   },
 });
+
+export default SwipeStack;

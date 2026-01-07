@@ -5,6 +5,22 @@ import { supabase } from '../lib/supabase';
  */
 export const matchingService = {
   // ==========================================
+  // UTILITAIRES
+  // ==========================================
+
+  /**
+   * Mélange un tableau de manière aléatoire (Fisher-Yates)
+   */
+  shuffleArray(array) {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  },
+
+  // ==========================================
   // SWIPES
   // ==========================================
 
@@ -82,14 +98,12 @@ export const matchingService = {
       status: 'matched',
     };
 
-    // Ajouter la bonne foreign key selon le type
     if (targetType === 'job_offer') {
       matchData.job_offer_id = targetId;
     } else {
       matchData.internship_offer_id = targetId;
     }
 
-    // Upsert pour éviter les doublons
     const { data, error } = await supabase
       .from('matches')
       .upsert(matchData, {
@@ -191,7 +205,6 @@ export const matchingService = {
    * Récupère les offres d'emploi que le candidat n'a pas encore swipées
    */
   async getSwipeableJobOffers(userId, filters = {}) {
-    // D'abord récupérer les IDs déjà swipés
     const { data: swipedIds } = await supabase
       .from('swipes')
       .select('target_id')
@@ -200,18 +213,15 @@ export const matchingService = {
 
     const excludeIds = swipedIds?.map(s => s.target_id) || [];
 
-    // Construire la requête
     let query = supabase
       .from('job_offers')
       .select('*')
       .eq('status', 'active');
 
-    // Exclure les offres déjà swipées
     if (excludeIds.length > 0) {
       query = query.not('id', 'in', `(${excludeIds.join(',')})`);
     }
 
-    // Filtres optionnels
     if (filters.contract_type) {
       query = query.eq('contract_type', filters.contract_type);
     }
@@ -222,12 +232,13 @@ export const matchingService = {
       query = query.eq('region', filters.region);
     }
 
-    // Limite pour le deck de cartes
     query = query.limit(filters.limit || 20);
 
     const { data, error } = await query;
     if (error) throw error;
-    return data || [];
+    
+    // Mélanger pour varier l'ordre d'apparition
+    return this.shuffleArray(data || []);
   },
 
   /**
@@ -262,14 +273,15 @@ export const matchingService = {
 
     const { data, error } = await query;
     if (error) throw error;
-    return data || [];
+    
+    // Mélanger pour varier l'ordre d'apparition
+    return this.shuffleArray(data || []);
   },
 
   /**
    * Récupère les candidats swipables pour un employeur
    */
   async getSwipeableCandidates(employerId, jobOfferId, filters = {}) {
-    // Récupérer les candidats déjà swipés par cet employeur
     const { data: swipedIds } = await supabase
       .from('swipes')
       .select('target_id')
@@ -277,27 +289,12 @@ export const matchingService = {
       .eq('target_type', 'candidate');
 
     const excludeIds = swipedIds?.map(s => s.target_id) || [];
-    excludeIds.push(employerId); // Exclure soi-même
+    excludeIds.push(employerId);
 
-    // Récupérer les candidats avec profil recherchable
+    // Récupérer les profils
     let query = supabase
       .from('profiles')
-      .select(`
-        *,
-        users!inner (
-          id,
-          user_type,
-          profile_completed
-        ),
-        privacy_settings (
-          searchable_by_recruiters,
-          profile_visibility,
-          show_photo,
-          show_full_name
-        )
-      `)
-      .eq('users.profile_completed', true)
-      .in('users.user_type', ['preparateur', 'pharmacien', 'etudiant']);
+      .select('*');
 
     if (excludeIds.length > 0) {
       query = query.not('id', 'in', `(${excludeIds.join(',')})`);
@@ -309,13 +306,41 @@ export const matchingService = {
 
     query = query.limit(filters.limit || 20);
 
-    const { data, error } = await query;
+    const { data: profiles, error } = await query;
     if (error) throw error;
 
-    // Filtrer ceux qui sont searchable
-    return (data || []).filter(p => 
-      p.privacy_settings?.searchable_by_recruiters !== false
-    );
+    // Récupérer les users pour filtrer par user_type
+    const profileIds = (profiles || []).map(p => p.id);
+    if (profileIds.length === 0) return [];
+
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, user_type, profile_completed')
+      .in('id', profileIds)
+      .eq('profile_completed', true)
+      .in('user_type', ['preparateur', 'pharmacien', 'etudiant']);
+
+    const validUserIds = new Set((users || []).map(u => u.id));
+
+    // Récupérer les privacy_settings
+    const { data: privacySettings } = await supabase
+      .from('privacy_settings')
+      .select('user_id, searchable_by_recruiters, show_photo, show_full_name')
+      .in('user_id', profileIds);
+
+    const privacyMap = {};
+    (privacySettings || []).forEach(p => { privacyMap[p.user_id] = p; });
+
+    // Filtrer et enrichir les profils, puis mélanger
+    const result = (profiles || [])
+      .filter(p => validUserIds.has(p.id))
+      .filter(p => privacyMap[p.id]?.searchable_by_recruiters !== false)
+      .map(p => ({
+        ...p,
+        privacy_settings: privacyMap[p.id] || {},
+      }));
+    
+    return this.shuffleArray(result);
   },
 
   // ==========================================
@@ -323,60 +348,86 @@ export const matchingService = {
   // ==========================================
 
   /**
-   * Récupère les matchs d'un candidat
+   * Récupère les matchs d'un candidat (CORRIGÉ - requêtes séparées)
    */
   async getCandidateMatches(userId) {
-    const { data, error } = await supabase
+    // 1. Récupérer les matchs
+    const { data: matches, error } = await supabase
       .from('matches')
-      .select(`
-        *,
-        job_offers (
-          id,
-          title,
-          contract_type,
-          position_type,
-          city,
-          salary_range,
-          profiles:pharmacy_owner_id (
-            first_name,
-            last_name,
-            photo_url
-          )
-        ),
-        internship_offers (
-          id,
-          title,
-          type,
-          city,
-          duration_months,
-          profiles:pharmacy_owner_id (
-            first_name,
-            last_name,
-            photo_url
-          )
-        )
-      `)
+      .select('*')
       .eq('candidate_id', userId)
       .eq('status', 'matched')
       .order('matched_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    if (!matches?.length) return [];
+
+    // 2. Récupérer les job_offers liées
+    const jobOfferIds = matches.map(m => m.job_offer_id).filter(Boolean);
+    const internshipOfferIds = matches.map(m => m.internship_offer_id).filter(Boolean);
+
+    let jobOffersMap = {};
+    let internshipOffersMap = {};
+
+    if (jobOfferIds.length > 0) {
+      const { data: jobOffers } = await supabase
+        .from('job_offers')
+        .select('id, title, contract_type, position_type, city, salary_range, pharmacy_owner_id')
+        .in('id', jobOfferIds);
+      (jobOffers || []).forEach(j => { jobOffersMap[j.id] = j; });
+    }
+
+    if (internshipOfferIds.length > 0) {
+      const { data: internshipOffers } = await supabase
+        .from('internship_offers')
+        .select('id, title, type, city, duration_months, pharmacy_owner_id')
+        .in('id', internshipOfferIds);
+      (internshipOffers || []).forEach(i => { internshipOffersMap[i.id] = i; });
+    }
+
+    // 3. Récupérer les profils des pharmacy_owners
+    const ownerIds = [
+      ...Object.values(jobOffersMap).map(j => j.pharmacy_owner_id),
+      ...Object.values(internshipOffersMap).map(i => i.pharmacy_owner_id),
+    ].filter(Boolean);
+
+    let profilesMap = {};
+    if (ownerIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, photo_url')
+        .in('id', ownerIds);
+      (profiles || []).forEach(p => { profilesMap[p.id] = p; });
+    }
+
+    // 4. Assembler les données
+    return matches.map(match => {
+      const jobOffer = jobOffersMap[match.job_offer_id];
+      const internshipOffer = internshipOffersMap[match.internship_offer_id];
+      const offer = jobOffer || internshipOffer;
+      const ownerProfile = offer ? profilesMap[offer.pharmacy_owner_id] : null;
+
+      return {
+        ...match,
+        job_offers: jobOffer ? { ...jobOffer, profiles: ownerProfile } : null,
+        internship_offers: internshipOffer ? { ...internshipOffer, profiles: ownerProfile } : null,
+      };
+    });
   },
 
   /**
-   * Récupère les matchs d'un employeur pour une offre
+   * Récupère les matchs d'un employeur (CORRIGÉ - requêtes séparées)
    */
   async getEmployerMatches(employerId) {
-    // D'abord récupérer les offres de l'employeur
+    // 1. Récupérer les offres de l'employeur
     const { data: jobOffers } = await supabase
       .from('job_offers')
-      .select('id')
+      .select('id, title, contract_type')
       .eq('pharmacy_owner_id', employerId);
 
     const { data: internshipOffers } = await supabase
       .from('internship_offers')
-      .select('id')
+      .select('id, title, type')
       .eq('pharmacy_owner_id', employerId);
 
     const jobIds = jobOffers?.map(j => j.id) || [];
@@ -386,44 +437,57 @@ export const matchingService = {
       return [];
     }
 
-    let query = supabase
-      .from('matches')
-      .select(`
-        *,
-        profiles:candidate_id (
-          id,
-          first_name,
-          last_name,
-          photo_url,
-          current_city,
-          experience_years
-        ),
-        job_offers (
-          id,
-          title,
-          contract_type
-        ),
-        internship_offers (
-          id,
-          title,
-          type
-        )
-      `)
-      .eq('status', 'matched')
-      .order('matched_at', { ascending: false });
+    // 2. Récupérer les matchs
+    let matches = [];
 
-    // Filtrer par offres de l'employeur
-    if (jobIds.length > 0 && internshipIds.length > 0) {
-      query = query.or(`job_offer_id.in.(${jobIds.join(',')}),internship_offer_id.in.(${internshipIds.join(',')})`);
-    } else if (jobIds.length > 0) {
-      query = query.in('job_offer_id', jobIds);
-    } else {
-      query = query.in('internship_offer_id', internshipIds);
+    if (jobIds.length > 0) {
+      const { data: jm } = await supabase
+        .from('matches')
+        .select('*')
+        .in('job_offer_id', jobIds)
+        .eq('status', 'matched')
+        .order('matched_at', { ascending: false });
+      matches = [...matches, ...(jm || [])];
     }
 
-    const { data, error } = await query;
-    if (error) throw error;
-    return data || [];
+    if (internshipIds.length > 0) {
+      const { data: im } = await supabase
+        .from('matches')
+        .select('*')
+        .in('internship_offer_id', internshipIds)
+        .eq('status', 'matched')
+        .order('matched_at', { ascending: false });
+      matches = [...matches, ...(im || [])];
+    }
+
+    if (matches.length === 0) return [];
+
+    // 3. Récupérer les profils des candidats
+    const candidateIds = [...new Set(matches.map(m => m.candidate_id).filter(Boolean))];
+
+    let candidatesMap = {};
+    if (candidateIds.length > 0) {
+      const { data: candidates } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, photo_url, current_city, experience_years')
+        .in('id', candidateIds);
+      (candidates || []).forEach(c => { candidatesMap[c.id] = c; });
+    }
+
+    // 4. Créer les maps d'offres
+    const jobOffersMap = {};
+    (jobOffers || []).forEach(j => { jobOffersMap[j.id] = j; });
+
+    const internshipOffersMap = {};
+    (internshipOffers || []).forEach(i => { internshipOffersMap[i.id] = i; });
+
+    // 5. Assembler les données
+    return matches.map(match => ({
+      ...match,
+      profiles: candidatesMap[match.candidate_id] || null,
+      job_offers: jobOffersMap[match.job_offer_id] || null,
+      internship_offers: internshipOffersMap[match.internship_offer_id] || null,
+    }));
   },
 
   /**
@@ -451,7 +515,6 @@ export const matchingService = {
 
   /**
    * Calcule un score de compatibilité simple
-   * TODO: Implémenter l'algorithme complet en PostgreSQL function
    */
   calculateMatchScore(candidate, offer) {
     let score = 0;
