@@ -8,12 +8,13 @@ import { generateCVHtml } from './cvPdfGenerator';
  * @param {Object} profile - Profil utilisateur
  * @param {boolean} anonymous - Mode anonyme
  * @param {string} title - Titre du fichier
+ * @param {string} email - Email de l'utilisateur (pour mode complet)
  * @returns {Promise<{success: boolean, uri?: string, error?: string}>}
  */
-export const exportCVToPdf = async (structuredData, profile, anonymous = false, title = 'CV') => {
+export const exportCVToPdf = async (structuredData, profile, anonymous = false, title = 'CV', email = '') => {
   try {
     // Générer le HTML
-    const html = generateCVHtml(structuredData, profile, anonymous);
+    const html = generateCVHtml(structuredData, profile, anonymous, '', email);
 
     // Générer le PDF (le fichier est créé dans le cache)
     const { uri } = await Print.printToFileAsync({
@@ -30,10 +31,15 @@ export const exportCVToPdf = async (structuredData, profile, anonymous = false, 
 
 /**
  * Génère et ouvre le dialogue de partage
+ * @param {Object} structuredData - Données du CV
+ * @param {Object} profile - Profil utilisateur
+ * @param {boolean} anonymous - Mode anonyme
+ * @param {string} title - Titre du fichier
+ * @param {string} email - Email de l'utilisateur (pour mode complet)
  */
-export const shareCVPdf = async (structuredData, profile, anonymous = false, title = 'CV') => {
+export const shareCVPdf = async (structuredData, profile, anonymous = false, title = 'CV', email = '') => {
   try {
-    const result = await exportCVToPdf(structuredData, profile, anonymous, title);
+    const result = await exportCVToPdf(structuredData, profile, anonymous, title, email);
     
     if (!result.success) {
       throw new Error(result.error);
@@ -65,10 +71,14 @@ export const shareCVPdf = async (structuredData, profile, anonymous = false, tit
 
 /**
  * Prévisualise le PDF (impression)
+ * @param {Object} structuredData - Données du CV
+ * @param {Object} profile - Profil utilisateur
+ * @param {boolean} anonymous - Mode anonyme
+ * @param {string} email - Email de l'utilisateur (pour mode complet)
  */
-export const previewCVPdf = async (structuredData, profile, anonymous = false) => {
+export const previewCVPdf = async (structuredData, profile, anonymous = false, email = '') => {
   try {
-    const html = generateCVHtml(structuredData, profile, anonymous);
+    const html = generateCVHtml(structuredData, profile, anonymous, '', email);
     
     await Print.printAsync({
       html,

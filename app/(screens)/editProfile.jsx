@@ -31,6 +31,7 @@ export default function EditProfile() {
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
+        nickname: '',
         bio: '',
         phone: '',
         city: null,
@@ -49,6 +50,7 @@ export default function EditProfile() {
             const initial = {
                 firstName: profile.first_name || '',
                 lastName: profile.last_name || '',
+                nickname: profile.nickname || '',
                 bio: profile.bio || '',
                 phone: profile.phone || '',
                 city: profile.current_city ? {
@@ -69,7 +71,7 @@ export default function EditProfile() {
                 photoUrl: profile.photo_url || null,
             };
             setFormData(initial);
-            setInitialData(initial); // Garder une copie
+            setInitialData(initial);
         }
     }, [profile]);
 
@@ -87,7 +89,6 @@ export default function EditProfile() {
         try {
             const url = await storageService.uploadImage('avatars', session.user.id, asset);
             setAvatarUri(url);
-            // Ne PAS sauvegarder ici, on le fera dans handleSave
         } catch (error) {
             Alert.alert('Erreur', 'Impossible de télécharger la photo');
             console.error(error);
@@ -118,6 +119,7 @@ export default function EditProfile() {
         const fieldMap = {
             firstName: { key: 'first_name', transform: v => v.trim() },
             lastName: { key: 'last_name', transform: v => v.trim() },
+            nickname: { key: 'nickname', transform: v => v?.trim() || null },
             bio: { key: 'bio', transform: v => v.trim() || null },
             phone: { key: 'phone', transform: v => v.trim() || null },
             experienceYears: { key: 'experience_years', transform: v => v ? parseInt(v) : null },
@@ -221,6 +223,16 @@ export default function EditProfile() {
                             </View>
                         </View>
                         <Input
+                            icon={<Icon name="atSign" size={20} color={theme.colors.textLight} />}
+                            placeholder="Pseudo (optionnel)"
+                            value={formData.nickname}
+                            onChangeText={(v) => updateField('nickname', v.replace(/[^a-zA-Z0-9_-]/g, ''))}
+                            maxLength={20}
+                        />
+                        <Text style={commonStyles.hint}>
+                            Affiché en mode anonyme • 3-20 caractères • lettres, chiffres, - et _
+                        </Text>
+                        <Input
                             icon={<Icon name="phone" size={20} color={theme.colors.textLight} />}
                             placeholder="Téléphone (optionnel)"
                             keyboardType="phone-pad"
@@ -274,7 +286,6 @@ export default function EditProfile() {
                     {/* Disponibilité */}
                     {isCandidate && (
                         <View style={commonStyles.section}>
-                            <Text style={commonStyles.sectionTitle}>Disponibilité</Text>
                             <AvailabilityPicker
                                 value={formData.availability}
                                 onChange={(v) => updateField('availability', v)}
@@ -285,7 +296,6 @@ export default function EditProfile() {
                     {/* Contrats recherchés */}
                     {isCandidate && (
                         <View style={commonStyles.section}>
-                            <Text style={commonStyles.sectionTitle}>Types de contrat recherchés</Text>
                             <ContractTypePicker
                                 value={formData.contractTypes}
                                 onChange={(v) => updateField('contractTypes', v)}
@@ -338,7 +348,6 @@ export default function EditProfile() {
                     {/* Mobilité */}
                     {isCandidate && (
                         <View style={commonStyles.section}>
-                            <Text style={commonStyles.sectionTitle}>Mobilité</Text>
                             <RelocationToggle
                                 value={formData.willingToRelocate}
                                 onChange={(v) => updateField('willingToRelocate', v)}

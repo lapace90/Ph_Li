@@ -1,3 +1,4 @@
+// app/(tabs)/profile.jsx
 import { StyleSheet, Text, View, Pressable, ScrollView, Switch } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -10,6 +11,7 @@ import ScreenWrapper from '../../components/common/ScreenWrapper';
 import RoleAvatar from '../../components/common/RoleAvatar';
 import Icon from '../../assets/icons/Icon';
 import RppsBadge from '../../components/common/RppsBadge';
+import { getRoleLabel } from '../../helpers/roleLabel';
 
 export default function Profile() {
     const router = useRouter();
@@ -18,20 +20,12 @@ export default function Profile() {
 
     // Déterminer le type d'utilisateur
     const isTitulaire = user?.user_type === 'titulaire';
+    const isPreparateur = user?.user_type === 'preparateur';
     const isCandidate = !isTitulaire;
+    const canHaveRPPS = isTitulaire || isPreparateur;
 
     const handleToggleSearchable = async (value) => {
         await setSearchable(value);
-    };
-
-    const getRoleLabel = () => {
-        const roles = {
-            preparateur: 'Préparateur(trice)',
-            titulaire: 'Titulaire',
-            conseiller: 'Conseiller(ère)',
-            etudiant: 'Étudiant(e)',
-        };
-        return roles[user?.user_type] || 'Utilisateur';
     };
 
     const formatAvailability = () => {
@@ -129,7 +123,7 @@ export default function Profile() {
                                 </Text>
                                 {user?.rpps_verified && <RppsBadge verified={true} size="small" />}
                             </View>
-                            <Text style={styles.role}>{getRoleLabel()}</Text>
+                            <Text style={styles.role}>{getRoleLabel(user?.user_type, profile?.gender)}</Text>
                             {getLocation() && (
                                 <View style={[commonStyles.row, { marginTop: hp(0.5), gap: wp(1) }]}>
                                     <Icon name="mapPin" size={14} color={theme.colors.textLight} />
@@ -187,12 +181,12 @@ export default function Profile() {
                                     value={privacy?.searchable_by_recruiters || false}
                                     onValueChange={handleToggleSearchable}
                                     trackColor={{ false: theme.colors.gray, true: theme.colors.primary + '50' }}
-                                    thumbColor={privacy?.searchable_by_recruiters ? theme.colors.primary : theme.colors.darkLight}
+                                    thumbColor={privacy?.searchable_by_recruiters ? theme.colors.primary : '#f4f3f4'}
                                 />
                             </View>
                         </View>
 
-                        {/* Infos rapides candidat */}
+                        {/* Infos de recherche */}
                         <View style={[commonStyles.card, { gap: hp(1.2) }]}>
                             {formatAvailability() && (
                                 <View style={[commonStyles.row, { gap: wp(3) }]}>
@@ -200,22 +194,22 @@ export default function Profile() {
                                     <Text style={commonStyles.flex1}>{formatAvailability()}</Text>
                                 </View>
                             )}
-                            {getExperience() && (
-                                <View style={[commonStyles.row, { gap: wp(3) }]}>
-                                    <Icon name="briefcase" size={18} color={theme.colors.primary} />
-                                    <Text style={commonStyles.flex1}>{getExperience()}</Text>
-                                </View>
-                            )}
                             {formatContractTypes() && (
                                 <View style={[commonStyles.row, { gap: wp(3) }]}>
-                                    <Icon name="fileText" size={18} color={theme.colors.primary} />
+                                    <Icon name="briefcase" size={18} color={theme.colors.primary} />
                                     <Text style={commonStyles.flex1}>{formatContractTypes()}</Text>
                                 </View>
                             )}
                             {formatRadius() && (
                                 <View style={[commonStyles.row, { gap: wp(3) }]}>
-                                    <Icon name="map" size={18} color={theme.colors.primary} />
-                                    <Text style={commonStyles.flex1}>Recherche dans un rayon de {formatRadius()}</Text>
+                                    <Icon name="mapPin" size={18} color={theme.colors.primary} />
+                                    <Text style={commonStyles.flex1}>Rayon : {formatRadius()}</Text>
+                                </View>
+                            )}
+                            {getExperience() && (
+                                <View style={[commonStyles.row, { gap: wp(3) }]}>
+                                    <Icon name="clock" size={18} color={theme.colors.primary} />
+                                    <Text style={commonStyles.flex1}>{getExperience()}</Text>
                                 </View>
                             )}
                             {profile?.willing_to_relocate && (
@@ -249,21 +243,6 @@ export default function Profile() {
                             />
                         </View>
 
-                        {/* Vérification RPPS */}
-                        {!user?.rpps_verified && (
-                            <Pressable 
-                                style={styles.rppsWarning}
-                                onPress={() => router.push('/(screens)/rppsVerification')}
-                            >
-                                <Icon name="alertCircle" size={20} color={theme.colors.warning} />
-                                <View style={commonStyles.flex1}>
-                                    <Text style={styles.rppsWarningTitle}>Vérification RPPS requise</Text>
-                                    <Text style={commonStyles.hint}>Pour publier des annonces, faites vérifier votre profil</Text>
-                                </View>
-                                <Icon name="chevronRight" size={18} color={theme.colors.warning} />
-                            </Pressable>
-                        )}
-
                         {/* Infos pharmacie */}
                         {profile?.pharmacy_name && (
                             <View style={[commonStyles.card, { gap: hp(1.2) }]}>
@@ -280,6 +259,25 @@ export default function Profile() {
                             </View>
                         )}
                     </>
+                )}
+
+                {/* ====== VÉRIFICATION RPPS (préparateurs et titulaires) ====== */}
+                {canHaveRPPS && !user?.rpps_verified && (
+                    <Pressable 
+                        style={styles.rppsWarning}
+                        onPress={() => router.push('/(screens)/rppsVerification')}
+                    >
+                        <Icon name="alertCircle" size={20} color={theme.colors.warning} />
+                        <View style={commonStyles.flex1}>
+                            <Text style={styles.rppsWarningTitle}>Vérification RPPS</Text>
+                            <Text style={commonStyles.hint}>
+                                {isTitulaire 
+                                    ? 'Requis pour publier des annonces'
+                                    : 'Obtenez le badge vérifié sur votre profil'}
+                            </Text>
+                        </View>
+                        <Icon name="chevronRight" size={18} color={theme.colors.warning} />
+                    </Pressable>
                 )}
 
                 {/* Menu commun */}
@@ -393,6 +391,8 @@ const styles = StyleSheet.create({
         padding: hp(2),
         borderRadius: theme.radius.lg,
         gap: wp(3),
+        borderWidth: 1,
+        borderColor: theme.colors.warning + '30',
     },
     rppsWarningTitle: {
         fontSize: hp(1.5),

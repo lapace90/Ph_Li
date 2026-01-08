@@ -3,7 +3,9 @@ import { StyleSheet, Text, View, Animated, PanResponder, Dimensions, Modal, Scro
 import { Image } from 'expo-image';
 import { theme } from '../../constants/theme';
 import { commonStyles } from '../../constants/styles';
+import { getRoleLabelShort } from '../../helpers/roleLabel';
 import { hp, wp } from '../../helpers/common';
+import { getDisplayName } from '../../helpers/displayName';
 import Icon from '../../assets/icons/Icon';
 import { getContractTypeLabel, getContractColor, getPositionTypeLabel } from '../../constants/jobOptions';
 
@@ -309,9 +311,7 @@ const SwipeCard = ({
           )}
           <View style={styles.candidateTypeBadge}>
             <Text style={styles.candidateTypeText}>
-              {card.user_type === 'preparateur' ? 'Préparateur' : 
-               card.user_type === 'etudiant' ? 'Étudiant' : 
-               card.user_type === 'conseiller' ? 'Conseiller' : 'Pharmacien'}
+              {getRoleLabelShort(card.user_type, card.gender)}
             </Text>
           </View>
           {card.matchScore != null && (
@@ -324,7 +324,7 @@ const SwipeCard = ({
         {/* Infos */}
         <View style={styles.candidateContent}>
           <Text style={commonStyles.sectionTitle}>
-            {card.show_full_name ? `${card.first_name} ${card.last_name}` : `${card.first_name} ${card.last_name?.[0]}.`}
+            {getDisplayName(card, !card.show_full_name)}
           </Text>
           {card.experience_years != null && (
             <Text style={commonStyles.hint}>

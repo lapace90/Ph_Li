@@ -33,7 +33,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="search"
         options={{
-          title: 'Emplois',
+          title: 'Recherche',
           tabBarIcon: ({ color, size }) => (
             <Icon name="search" size={size} color={color} />
           ),

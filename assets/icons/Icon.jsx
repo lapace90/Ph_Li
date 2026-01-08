@@ -9,6 +9,7 @@ const iconMap = {
   user: { lib: 'feather', name: 'user' },
   users: { lib: 'feather', name: 'users' },
   phone: { lib: 'feather', name: 'phone' },
+  atSign: { lib: 'feather', name: 'at-sign' },
 
   // Navigation
   arrowLeft: { lib: 'feather', name: 'arrow-left' },

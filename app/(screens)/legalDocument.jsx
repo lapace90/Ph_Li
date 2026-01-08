@@ -1,3 +1,4 @@
+// app/(screens)/legalDocument.jsx
 import { StyleSheet, Text, View, ScrollView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -10,7 +11,7 @@ import BackButton from '../../components/common/BackButton';
 const LEGAL_CONTENT = {
   cgu: {
     title: "Conditions Générales d'Utilisation",
-    lastUpdate: "1er janvier 2025",
+    lastUpdate: "1er janvier 2026",
     sections: [
       {
         title: "1. Objet",
@@ -29,54 +30,66 @@ const LEGAL_CONTENT = {
         content: "PharmaLink permet aux professionnels de la pharmacie de : créer un profil professionnel, rechercher des opportunités d'emploi, publier des offres d'emploi, et entrer en contact avec d'autres professionnels."
       },
       {
-        title: "5. Responsabilités",
-        content: "Vous êtes responsable du contenu que vous publiez. PharmaLink se réserve le droit de supprimer tout contenu inapproprié ou contraire aux présentes CGU."
+        title: "5. Vérification RPPS",
+        content: "Les titulaires de pharmacie et préparateurs peuvent soumettre leur numéro RPPS (Répertoire Partagé des Professionnels de Santé) pour obtenir un badge de vérification. Cette vérification permet de publier des offres d'emploi et renforce la confiance entre utilisateurs. La soumission du numéro RPPS est facultative mais requise pour certaines fonctionnalités."
       },
       {
-        title: "6. Propriété intellectuelle",
+        title: "6. Responsabilités",
+        content: "Vous êtes responsable du contenu que vous publiez et de l'exactitude des informations fournies, y compris votre numéro RPPS. PharmaLink se réserve le droit de supprimer tout contenu inapproprié, de retirer le badge RPPS en cas de signalement justifié, et de suspendre les comptes contrevenant aux présentes CGU."
+      },
+      {
+        title: "7. Propriété intellectuelle",
         content: "L'ensemble des éléments de l'application (textes, graphiques, logos, etc.) sont protégés par le droit de la propriété intellectuelle et appartiennent à PharmaLink."
       },
       {
-        title: "7. Modification des CGU",
+        title: "8. Modification des CGU",
         content: "PharmaLink se réserve le droit de modifier les présentes CGU à tout moment. Les utilisateurs seront informés de toute modification substantielle."
       },
     ]
   },
   privacy: {
     title: "Politique de Confidentialité",
-    lastUpdate: "1er janvier 2025",
+    lastUpdate: "1er janvier 2026",
     sections: [
       {
         title: "1. Collecte des données",
         content: "Nous collectons les données que vous nous fournissez lors de votre inscription et utilisation de l'application : nom, prénom, email, téléphone, informations professionnelles, CV, et données de localisation."
       },
       {
-        title: "2. Utilisation des données",
+        title: "2. Traitement du numéro RPPS",
+        content: "Finalité : Le numéro RPPS est collecté uniquement pour vérifier votre statut de professionnel de santé et attribuer un badge de confiance sur votre profil.\n\nBase légale : Consentement explicite lors de la soumission volontaire du numéro.\n\nTraitement : Votre numéro RPPS est vérifié via l'Annuaire Santé (API ANS) pour confirmer votre identité professionnelle. Nous comparons le nom associé au RPPS avec celui de votre profil.\n\nStockage : Le numéro RPPS est stocké de manière sécurisée dans notre base de données hébergée en Union Européenne. Seuls les 5 derniers chiffres peuvent être affichés partiellement sur votre profil.\n\nPartage : Le numéro RPPS complet n'est jamais partagé avec d'autres utilisateurs ni des tiers. Seul le statut \"vérifié\" ou \"non vérifié\" est visible.\n\nSuppression : En cas de suppression de compte, le numéro RPPS est anonymisé immédiatement avec l'ensemble de vos données personnelles."
+      },
+      {
+        title: "3. Utilisation des données",
         content: "Vos données sont utilisées pour : fournir nos services, améliorer l'expérience utilisateur, vous mettre en relation avec des employeurs ou candidats, et vous envoyer des communications relatives à nos services."
       },
       {
-        title: "3. Partage des données",
-        content: "Vos données peuvent être partagées avec : les autres utilisateurs selon vos paramètres de confidentialité, nos prestataires techniques, et les autorités si requis par la loi."
+        title: "4. Partage des données",
+        content: "Vos données peuvent être partagées avec : les autres utilisateurs selon vos paramètres de confidentialité, nos prestataires techniques (hébergement Supabase en UE), et les autorités si requis par la loi. Vos données ne sont jamais vendues à des tiers."
       },
       {
-        title: "4. Protection des données",
-        content: "Nous mettons en œuvre des mesures techniques et organisationnelles pour protéger vos données contre tout accès non autorisé, modification, divulgation ou destruction."
+        title: "5. Protection des données",
+        content: "Nous mettons en œuvre des mesures techniques et organisationnelles pour protéger vos données : chiffrement en transit (TLS) et au repos, contrôle d'accès strict (Row Level Security), sauvegardes régulières, et hébergement exclusif en Union Européenne."
       },
       {
-        title: "5. Conservation des données",
-        content: "Vos données sont conservées pendant la durée de votre utilisation du service et jusqu'à 3 ans après la suppression de votre compte, sauf obligation légale contraire."
+        title: "6. Conservation des données",
+        content: "Données de compte : conservées pendant la durée d'utilisation du service.\n\nAprès suppression du compte : anonymisation immédiate de toutes les données personnelles (nom, prénom, email, téléphone, RPPS, localisation précise).\n\nDonnées de connexion : conservées 12 mois à des fins de sécurité.\n\nMessages : conservés 1 an puis supprimés automatiquement."
       },
       {
-        title: "6. Vos droits",
-        content: "Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, de suppression, de portabilité et d'opposition concernant vos données personnelles."
+        title: "7. Vos droits (RGPD)",
+        content: "Conformément au RGPD, vous disposez des droits suivants :\n\n• Droit d'accès : obtenir une copie de vos données (export JSON disponible dans l'app)\n• Droit de rectification : modifier vos informations à tout moment\n• Droit à l'effacement : supprimer votre compte et toutes vos données\n• Droit à la portabilité : récupérer vos données dans un format structuré\n• Droit d'opposition : refuser le matching automatique ou les communications marketing\n• Droit de retirer votre consentement : notamment pour la vérification RPPS\n\nPour exercer ces droits, rendez-vous dans Paramètres > Données personnelles ou contactez-nous."
       },
       {
-        title: "7. Cookies",
-        content: "L'application utilise des technologies de suivi pour améliorer votre expérience. Vous pouvez gérer vos préférences dans les paramètres de l'application."
+        title: "8. Cookies et traceurs",
+        content: "L'application mobile n'utilise pas de cookies. Des identifiants techniques sont utilisés uniquement pour le fonctionnement de l'authentification et des notifications push."
       },
       {
-        title: "8. Contact",
-        content: "Pour toute question relative à vos données personnelles, contactez-nous à : privacy@pharmalink.fr"
+        title: "9. Transferts hors UE",
+        content: "Vos données sont exclusivement stockées et traitées au sein de l'Union Européenne (hébergement Supabase région eu-west). Aucun transfert vers des pays tiers n'est effectué."
+      },
+      {
+        title: "10. Contact DPO",
+        content: "Pour toute question relative à vos données personnelles ou pour exercer vos droits, contactez notre Délégué à la Protection des Données :\n\nEmail : dpo@pharmalink.fr\nAdresse : [Adresse de l'entreprise]\n\nVous pouvez également introduire une réclamation auprès de la CNIL (www.cnil.fr)."
       },
     ]
   }
@@ -103,7 +116,7 @@ export default function LegalDocument() {
         <ScrollView 
           style={commonStyles.flex1}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingTop: hp(2) }}
+          contentContainerStyle={{ paddingTop: hp(2), paddingBottom: hp(4) }}
         >
           <Text style={commonStyles.headerTitleLarge}>{content.title}</Text>
           <Text style={[commonStyles.hint, { marginBottom: hp(3) }]}>

@@ -1,4 +1,5 @@
 import { COMPANY_TYPE_ANONYMOUS_LABELS } from '../constants/cvOptions';
+import { getDisplayName } from '../helpers/displayName';
 
 /**
  * Anonymise un CV structuré pour affichage public
@@ -32,7 +33,7 @@ export const anonymizeCV = (structuredData, profile = {}) => {
 
   return {
     // Identité anonymisée
-    display_name: profile.first_name || 'Candidat',
+    display_name: getDisplayName(profile, true),
     location: location,
 
     // Résumé nettoyé
@@ -163,19 +164,19 @@ const calculateDuration = (startDate, endDate) => {
   if (!startDate) return '';
 
   const end = endDate || new Date();
-  const months = (end.getFullYear() - startDate.getFullYear()) * 12 
-                 + (end.getMonth() - startDate.getMonth());
+  const months = (end.getFullYear() - startDate.getFullYear()) * 12
+    + (end.getMonth() - startDate.getMonth());
 
   if (months < 1) return 'Moins d\'1 mois';
   if (months < 12) return `${months} mois`;
-  
+
   const years = Math.floor(months / 12);
   const remainingMonths = months % 12;
 
   if (remainingMonths === 0) {
     return `${years} an${years > 1 ? 's' : ''}`;
   }
-  
+
   return `${years} an${years > 1 ? 's' : ''} et ${remainingMonths} mois`;
 };
 
@@ -194,9 +195,9 @@ export const calculateTotalExperience = (experiences = []) => {
     const endDate = exp.end_date ? parseDate(exp.end_date) : new Date();
     if (!endDate) return;
 
-    const months = (endDate.getFullYear() - startDate.getFullYear()) * 12 
-                   + (endDate.getMonth() - startDate.getMonth());
-    
+    const months = (endDate.getFullYear() - startDate.getFullYear()) * 12
+      + (endDate.getMonth() - startDate.getMonth());
+
     totalMonths += Math.max(0, months);
   });
 
@@ -210,7 +211,7 @@ export const calculateTotalExperience = (experiences = []) => {
 const formatDurationFromMonths = (months) => {
   if (months < 1) return 'Débutant';
   if (months < 12) return `${months} mois`;
-  
+
   const years = Math.floor(months / 12);
   if (years < 2) return '1 an';
   if (years < 5) return `${years} ans`;

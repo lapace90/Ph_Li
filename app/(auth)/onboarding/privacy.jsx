@@ -1,5 +1,3 @@
-// app/(auth)/onboarding/privacy.jsx
-
 import { Alert, StyleSheet, Text, View, Switch, Pressable } from 'react-native';
 import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';

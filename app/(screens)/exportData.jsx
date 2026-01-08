@@ -6,6 +6,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { hp, wp } from '../../helpers/common';
 import { theme } from '../../constants/theme';
+import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
@@ -43,21 +44,79 @@ export default function ExportData() {
         .select('*')
         .eq('user_id', session.user.id);
 
+      setProgress('Récupération des vérifications RPPS...');
+      const { data: rppsVerification } = await supabase
+        .from('verification_documents')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .eq('verification_type', 'rpps')
+        .maybeSingle();
+
+      setProgress('Récupération des candidatures...');
+      const { data: matches } = await supabase
+        .from('matches')
+        .select('id, status, created_at, job_offer_id, internship_offer_id')
+        .eq('candidate_id', session.user.id);
+
       setProgress('Préparation du fichier...');
       const exportData = {
         exportDate: new Date().toISOString(),
+        exportVersion: '2.0',
         user: {
           email: session.user.email,
           createdAt: session.user.created_at,
         },
-        profile: profile,
-        privacySettings: privacy,
+        profile: profile ? {
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          phone: profile.phone,
+          gender: profile.gender,
+          bio: profile.bio,
+          experienceYears: profile.experience_years,
+          specializations: profile.specializations,
+          availabilityDate: profile.availability_date,
+          searchRadiusKm: profile.search_radius_km,
+          preferredContractTypes: profile.preferred_contract_types,
+          willingToRelocate: profile.willing_to_relocate,
+          studyLevel: profile.study_level,
+          school: profile.school,
+          location: {
+            city: profile.current_city,
+            postalCode: profile.current_postal_code,
+            region: profile.current_region,
+            department: profile.current_department,
+          },
+          createdAt: profile.created_at,
+          updatedAt: profile.updated_at,
+        } : null,
+        privacySettings: privacy ? {
+          profileVisibility: privacy.profile_visibility,
+          showRealName: privacy.show_real_name,
+          showPhoto: privacy.show_photo,
+          showExactLocation: privacy.show_exact_location,
+          allowMessaging: privacy.allow_messaging,
+          showAvailability: privacy.show_availability,
+          createdAt: privacy.created_at,
+        } : null,
+        rppsVerification: rppsVerification ? {
+          rppsNumber: rppsVerification.document_reference,
+          status: rppsVerification.status,
+          verificationData: rppsVerification.verification_data,
+          submittedAt: rppsVerification.submitted_at,
+          verifiedAt: rppsVerification.verified_at,
+          rejectionReason: rppsVerification.rejection_reason,
+        } : null,
         cvs: cvs?.map(cv => ({
           title: cv.title,
           visibility: cv.visibility,
           isDefault: cv.is_default,
           createdAt: cv.created_at,
-        })),
+        })) || [],
+        candidatures: matches?.map(m => ({
+          status: m.status,
+          type: m.job_offer_id ? 'emploi' : 'stage',
+          createdAt: m.created_at,
+        })) || [],
       };
 
       const jsonString = JSON.stringify(exportData, null, 2);
@@ -66,19 +125,20 @@ export default function ExportData() {
 
       await FileSystem.writeAsStringAsync(filePath, jsonString);
 
-      setProgress('');
-
-      if (await Sharing.isAvailableAsync()) {
+      setProgress('Ouverture du partage...');
+      
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
         await Sharing.shareAsync(filePath, {
           mimeType: 'application/json',
-          dialogTitle: 'Exporter mes données',
+          dialogTitle: 'Exporter mes données PharmaLink',
         });
       } else {
-        Alert.alert('Succès', 'Fichier exporté : ' + fileName);
+        Alert.alert('Erreur', 'Le partage n\'est pas disponible sur cet appareil.');
       }
     } catch (error) {
-      Alert.alert('Erreur', 'Impossible d\'exporter les données');
-      console.error(error);
+      console.error('Export error:', error);
+      Alert.alert('Erreur', 'Une erreur est survenue lors de l\'export de vos données.');
     } finally {
       setLoading(false);
       setProgress('');
@@ -92,7 +152,7 @@ export default function ExportData() {
         <View style={styles.header}>
           <BackButton router={router} />
           <Text style={styles.title}>Exporter mes données</Text>
-          <View style={{ width: 36 }} />
+          <View style={commonStyles.headerSpacer} />
         </View>
 
         <View style={styles.content}>
@@ -101,15 +161,16 @@ export default function ExportData() {
           </View>
 
           <Text style={styles.description}>
-            Conformément au RGPD, vous pouvez télécharger une copie de toutes les données que nous détenons sur vous.
+            Conformément au RGPD, vous pouvez télécharger une copie de toutes vos données personnelles au format JSON.
           </Text>
 
           <View style={styles.dataList}>
             <Text style={styles.dataListTitle}>Données incluses :</Text>
             <DataItem icon="user" text="Informations de profil" />
             <DataItem icon="lock" text="Paramètres de confidentialité" />
+            <DataItem icon="checkCircle" text="Vérification RPPS" />
             <DataItem icon="fileText" text="Liste des CV (métadonnées)" />
-            <DataItem icon="briefcase" text="Préférences de recherche" />
+            <DataItem icon="briefcase" text="Historique des candidatures" />
           </View>
 
           {loading && (
