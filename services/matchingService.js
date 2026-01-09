@@ -318,7 +318,7 @@ export const matchingService = {
       .select('id, user_type, profile_completed')
       .in('id', profileIds)
       .eq('profile_completed', true)
-      .in('user_type', ['preparateur', 'pharmacien', 'etudiant']);
+      .in('user_type', ['preparateur', 'conseiller', 'etudiant']);
 
     const validUserIds = new Set((users || []).map(u => u.id));
 

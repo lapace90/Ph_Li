@@ -4,19 +4,17 @@ import { generateCVHtml } from './cvPdfGenerator';
 
 /**
  * Génère et partage un PDF du CV
+ * Les contacts (email, téléphone) sont inclus dans structuredData.contact_email et structuredData.contact_phone
  * @param {Object} structuredData - Données du CV
  * @param {Object} profile - Profil utilisateur
  * @param {boolean} anonymous - Mode anonyme
  * @param {string} title - Titre du fichier
- * @param {string} email - Email de l'utilisateur (pour mode complet)
  * @returns {Promise<{success: boolean, uri?: string, error?: string}>}
  */
-export const exportCVToPdf = async (structuredData, profile, anonymous = false, title = 'CV', email = '') => {
+export const exportCVToPdf = async (structuredData, profile, anonymous = false, title = 'CV') => {
   try {
-    // Générer le HTML
-    const html = generateCVHtml(structuredData, profile, anonymous, '', email);
+    const html = generateCVHtml(structuredData, profile, anonymous);
 
-    // Générer le PDF (le fichier est créé dans le cache)
     const { uri } = await Print.printToFileAsync({
       html,
       base64: false,
@@ -31,31 +29,21 @@ export const exportCVToPdf = async (structuredData, profile, anonymous = false, 
 
 /**
  * Génère et ouvre le dialogue de partage
- * @param {Object} structuredData - Données du CV
- * @param {Object} profile - Profil utilisateur
- * @param {boolean} anonymous - Mode anonyme
- * @param {string} title - Titre du fichier
- * @param {string} email - Email de l'utilisateur (pour mode complet)
  */
-export const shareCVPdf = async (structuredData, profile, anonymous = false, title = 'CV', email = '') => {
+export const shareCVPdf = async (structuredData, profile, anonymous = false, title = 'CV') => {
   try {
-    const result = await exportCVToPdf(structuredData, profile, anonymous, title, email);
+    const result = await exportCVToPdf(structuredData, profile, anonymous, title);
     
     if (!result.success) {
       throw new Error(result.error);
     }
 
-    // Vérifier si le partage est disponible
     const isAvailable = await Sharing.isAvailableAsync();
     
     if (!isAvailable) {
       throw new Error('Le partage n\'est pas disponible sur cet appareil');
     }
 
-    // Construire le nom du fichier pour le partage
-    const fileName = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_${anonymous ? 'anonyme' : 'complet'}.pdf`;
-
-    // Ouvrir le dialogue de partage avec le fichier généré
     await Sharing.shareAsync(result.uri, {
       mimeType: 'application/pdf',
       dialogTitle: `Partager ${title}`,
@@ -71,14 +59,10 @@ export const shareCVPdf = async (structuredData, profile, anonymous = false, tit
 
 /**
  * Prévisualise le PDF (impression)
- * @param {Object} structuredData - Données du CV
- * @param {Object} profile - Profil utilisateur
- * @param {boolean} anonymous - Mode anonyme
- * @param {string} email - Email de l'utilisateur (pour mode complet)
  */
-export const previewCVPdf = async (structuredData, profile, anonymous = false, email = '') => {
+export const previewCVPdf = async (structuredData, profile, anonymous = false) => {
   try {
-    const html = generateCVHtml(structuredData, profile, anonymous, '', email);
+    const html = generateCVHtml(structuredData, profile, anonymous);
     
     await Print.printAsync({
       html,

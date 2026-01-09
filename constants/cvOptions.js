@@ -51,21 +51,21 @@ export const DIPLOMA_TYPES = [
   // Préparateur
   { value: 'bp_preparateur', label: 'BP Préparateur en pharmacie', category: 'preparateur' },
   { value: 'deust_preparateur', label: 'DEUST Préparateur en pharmacie', category: 'preparateur' },
-  
+
   // Pharmacien
   { value: 'docteur_pharmacie', label: 'Docteur en pharmacie', category: 'pharmacien' },
   { value: 'des_pharmacie', label: 'DES Pharmacie', category: 'pharmacien' },
-  
+
   // Formations complémentaires
   { value: 'du', label: 'Diplôme Universitaire (DU)', category: 'formation' },
   { value: 'diu', label: 'Diplôme Inter-Universitaire (DIU)', category: 'formation' },
   { value: 'master', label: 'Master', category: 'formation' },
-  
+
   // Conseiller
   { value: 'cap_esthetique', label: 'CAP Esthétique', category: 'conseiller' },
   { value: 'bts_esthetique', label: 'BTS Esthétique-Cosmétique', category: 'conseiller' },
   { value: 'bts_dietetique', label: 'BTS Diététique', category: 'conseiller' },
-  
+
   // Autre
   { value: 'bac', label: 'Baccalauréat', category: 'general' },
   { value: 'autre', label: 'Autre diplôme', category: 'autre' },
@@ -151,13 +151,13 @@ export const SOFTWARE_OPTIONS = [
   { value: 'pharmaland', label: 'Pharmaland', category: 'lgo' },
   { value: 'pharmavitale', label: 'Pharmavitale', category: 'lgo' },
   { value: 'caduciel', label: 'Caduciel', category: 'lgo' },
-  
+
   // Robots
   { value: 'robot_rowa', label: 'Robot ROWA', category: 'automate' },
   { value: 'robot_mekapharm', label: 'Robot Mekapharm', category: 'automate' },
   { value: 'robot_pharmathek', label: 'Robot Pharmathek', category: 'automate' },
   { value: 'robot_apostore', label: 'Robot Apostore', category: 'automate' },
-  
+
   // Autres
   { value: 'excel', label: 'Excel', category: 'bureautique' },
   { value: 'word', label: 'Word', category: 'bureautique' },
@@ -236,6 +236,8 @@ export const EMPTY_CV_STRUCTURE = {
   profession_title: '', // Titre de profession recherchée (affiché en en-tête)
   current_city: '',     // Ville actuelle du candidat
   current_region: '',   // Région actuelle du candidat
+  contact_email: '',    // Email de contact pour ce CV (optionnel)
+  contact_phone: '',    // Téléphone de contact pour ce CV (optionnel)
   experiences: [],
   formations: [],
   skills: [],

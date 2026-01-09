@@ -54,7 +54,13 @@ export default function CVCreate() {
     const [title, setTitle] = useState('');
     const [expandedSection, setExpandedSection] = useState(null);
     const [visibility, setVisibility] = useState('anonymous');
-    const [cvData, setCvData] = useState({ ...EMPTY_CV_STRUCTURE });
+    const [cvData, setCvData] = useState({
+        ...EMPTY_CV_STRUCTURE,
+        contact_email: session?.user?.email || '',
+        contact_phone: profile?.phone || '',
+        current_city: profile?.current_city || '',
+        current_region: profile?.current_region || '',
+    });
 
     const [showExpModal, setShowExpModal] = useState(false);
     const [editingExp, setEditingExp] = useState(null);
@@ -266,6 +272,33 @@ export default function CVCreate() {
                         </View>
                     )}
                     <Text style={commonStyles.hint}>En mode anonyme, seule la région sera visible</Text>
+                </View>
+
+                {/* Coordonnées de contact (pour version complète du CV) */}
+                <View style={commonStyles.formGroup}>
+                    <Text style={commonStyles.label}>Coordonnées de contact</Text>
+                    <Text style={commonStyles.hint}>
+                        Ces informations apparaîtront uniquement sur la version complète du CV (après match)
+                    </Text>
+
+                    <TextInput
+                        style={[commonStyles.input, { marginTop: hp(1) }]}
+                        placeholder="Email de contact (optionnel)"
+                        placeholderTextColor={theme.colors.textLight}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        value={cvData.contact_email}
+                        onChangeText={(v) => setCvData(prev => ({ ...prev, contact_email: v.trim() }))}
+                    />
+
+                    <TextInput
+                        style={[commonStyles.input, { marginTop: hp(1) }]}
+                        placeholder="Téléphone (optionnel)"
+                        placeholderTextColor={theme.colors.textLight}
+                        keyboardType="phone-pad"
+                        value={cvData.contact_phone}
+                        onChangeText={(v) => setCvData(prev => ({ ...prev, contact_phone: v }))}
+                    />
                 </View>
 
                 <View style={commonStyles.formGroup}>
