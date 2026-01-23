@@ -1,5 +1,3 @@
-// contexts/AuthContext.jsx
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { userService } from '../services/userService';
@@ -14,6 +12,10 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [privacy, setPrivacy] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // Nouveaux états pour animateur/laboratoire
+  const [animatorProfile, setAnimatorProfile] = useState(null);
+  const [laboratoryProfile, setLaboratoryProfile] = useState(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -39,12 +41,11 @@ export const AuthProvider = ({ children }) => {
 
   const loadUserData = async (userId, email) => {
     try {
-      // Charger toutes les données en parallèle
+      // Charger les données de base en parallèle
       const [userData, profileData, privacyData, rppsData] = await Promise.all([
         userService.getById(userId).catch(() => null),
         profileService.getById(userId).catch(() => null),
         privacyService.getByUserId(userId).catch(() => null),
-        // Vérifier si l'utilisateur a un document RPPS approuvé
         supabase
           .from('verification_documents')
           .select('id, status')
@@ -56,17 +57,29 @@ export const AuthProvider = ({ children }) => {
           .catch(() => null),
       ]);
 
-      // console.log('Loaded data:', { userData, profileData, privacyData, rppsData });
-
       // Ajouter rpps_verified au userData
       const userWithRpps = userData ? {
         ...userData,
-        rpps_verified: !!rppsData, // true si un document approuvé existe
+        rpps_verified: !!rppsData,
       } : null;
 
       setUser(userWithRpps);
       setProfile(profileData);
       setPrivacy(privacyData);
+
+      // Charger le profil spécifique selon le type d'utilisateur
+      if (userData?.user_type === 'animateur') {
+        await loadAnimatorProfile(userId);
+        setLaboratoryProfile(null);
+      } else if (userData?.user_type === 'laboratoire') {
+        await loadLaboratoryProfile(userId);
+        setAnimatorProfile(null);
+      } else {
+        // Reset si autre type
+        setAnimatorProfile(null);
+        setLaboratoryProfile(null);
+      }
+
     } catch (error) {
       console.error('Error loading user data:', error);
     } finally {
@@ -74,19 +87,171 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Charge le profil animateur avec les stats
+   */
+  const loadAnimatorProfile = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('animator_profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) throw error;
+      
+      if (data) {
+        // Charger les stats en parallèle
+        const [missionsCount, reviewsData, favoritesCount] = await Promise.all([
+          supabase
+            .from('animation_missions')
+            .select('*', { count: 'exact', head: true })
+            .eq('animator_id', userId)
+            .eq('status', 'completed')
+            .then(({ count }) => count || 0),
+          supabase
+            .from('mission_reviews')
+            .select('rating_overall')
+            .eq('reviewee_id', userId)
+            .eq('visible', true)
+            .then(({ data }) => data || []),
+          supabase
+            .from('favorites')
+            .select('*', { count: 'exact', head: true })
+            .eq('target_type', 'animator')
+            .eq('target_id', userId)
+            .then(({ count }) => count || 0),
+        ]);
+
+        const avgRating = reviewsData.length > 0
+          ? reviewsData.reduce((sum, r) => sum + r.rating_overall, 0) / reviewsData.length
+          : null;
+
+        setAnimatorProfile({
+          ...data,
+          stats: {
+            missionsCompleted: missionsCount,
+            averageRating: avgRating ? Math.round(avgRating * 10) / 10 : null,
+            reviewsCount: reviewsData.length,
+            favoritesCount,
+          },
+        });
+      } else {
+        setAnimatorProfile(null);
+      }
+    } catch (error) {
+      console.error('Error loading animator profile:', error);
+      setAnimatorProfile(null);
+    }
+  };
+
+  /**
+   * Charge le profil laboratoire avec les stats et limites
+   */
+  const loadLaboratoryProfile = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('laboratory_profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        // Charger les stats
+        const [missionsData, favoritesCount, reviewsData] = await Promise.all([
+          supabase
+            .from('animation_missions')
+            .select('status')
+            .eq('client_id', userId)
+            .then(({ data }) => data || []),
+          supabase
+            .from('favorites')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .eq('target_type', 'animator')
+            .then(({ count }) => count || 0),
+          supabase
+            .from('mission_reviews')
+            .select('rating_overall')
+            .eq('reviewee_id', userId)
+            .eq('visible', true)
+            .then(({ data }) => data || []),
+        ]);
+
+        const avgRating = reviewsData.length > 0
+          ? reviewsData.reduce((sum, r) => sum + r.rating_overall, 0) / reviewsData.length
+          : null;
+
+        // Calculer les limites d'abonnement
+        const limits = calculateSubscriptionLimits(data);
+
+        setLaboratoryProfile({
+          ...data,
+          stats: {
+            totalMissions: missionsData.length,
+            activeMissions: missionsData.filter(m => ['open', 'assigned', 'in_progress'].includes(m.status)).length,
+            completedMissions: missionsData.filter(m => m.status === 'completed').length,
+            favoritesCount,
+            averageRating: avgRating ? Math.round(avgRating * 10) / 10 : null,
+            reviewsCount: reviewsData.length,
+          },
+          limits,
+        });
+      } else {
+        setLaboratoryProfile(null);
+      }
+    } catch (error) {
+      console.error('Error loading laboratory profile:', error);
+      setLaboratoryProfile(null);
+    }
+  };
+
+  /**
+   * Calcule les limites d'abonnement pour un labo
+   */
+  const calculateSubscriptionLimits = (labProfile) => {
+    const tierLimits = {
+      free: { contacts: 0, missions: 0 },
+      starter: { contacts: 5, missions: 1 },
+      pro: { contacts: Infinity, missions: Infinity },
+      enterprise: { contacts: Infinity, missions: Infinity },
+    };
+
+    const tier = labProfile.subscription_tier || 'free';
+    const limits = tierLimits[tier] || tierLimits.free;
+
+    return {
+      tier,
+      contacts: {
+        used: labProfile.contacts_used_this_month || 0,
+        limit: limits.contacts,
+        remaining: Math.max(0, limits.contacts - (labProfile.contacts_used_this_month || 0)),
+        canContact: (labProfile.contacts_used_this_month || 0) < limits.contacts,
+      },
+      missions: {
+        used: labProfile.missions_used_this_month || 0,
+        limit: limits.missions,
+        remaining: Math.max(0, limits.missions - (labProfile.missions_used_this_month || 0)),
+        canCreate: (labProfile.missions_used_this_month || 0) < limits.missions,
+      },
+    };
+  };
+
   const clearUserData = () => {
     setSession(null);
     setUser(null);
     setProfile(null);
     setPrivacy(null);
+    setAnimatorProfile(null);
+    setLaboratoryProfile(null);
     setLoading(false);
   };
 
   const signUp = async (email, password) => {
     const { data, error } = await supabase.auth.signUp({ email, password });
-
     if (error) return { data: null, error };
-
     return { data, error: null };
   };
 
@@ -106,20 +271,61 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Rafraîchit uniquement le profil animateur (après modification)
+   */
+  const refreshAnimatorProfile = () => {
+    if (session?.user?.id && user?.user_type === 'animateur') {
+      return loadAnimatorProfile(session.user.id);
+    }
+  };
+
+  /**
+   * Rafraîchit uniquement le profil laboratoire (après modification)
+   */
+  const refreshLaboratoryProfile = () => {
+    if (session?.user?.id && user?.user_type === 'laboratoire') {
+      return loadLaboratoryProfile(session.user.id);
+    }
+  };
+
+  // Helpers pour vérifier le type d'utilisateur
+  const isCandidate = ['preparateur', 'etudiant', 'conseiller'].includes(user?.user_type);
+  const isRecruiter = user?.user_type === 'titulaire';
+  const isAnimator = user?.user_type === 'animateur';
+  const isLaboratory = user?.user_type === 'laboratoire';
+
   return (
     <AuthContext.Provider
       value={{
+        // Auth
         session,
+        signUp,
+        signIn,
+        signOut,
+        
+        // User data
         user,
         profile,
         privacy,
         loading,
+        
+        // Profils spécifiques
+        animatorProfile,
+        laboratoryProfile,
+        
+        // Helpers
         isAuthenticated: !!session,
-        isProfileComplete: !!profile?.first_name,
-        signUp,
-        signIn,
-        signOut,
+        isProfileComplete: !!user?.profile_completed,
+        isCandidate,
+        isRecruiter,
+        isAnimator,
+        isLaboratory,
+        
+        // Refresh functions
         refreshUserData,
+        refreshAnimatorProfile,
+        refreshLaboratoryProfile,
       }}
     >
       {children}

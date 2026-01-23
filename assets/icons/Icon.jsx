@@ -34,6 +34,10 @@ const iconMap = {
   alertCircle: { lib: 'feather', name: 'alert-circle' },
   checkCircle: { lib: 'feather', name: 'check-circle' },
 
+  // Alertes urgentes
+  'alert-triangle': { lib: 'feather', name: 'alert-triangle' },
+  zap: { lib: 'feather', name: 'zap' },
+
   // Calendar & Time
   calendar: { lib: 'feather', name: 'calendar' },
   clock: { lib: 'feather', name: 'clock' },
@@ -61,6 +65,32 @@ const iconMap = {
   smile: { lib: 'feather', name: 'smile' },
   frown: { lib: 'feather', name: 'frown' },
   close: { lib: 'feather', name: 'x' },
+  bookmark: { lib: 'feather', name: 'bookmark' },
+
+  // Missions / Animation
+  target: { lib: 'feather', name: 'target' },
+  grid: { lib: 'feather', name: 'grid' }, // merchandising
+
+  // Stats / Analytics
+  'trending-up': { lib: 'feather', name: 'trending-up' },
+  'bar-chart': { lib: 'feather', name: 'bar-chart-2' },
+
+  // Disponibilité
+  'calendar-check': { lib: 'material', name: 'event-available' },
+
+  // Vérification
+  verified: { lib: 'material', name: 'verified' },
+
+  // Business / Buildings" :
+  building: { lib: 'material', name: 'business' },
+  pharmacy: { lib: 'material', name: 'local-pharmacy' },
+  laboratory: { lib: 'material', name: 'science' },
+  hospital: { lib: 'material', name: 'local-hospital' },
+  store: { lib: 'material', name: 'store' },
+  cart: { lib: 'feather', name: 'shopping-cart' },
+  creditCard: { lib: 'feather', name: 'credit-card' },
+  dollarSign: { lib: 'feather', name: 'dollar-sign' },
+  briefcaseAlt: { lib: 'material', name: 'work' },
 
   // Files & Documents
   file: { lib: 'feather', name: 'file' },
@@ -95,7 +125,7 @@ const iconMap = {
   award: { lib: 'feather', name: 'award' },
   maximize: { lib: 'feather', name: 'maximize' },
 
-  // Material Icons (per icone non disponibili in Feather)
+  // Material Icons (when not available in Feather)
   school: { lib: 'material', name: 'school' },
   class: { lib: 'material', name: 'class' },
   work: { lib: 'material', name: 'work' },
@@ -104,7 +134,10 @@ const iconMap = {
   navigation: { lib: 'material', name: 'navigation' },
   key: { lib: 'material', name: 'key' },
 
-
+  // Filled variants (MaterialIcons)
+  'star-filled': { lib: 'material', name: 'star' },
+  'bookmark-filled': { lib: 'material', name: 'bookmark' },
+  'heart-filled': { lib: 'material', name: 'favorite' },
 };
 
 const Icon = ({ name, size = 24, color = '#000', style }) => {
