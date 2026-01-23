@@ -1,229 +1,95 @@
 // app/(screens)/myMissions.jsx
-// Liste des missions de l'animateur (en cours + historique)
-
-import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, RefreshControl, Pressable } from 'react-native';
+import { useState, useCallback } from 'react';
+import { View, Text, ScrollView, RefreshControl, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
-import { hp, wp } from '../../helpers/common';
 import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
-import { missionService } from '../../services/missionService';
+import { useAnimatorMissions } from '../../hooks/useMissions';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import BackButton from '../../components/common/BackButton';
 import Icon from '../../assets/icons/Icon';
 import { MissionListCard } from '../../components/missions/MissionCard';
-import { EmptyState, DashboardSection } from '../../components/common/DashboardComponents';
+import { EmptyState } from '../../components/common/DashboardComponents';
+
+const TABS = [
+  { key: 'pending', label: 'En attente', icon: 'clock' },
+  { key: 'active', label: 'En cours', icon: 'play' },
+  { key: 'completed', label: 'Terminées', icon: 'check' },
+];
 
 export default function MyMissions() {
   const router = useRouter();
   const { session } = useAuth();
-  
-  const [activeTab, setActiveTab] = useState('active'); // 'active' | 'completed' | 'pending'
-  const [missions, setMissions] = useState({
-    active: [],
-    completed: [],
-    pending: [], // Candidatures en attente
-  });
+  const [activeTab, setActiveTab] = useState('pending');
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
 
-  const loadMissions = useCallback(async () => {
-    if (!session?.user?.id) return;
+  const { myMissions, loading, refresh } = useAnimatorMissions(session?.user?.id);
 
-    try {
-      // Charger en parallèle
-      const [active, completed, applications] = await Promise.all([
-        missionService.getAnimatorMissions(session.user.id, ['assigned', 'in_progress']),
-        missionService.getAnimatorMissions(session.user.id, ['completed']),
-        missionService.getAnimatorApplications(session.user.id, 'pending'),
-      ]);
-
-      setMissions({
-        active,
-        completed,
-        pending: applications,
-      });
-    } catch (error) {
-      console.error('Error loading missions:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [session?.user?.id]);
-
-  useEffect(() => {
-    loadMissions();
-  }, [loadMissions]);
-
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadMissions();
+    await refresh();
     setRefreshing(false);
+  }, [refresh]);
+
+  const filterMissions = (tab) => {
+    switch (tab) {
+      case 'pending': return myMissions.filter(m => m.status === 'pending' || m.application_status === 'pending');
+      case 'active': return myMissions.filter(m => ['assigned', 'in_progress'].includes(m.status));
+      case 'completed': return myMissions.filter(m => m.status === 'completed');
+      default: return [];
+    }
   };
 
-  const tabs = [
-    { key: 'active', label: 'En cours', count: missions.active.length },
-    { key: 'pending', label: 'Candidatures', count: missions.pending.length },
-    { key: 'completed', label: 'Terminées', count: missions.completed.length },
-  ];
+  const currentMissions = filterMissions(activeTab);
+  const tabCounts = { pending: filterMissions('pending').length, active: filterMissions('active').length, completed: filterMissions('completed').length };
 
-  const currentMissions = missions[activeTab] || [];
-
-  const getEmptyConfig = () => {
-    switch (activeTab) {
-      case 'active':
-        return {
-          icon: 'briefcase',
-          title: 'Aucune mission en cours',
-          subtitle: 'Vos missions assignées apparaîtront ici',
-          action: () => router.push('/swipeMissions'),
-          actionLabel: 'Chercher des missions',
-        };
-      case 'pending':
-        return {
-          icon: 'clock',
-          title: 'Aucune candidature en attente',
-          subtitle: 'Candidatez à des missions pour les voir ici',
-          action: () => router.push('/swipeMissions'),
-          actionLabel: 'Chercher des missions',
-        };
-      case 'completed':
-        return {
-          icon: 'checkCircle',
-          title: 'Aucune mission terminée',
-          subtitle: 'Votre historique apparaîtra ici',
-        };
-      default:
-        return {};
-    }
+  const emptyConfig = {
+    pending: { icon: 'clock', title: 'Aucune candidature', subtitle: 'Explorez les missions disponibles', action: () => router.push('/swipeMissions'), actionLabel: 'Explorer' },
+    active: { icon: 'briefcase', title: 'Aucune mission en cours', subtitle: 'Vos missions assignées apparaîtront ici' },
+    completed: { icon: 'checkCircle', title: 'Aucune mission terminée', subtitle: 'Votre historique apparaîtra ici' },
   };
 
   return (
     <ScreenWrapper>
-      {/* Header */}
-      <View style={styles.header}>
-        <BackButton />
-        <Text style={styles.headerTitle}>Mes missions</Text>
-        <View style={{ width: 40 }} />
+      <View style={commonStyles.header}>
+        <BackButton router={router} />
+        <Text style={commonStyles.headerTitle}>Mes missions</Text>
+        <View style={commonStyles.headerSpacer} />
       </View>
 
-      {/* Tabs */}
-      <View style={styles.tabsContainer}>
-        {tabs.map((tab) => (
-          <Pressable
-            key={tab.key}
-            style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-            onPress={() => setActiveTab(tab.key)}
-          >
-            <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
-              {tab.label}
-            </Text>
-            {tab.count > 0 && (
-              <View style={[styles.tabBadge, activeTab === tab.key && styles.tabBadgeActive]}>
-                <Text style={[styles.tabBadgeText, activeTab === tab.key && styles.tabBadgeTextActive]}>
-                  {tab.count}
-                </Text>
+      <View style={commonStyles.tabsContainer}>
+        {TABS.map(tab => (
+          <Pressable key={tab.key} style={[commonStyles.tab, activeTab === tab.key && commonStyles.tabActive]} onPress={() => setActiveTab(tab.key)}>
+            <Text style={[commonStyles.tabText, activeTab === tab.key && commonStyles.tabTextActive]}>{tab.label}</Text>
+            {tabCounts[tab.key] > 0 && (
+              <View style={[commonStyles.tabBadge, activeTab === tab.key && commonStyles.tabBadgeActive]}>
+                <Text style={[commonStyles.tabBadgeText, activeTab === tab.key && commonStyles.tabBadgeTextActive]}>{tabCounts[tab.key]}</Text>
               </View>
             )}
           </Pressable>
         ))}
       </View>
 
-      {/* Liste */}
-      <ScrollView
-        style={commonStyles.flex1}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {currentMissions.length > 0 ? (
-          currentMissions.map((mission) => (
-            <MissionListCard
-              key={mission.id}
-              mission={mission}
-              laboratory={mission.client_profile}
-              showStatus={activeTab !== 'pending'}
-              onPress={() => router.push(`/missionDetail/${mission.id}`)}
-            />
-          ))
-        ) : (
-          <EmptyState {...getEmptyConfig()} />
-        )}
-      </ScrollView>
+      {loading ? (
+        <View style={commonStyles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+      ) : (
+        <ScrollView
+          style={commonStyles.flex1}
+          contentContainerStyle={commonStyles.listContainer}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />}
+        >
+          {currentMissions.length > 0 ? (
+            currentMissions.map(mission => (
+              <MissionListCard key={mission.id} mission={mission} laboratory={mission.client_profile} showStatus={activeTab !== 'pending'} onPress={() => router.push(`/missionDetail/${mission.id}`)} />
+            ))
+          ) : (
+            <EmptyState {...emptyConfig[activeTab]} />
+          )}
+        </ScrollView>
+      )}
     </ScreenWrapper>
   );
 }
-
-const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: wp(4),
-    paddingVertical: hp(1.5),
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  headerTitle: {
-    fontSize: hp(1.8),
-    fontFamily: theme.fonts.semiBold,
-    color: theme.colors.text,
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: wp(4),
-    paddingVertical: hp(1.5),
-    gap: wp(2),
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    backgroundColor: theme.colors.card,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: hp(1),
-    paddingHorizontal: wp(2),
-    borderRadius: theme.radius.lg,
-    backgroundColor: theme.colors.background,
-    gap: wp(1),
-  },
-  tabActive: {
-    backgroundColor: theme.colors.primary,
-  },
-  tabText: {
-    fontSize: hp(1.4),
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.textLight,
-  },
-  tabTextActive: {
-    color: '#fff',
-  },
-  tabBadge: {
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: theme.colors.gray,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-  },
-  tabBadgeActive: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
-  },
-  tabBadgeText: {
-    fontSize: hp(1.1),
-    fontFamily: theme.fonts.semiBold,
-    color: theme.colors.text,
-  },
-  tabBadgeTextActive: {
-    color: '#fff',
-  },
-  listContainer: {
-    padding: wp(5),
-    gap: hp(1.5),
-  },
-});

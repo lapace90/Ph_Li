@@ -1,40 +1,39 @@
-// Animateur swipe sur des missions - MATCHING BIDIRECTIONNEL
+// Labo swipe sur des animateurs pour une mission - MATCHING BIDIRECTIONNEL
 import { useState, useRef } from 'react';
 import { View, Text, StyleSheet, Dimensions, Animated, PanResponder, Pressable, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
 import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
-import { useSwipeMissions } from '../../hooks/useAnimatorMatching';
-import { useFavoriteIds, useFavorites } from '../../hooks/useFavorites';
+import { useSwipeAnimators } from '../../hooks/useAnimatorMatching';
+import { useFavorites, useFavoriteIds } from '../../hooks/useFavorites';
 import { FAVORITE_TYPES } from '../../services/favoritesService';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import BackButton from '../../components/common/BackButton';
 import Icon from '../../assets/icons/Icon';
-import { MissionSwipeCard } from '../../components/missions/MissionCard';
-import { LaboratoryDetailModal } from '../../components/laboratories/LaboratoryCard';
+import { AnimatorSwipeCard } from '../../components/animators/AnimatorCard';
+import { AnimatorDetailModal } from '../../components/animators/AnimatorCard';
 import { EmptyState } from '../../components/common/DashboardComponents';
 import AnimatorMatchModal from '../../components/matching/AnimatorMatchModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
 
-export default function SwipeMissions() {
+export default function SwipeAnimators() {
   const router = useRouter();
+  const { missionId } = useLocalSearchParams();
   const { session } = useAuth();
-
+  
   // Hook de matching
-  const { missions, loading, lastMatch, swipeRight, swipeLeft, superLike, clearLastMatch, refresh } = useSwipeMissions();
-
-  // Favoris (pour bookmarker sans swiper)
-  const { isFavorite: isMissionFav } = useFavoriteIds(session?.user?.id, FAVORITE_TYPES.MISSION);
-  const { isFavorite: isLabFav } = useFavoriteIds(session?.user?.id, FAVORITE_TYPES.LABORATORY);
-  const { toggleFavorite: toggleMissionFav } = useFavorites(session?.user?.id, FAVORITE_TYPES.MISSION);
-  const { toggleFavorite: toggleLabFav } = useFavorites(session?.user?.id, FAVORITE_TYPES.LABORATORY);
+  const { animators, mission, loading, lastMatch, swipeRight, swipeLeft, superLike, clearLastMatch, refresh } = useSwipeAnimators(missionId);
+  
+  // Favoris
+  const { isFavorite: isAnimatorFav } = useFavoriteIds(session?.user?.id, FAVORITE_TYPES.ANIMATOR);
+  const { toggleFavorite: toggleAnimatorFav } = useFavorites(session?.user?.id, FAVORITE_TYPES.ANIMATOR);
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedLab, setSelectedLab] = useState(null);
+  const [selectedAnimator, setSelectedAnimator] = useState(null);
 
   // Animation
   const position = useRef(new Animated.ValueXY()).current;
@@ -61,24 +60,23 @@ export default function SwipeMissions() {
       onPanResponderRelease: (_, { dx, dy }) => {
         if (dx > SWIPE_THRESHOLD) handleSwipe('right');
         else if (dx < -SWIPE_THRESHOLD) handleSwipe('left');
-        else if (dy < -SWIPE_THRESHOLD * 0.8) handleSwipe('up'); // Super like
+        else if (dy < -SWIPE_THRESHOLD * 0.8) handleSwipe('up');
         else Animated.spring(position, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start();
       },
     })
   ).current;
 
   const handleSwipe = async (direction) => {
-    const currentMission = missions[currentIndex];
-    if (!currentMission) return;
+    const currentAnimator = animators[currentIndex];
+    if (!currentAnimator) return;
 
     const x = direction === 'right' ? SCREEN_WIDTH + 100 : direction === 'left' ? -SCREEN_WIDTH - 100 : 0;
     const y = direction === 'up' ? -SCREEN_WIDTH : 0;
 
     Animated.timing(position, { toValue: { x, y }, duration: 250, useNativeDriver: false }).start(async () => {
-      // Appeler le bon swipe
-      if (direction === 'right') await swipeRight(currentMission.id);
-      else if (direction === 'left') await swipeLeft(currentMission.id);
-      else if (direction === 'up') await superLike(currentMission.id);
+      if (direction === 'right') await swipeRight(currentAnimator.id);
+      else if (direction === 'left') await swipeLeft(currentAnimator.id);
+      else if (direction === 'up') await superLike(currentAnimator.id);
 
       setCurrentIndex(i => i + 1);
       position.setValue({ x: 0, y: 0 });
@@ -96,36 +94,55 @@ export default function SwipeMissions() {
     clearLastMatch();
   };
 
-  const currentMission = missions[currentIndex];
+  const currentAnimator = animators[currentIndex];
 
   if (loading) {
     return (
       <ScreenWrapper>
         <View style={commonStyles.headerNoBorder}>
           <BackButton router={router} />
-          <Text style={commonStyles.headerTitle}>Missions</Text>
+          <Text style={commonStyles.headerTitle}>Animateurs</Text>
           <View style={commonStyles.headerSpacer} />
         </View>
         <View style={commonStyles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={commonStyles.loadingText}>Recherche de missions...</Text>
+          <Text style={commonStyles.loadingText}>Recherche d'animateurs...</Text>
         </View>
       </ScreenWrapper>
     );
   }
 
-  if (currentIndex >= missions.length) {
+  if (!missionId) {
     return (
       <ScreenWrapper>
         <View style={commonStyles.headerNoBorder}>
           <BackButton router={router} />
-          <Text style={commonStyles.headerTitle}>Missions</Text>
+          <Text style={commonStyles.headerTitle}>Animateurs</Text>
           <View style={commonStyles.headerSpacer} />
         </View>
         <EmptyState
           icon="briefcase"
-          title="Plus de missions"
-          subtitle="Revenez plus tard ou élargissez vos zones de mobilité"
+          title="Sélectionnez une mission"
+          subtitle="Choisissez une mission pour voir les animateurs disponibles"
+          action={() => router.push('/myMissions')}
+          actionLabel="Mes missions"
+        />
+      </ScreenWrapper>
+    );
+  }
+
+  if (currentIndex >= animators.length) {
+    return (
+      <ScreenWrapper>
+        <View style={commonStyles.headerNoBorder}>
+          <BackButton router={router} />
+          <Text style={commonStyles.headerTitle}>Animateurs</Text>
+          <View style={commonStyles.headerSpacer} />
+        </View>
+        <EmptyState
+          icon="users"
+          title="Plus d'animateurs"
+          subtitle="Tous les profils ont été passés en revue"
           action={() => { setCurrentIndex(0); refresh(); }}
           actionLabel="Actualiser"
         />
@@ -141,17 +158,20 @@ export default function SwipeMissions() {
         match={lastMatch}
         onMessage={handleMatchMessage}
         onContinue={handleMatchContinue}
-        userType="animator"
+        userType="laboratory"
       />
 
       <View style={commonStyles.headerNoBorder}>
         <BackButton router={router} />
-        <Text style={commonStyles.headerTitle}>Missions</Text>
-        <Text style={commonStyles.hint}>{currentIndex + 1}/{missions.length}</Text>
+        <View style={{ alignItems: 'center', flex: 1 }}>
+          <Text style={commonStyles.headerTitle}>Animateurs</Text>
+          {mission && <Text style={commonStyles.hint} numberOfLines={1}>{mission.title}</Text>}
+        </View>
+        <Text style={commonStyles.hint}>{currentIndex + 1}/{animators.length}</Text>
       </View>
 
       <View style={styles.cardsContainer}>
-        {/* Indicateurs de swipe */}
+        {/* Indicateurs */}
         <Animated.View style={[styles.indicator, styles.likeIndicator, { opacity: likeOpacity }]}>
           <Icon name="heart" size={24} color="#fff" />
           <Text style={styles.indicatorText}>INTÉRESSÉ</Text>
@@ -161,26 +181,27 @@ export default function SwipeMissions() {
           <Text style={styles.indicatorText}>PASSER</Text>
         </Animated.View>
 
-        {/* Cartes */}
-        {missions.slice(currentIndex, currentIndex + 2).reverse().map((mission, i) => {
+        {/* Cartes animateurs */}
+        {animators.slice(currentIndex, currentIndex + 2).reverse().map((animator, i) => {
           const isFirst = i === 1;
           return (
             <Animated.View
-              key={mission.id}
+              key={animator.id}
               style={[
                 styles.cardWrapper,
-                isFirst
+                isFirst 
                   ? { transform: [{ translateX: position.x }, { translateY: position.y }, { rotate }] }
                   : { transform: [{ scale: 0.95 }], opacity: 0.7 }
               ]}
               {...(isFirst ? panResponder.panHandlers : {})}
             >
-              <MissionSwipeCard
+              <AnimatorSwipeCard
+                animator={animator}
                 mission={mission}
-                isFavorite={isMissionFav(mission.id)}
-                isLabFavorite={mission.client_profile && isLabFav(mission.client_profile.id)}
-                onToggleFavorite={() => toggleMissionFav(mission.id)}
-                onLabPress={() => setSelectedLab(mission.client_profile)}
+                matchScore={animator.matchScore}
+                isFavorite={isAnimatorFav(animator.id)}
+                onToggleFavorite={() => toggleAnimatorFav(animator.id)}
+                onDetailPress={() => setSelectedAnimator(animator)}
               />
             </Animated.View>
           );
@@ -194,13 +215,13 @@ export default function SwipeMissions() {
         <ActionButton icon="heart" color={theme.colors.success} onPress={() => handleSwipe('right')} />
       </View>
 
-      {/* Modal détail labo */}
-      <LaboratoryDetailModal
-        visible={!!selectedLab}
-        laboratory={selectedLab}
-        isFavorite={selectedLab && isLabFav(selectedLab.id)}
-        onClose={() => setSelectedLab(null)}
-        onToggleFavorite={() => selectedLab && toggleLabFav(selectedLab.id)}
+      {/* Modal détail animateur */}
+      <AnimatorDetailModal
+        visible={!!selectedAnimator}
+        animator={selectedAnimator}
+        isFavorite={selectedAnimator && isAnimatorFav(selectedAnimator.id)}
+        onClose={() => setSelectedAnimator(null)}
+        onToggleFavorite={() => selectedAnimator && toggleAnimatorFav(selectedAnimator.id)}
       />
     </ScreenWrapper>
   );

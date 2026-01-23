@@ -451,7 +451,7 @@ export const commonStyles = StyleSheet.create({
         textAlign: 'center',
         marginTop: hp(1),
     },
-     emptyButton: {
+    emptyButton: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: wp(2),
@@ -1070,5 +1070,136 @@ export const commonStyles = StyleSheet.create({
     locationTextLight: {
         fontSize: hp(1.4),
         color: theme.colors.textLight,
+    },
+
+    // TABS (style pill/segmented)
+    tabsContainer: {
+        flexDirection: 'row',
+        marginHorizontal: wp(5),
+        backgroundColor: theme.colors.card,
+        borderRadius: theme.radius.lg,
+        padding: 4,
+        marginBottom: hp(2),
+    },
+    tab: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: wp(1.5),
+        paddingVertical: hp(1.2),
+        borderRadius: theme.radius.md,
+    },
+    tabActive: {
+        backgroundColor: theme.colors.primary,
+    },
+    tabText: {
+        fontSize: hp(1.4),
+        fontFamily: theme.fonts.medium,
+        color: theme.colors.textLight,
+    },
+    tabTextActive: {
+        color: 'white',
+    },
+    tabBadge: {
+        minWidth: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: theme.colors.gray,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 6,
+    },
+    tabBadgeActive: {
+        backgroundColor: 'rgba(255,255,255,0.3)',
+    },
+    tabBadgeText: {
+        fontSize: hp(1.1),
+        fontFamily: theme.fonts.semiBold,
+        color: theme.colors.text,
+    },
+    tabBadgeTextActive: {
+        color: 'white',
+    },
+
+    // TABS (style underline)
+    tabsUnderline: {
+        flexDirection: 'row',
+        backgroundColor: theme.colors.card,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
+    },
+    tabUnderline: {
+        flex: 1,
+        paddingVertical: hp(1.5),
+        alignItems: 'center',
+        borderBottomWidth: 2,
+        borderBottomColor: 'transparent',
+    },
+    tabUnderlineActive: {
+        borderBottomColor: theme.colors.primary,
+    },
+    tabUnderlineText: {
+        fontSize: hp(1.5),
+        color: theme.colors.textLight,
+    },
+    tabUnderlineTextActive: {
+        color: theme.colors.primary,
+        fontFamily: theme.fonts.semiBold,
+    },
+
+    // LOADING & ERROR
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        marginTop: hp(1.5),
+        fontSize: hp(1.5),
+        color: theme.colors.textLight,
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: hp(1.5),
+        padding: wp(5),
+    },
+    errorText: {
+        fontSize: hp(1.6),
+        color: theme.colors.rose,
+        textAlign: 'center',
+    },
+
+    // EMPTY STATE (simple)
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: wp(10),
+        gap: hp(1.5),
+    },
+    emptyTitle: {
+        fontSize: hp(1.8),
+        fontFamily: theme.fonts.semiBold,
+        color: theme.colors.text,
+        textAlign: 'center',
+    },
+    emptyText: {
+        fontSize: hp(1.5),
+        color: theme.colors.textLight,
+        textAlign: 'center',
+    },
+
+    // LIST CONTENT
+    listContainer: {
+        padding: wp(5),
+        gap: hp(1.5),
+    },
+
+    // BOTTOM SPACER (pour éviter que le contenu soit caché par la tab bar)
+    bottomSpacer: {
+        height: hp(10),
     },
 });

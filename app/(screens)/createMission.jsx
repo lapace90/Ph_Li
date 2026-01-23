@@ -1,4 +1,3 @@
-// app/(screens)/createMission.jsx
 // Création de mission pour les labos et titulaires - VERSION CORRIGÉE
 
 import { useState } from 'react';

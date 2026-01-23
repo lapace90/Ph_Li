@@ -389,3 +389,34 @@ export const AVAILABILITY_DURATIONS = [
   { value: 14, label: '2 semaines' },
   { value: 30, label: '1 mois' },
 ];
+
+/**
+ * Récupère le label d'une spécialité d'animation
+ */
+export const getAnimationSpecialtyLabel = (value) => {
+  const spec = ANIMATION_SPECIALTIES.find(s => s.value === value);
+  return spec?.label || value;
+};
+
+/**
+ * Récupère le label d'une catégorie de produits
+ */
+export const getProductCategoryLabel = (value) => {
+  const cat = PRODUCT_CATEGORIES.find(c => c.value === value);
+  return cat?.label || value;
+};
+
+/**
+ * Récupère le label d'un type de mission
+ */
+export const getMissionTypeLabel = (value) => {
+  const type = MISSION_TYPES.find(t => t.value === value);
+  return type?.label || value;
+};
+
+/**
+ * Récupère les infos d'un statut de mission
+ */
+export const getMissionStatusInfo = (value) => {
+  return MISSION_STATUS.find(s => s.value === value) || MISSION_STATUS[0];
+};
