@@ -1,4 +1,5 @@
-// Création de mission pour les labos et titulaires
+// app/(screens)/createMission.jsx
+// Création de mission pour les labos et titulaires - VERSION CORRIGÉE
 
 import { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert, Pressable } from 'react-native';
@@ -7,14 +8,19 @@ import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
 import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
-import { missionService } from '../../services/missionService';
+import { useClientMissions } from '../../hooks/useMissions';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import BackButton from '../../components/common/BackButton';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import Icon from '../../assets/icons/Icon';
 import CityAutocomplete from '../../components/common/CityAutocomplete';
-import { ANIMATION_SPECIALTIES, MISSION_TYPES, PHARMACY_TYPES } from '../../constants/profileOptions';
+import DateRangePicker from '../../components/common/DateRangePicker';
+import { 
+  ANIMATION_SPECIALTIES, 
+  MISSION_TYPES,
+  PHARMACY_ENVIRONMENTS,
+} from '../../constants/profileOptions';
 
 // Composant pour sélection multiple
 const MultiSelect = ({ label, options, selected, onChange, hint }) => {
@@ -27,7 +33,7 @@ const MultiSelect = ({ label, options, selected, onChange, hint }) => {
   };
 
   return (
-    <View style={styles.multiSelectContainer}>
+    <View style={styles.fieldContainer}>
       <Text style={styles.label}>{label}</Text>
       {hint && <Text style={styles.hint}>{hint}</Text>}
       <View style={styles.chipsContainer}>
@@ -54,9 +60,10 @@ const MultiSelect = ({ label, options, selected, onChange, hint }) => {
 };
 
 // Composant pour sélection simple
-const SingleSelect = ({ label, options, selected, onChange }) => (
-  <View style={styles.multiSelectContainer}>
+const SingleSelect = ({ label, options, selected, onChange, hint }) => (
+  <View style={styles.fieldContainer}>
     <Text style={styles.label}>{label}</Text>
+    {hint && <Text style={styles.hint}>{hint}</Text>}
     <View style={styles.chipsContainer}>
       {options.map((option) => {
         const value = typeof option === 'string' ? option : option.value;
@@ -81,320 +88,262 @@ const SingleSelect = ({ label, options, selected, onChange }) => (
 
 export default function CreateMission() {
   const router = useRouter();
-  const { session, user, laboratoryProfile, refreshLaboratoryProfile } = useAuth();
+  const { session, profile } = useAuth();
   
-  const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(1); // 1: Infos, 2: Lieu/Dates, 3: Tarif/Exigences
-  
-  const [formData, setFormData] = useState({
-    // Step 1 - Infos de base
+  // Déterminer le type de client
+  const clientType = profile?.user_type === 'laboratoire' ? 'laboratory' : 'pharmacy';
+
+  // Hook pour créer la mission - BONNE PRATIQUE
+  const { createMission, loading: submitting } = useClientMissions(
+    session?.user?.id,
+    clientType
+  );
+
+  // État du formulaire
+  const [form, setForm] = useState({
     title: '',
     description: '',
-    missionType: 'animation',
-    
-    // Step 2 - Lieu et dates
-    city: null,
-    address: '',
-    pharmacyType: '',
+    missionType: '',
+    specialties: [],
+    pharmacyEnvironment: '', // ✅ Renommé pour cohérence
     startDate: null,
     endDate: null,
-    flexibleDates: false,
-    
-    // Step 3 - Tarif et exigences
-    dailyRateMin: '',
-    dailyRateMax: '',
-    requiredSpecialties: [],
-    requiresExperience: false,
-    additionalInfo: '',
+    dailyRate: '',
+    city: '',
+    department: '',
+    region: '',
+    latitude: null,
+    longitude: null,
   });
 
-  const updateField = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  const [errors, setErrors] = useState({});
 
-  const validateStep = (stepNumber) => {
-    switch (stepNumber) {
-      case 1:
-        if (!formData.title.trim()) {
-          Alert.alert('Erreur', 'Le titre de la mission est requis');
-          return false;
-        }
-        if (!formData.missionType) {
-          Alert.alert('Erreur', 'Le type de mission est requis');
-          return false;
-        }
-        return true;
-      
-      case 2:
-        if (!formData.city) {
-          Alert.alert('Erreur', 'La ville est requise');
-          return false;
-        }
-        return true;
-      
-      case 3:
-        if (!formData.dailyRateMin) {
-          Alert.alert('Erreur', 'Le tarif journalier minimum est requis');
-          return false;
-        }
-        return true;
-      
-      default:
-        return true;
+  // Mise à jour du formulaire
+  const updateForm = (key, value) => {
+    setForm(prev => ({ ...prev, [key]: value }));
+    // Effacer l'erreur du champ
+    if (errors[key]) {
+      setErrors(prev => ({ ...prev, [key]: null }));
     }
   };
 
-  const nextStep = () => {
-    if (validateStep(step)) {
-      setStep(prev => prev + 1);
+  // Gestion de la sélection de ville
+  const handleCitySelect = (cityData) => {
+    setForm(prev => ({
+      ...prev,
+      city: cityData.city,
+      department: cityData.department,
+      region: cityData.region,
+      latitude: cityData.latitude,
+      longitude: cityData.longitude,
+    }));
+  };
+
+  // Validation du formulaire
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!form.title.trim()) {
+      newErrors.title = 'Le titre est requis';
     }
+    if (!form.missionType) {
+      newErrors.missionType = 'Le type de mission est requis';
+    }
+    if (form.specialties.length === 0) {
+      newErrors.specialties = 'Sélectionnez au moins une spécialité';
+    }
+    if (!form.startDate) {
+      newErrors.startDate = 'La date de début est requise';
+    }
+    if (!form.endDate) {
+      newErrors.endDate = 'La date de fin est requise';
+    }
+    if (!form.dailyRate || parseFloat(form.dailyRate) <= 0) {
+      newErrors.dailyRate = 'Le tarif journalier est requis';
+    }
+    if (!form.city) {
+      newErrors.city = 'La ville est requise';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  const prevStep = () => {
-    setStep(prev => prev - 1);
-  };
+  // Soumission du formulaire
+  const handleSubmit = async (publish = false) => {
+    if (!validateForm()) {
+      Alert.alert('Erreur', 'Veuillez corriger les erreurs du formulaire');
+      return;
+    }
 
-  const handleSubmit = async () => {
-    if (!validateStep(3)) return;
+    const missionData = {
+      title: form.title.trim(),
+      description: form.description.trim() || null,
+      missionType: form.missionType,
+      specialties: form.specialties,
+      pharmacyEnvironment: form.pharmacyEnvironment || null,
+      startDate: form.startDate,
+      endDate: form.endDate,
+      dailyRate: parseFloat(form.dailyRate),
+      city: form.city,
+      department: form.department,
+      region: form.region,
+      latitude: form.latitude,
+      longitude: form.longitude,
+    };
 
-    setLoading(true);
-    try {
-      // Déterminer le type de client
-      const clientType = user.user_type === 'laboratoire' ? 'laboratory' : 'pharmacy';
+    const result = await createMission(missionData);
 
-      const missionData = {
-        title: formData.title.trim(),
-        description: formData.description.trim() || null,
-        missionType: formData.missionType,
-        clientId: session.user.id,
-        clientType,
-        
-        // Lieu
-        city: formData.city?.city || formData.city?.label,
-        postalCode: formData.city?.postalCode,
-        region: formData.city?.region,
-        department: formData.city?.department,
-        latitude: formData.city?.latitude,
-        longitude: formData.city?.longitude,
-        address: formData.address.trim() || null,
-        pharmacyType: formData.pharmacyType || null,
-        
-        // Dates
-        startDate: formData.startDate,
-        endDate: formData.endDate,
-        flexibleDates: formData.flexibleDates,
-        
-        // Tarif et exigences
-        dailyRateMin: parseInt(formData.dailyRateMin, 10),
-        dailyRateMax: formData.dailyRateMax ? parseInt(formData.dailyRateMax, 10) : null,
-        requiredSpecialties: formData.requiredSpecialties,
-        requiresExperience: formData.requiresExperience,
-        additionalInfo: formData.additionalInfo.trim() || null,
-      };
-
-      await missionService.create(missionData);
-
-      // Rafraîchir le profil labo (pour mettre à jour les compteurs)
-      if (refreshLaboratoryProfile) {
-        await refreshLaboratoryProfile();
+    if (result.success) {
+      // Publier directement si demandé
+      if (publish && result.mission) {
+        // TODO: appeler publishMission si on veut publier directement
       }
 
       Alert.alert(
-        'Mission créée !',
-        'Votre mission est maintenant visible par les animateurs.',
-        [{ text: 'OK', onPress: () => router.back() }]
+        'Succès',
+        publish 
+          ? 'Votre mission a été publiée !'
+          : 'Votre mission a été enregistrée en brouillon.',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.back(),
+          },
+        ]
       );
-    } catch (error) {
-      console.error('Error creating mission:', error);
-      Alert.alert('Erreur', error.message || 'Impossible de créer la mission');
-    } finally {
-      setLoading(false);
+    } else {
+      Alert.alert('Erreur', result.error || 'Une erreur est survenue');
     }
   };
 
   return (
     <ScreenWrapper>
-      {/* Header */}
       <View style={styles.header}>
-        <BackButton />
+        <BackButton router={router} />
         <Text style={styles.headerTitle}>Nouvelle mission</Text>
-        <Text style={styles.stepIndicator}>{step}/3</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      {/* Progress bar */}
-      <View style={styles.progressContainer}>
-        <View style={[styles.progressBar, { width: `${(step / 3) * 100}%` }]} />
-      </View>
-
-      <ScrollView 
-        style={commonStyles.flex1}
-        contentContainerStyle={styles.content}
+      <ScrollView
+        style={styles.container}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Step 1: Informations de base */}
-        {step === 1 && (
-          <View style={styles.stepContainer}>
-            <Text style={styles.stepTitle}>Informations de base</Text>
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Titre de la mission *</Text>
-              <Input
-                placeholder="Ex: Animation gamme solaire"
-                value={formData.title}
-                onChangeText={(v) => updateField('title', v)}
-              />
-            </View>
-
-            <SingleSelect
-              label="Type de mission *"
-              options={MISSION_TYPES}
-              selected={formData.missionType}
-              onChange={(v) => updateField('missionType', v)}
-            />
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Description</Text>
-              <Input
-                placeholder="Décrivez la mission, les objectifs..."
-                value={formData.description}
-                onChangeText={(v) => updateField('description', v)}
-                multiline
-                numberOfLines={4}
-                style={styles.textArea}
-              />
-            </View>
-          </View>
-        )}
-
-        {/* Step 2: Lieu et dates */}
-        {step === 2 && (
-          <View style={styles.stepContainer}>
-            <Text style={styles.stepTitle}>Lieu et dates</Text>
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Ville *</Text>
-              <CityAutocomplete
-                value={formData.city}
-                onChange={(v) => updateField('city', v)}
-                placeholder="Rechercher une ville"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Adresse exacte</Text>
-              <Input
-                placeholder="Adresse de la pharmacie (optionnel)"
-                value={formData.address}
-                onChangeText={(v) => updateField('address', v)}
-              />
-            </View>
-
-            <SingleSelect
-              label="Type de pharmacie"
-              options={PHARMACY_TYPES}
-              selected={formData.pharmacyType}
-              onChange={(v) => updateField('pharmacyType', v)}
-            />
-
-            {/* TODO: DatePicker pour startDate et endDate */}
-            <View style={styles.inputGroup}>
-              <Pressable
-                style={styles.checkboxRow}
-                onPress={() => updateField('flexibleDates', !formData.flexibleDates)}
-              >
-                <View style={[styles.checkbox, formData.flexibleDates && styles.checkboxChecked]}>
-                  {formData.flexibleDates && <Icon name="check" size={14} color="#fff" />}
-                </View>
-                <Text style={styles.checkboxLabel}>Dates flexibles (à définir avec l'animateur)</Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
-
-        {/* Step 3: Tarif et exigences */}
-        {step === 3 && (
-          <View style={styles.stepContainer}>
-            <Text style={styles.stepTitle}>Tarif et exigences</Text>
-            
-            <View style={styles.rateRow}>
-              <View style={styles.rateInput}>
-                <Text style={styles.label}>Tarif min/jour (€) *</Text>
-                <Input
-                  placeholder="200"
-                  value={formData.dailyRateMin}
-                  onChangeText={(v) => updateField('dailyRateMin', v.replace(/[^0-9]/g, ''))}
-                  keyboardType="numeric"
-                />
-              </View>
-              <View style={styles.rateInput}>
-                <Text style={styles.label}>Tarif max/jour (€)</Text>
-                <Input
-                  placeholder="300"
-                  value={formData.dailyRateMax}
-                  onChangeText={(v) => updateField('dailyRateMax', v.replace(/[^0-9]/g, ''))}
-                  keyboardType="numeric"
-                />
-              </View>
-            </View>
-
-            <MultiSelect
-              label="Spécialités recherchées"
-              hint="Sélectionnez les spécialités souhaitées"
-              options={ANIMATION_SPECIALTIES}
-              selected={formData.requiredSpecialties}
-              onChange={(v) => updateField('requiredSpecialties', v)}
-            />
-
-            <Pressable
-              style={styles.checkboxRow}
-              onPress={() => updateField('requiresExperience', !formData.requiresExperience)}
-            >
-              <View style={[styles.checkbox, formData.requiresExperience && styles.checkboxChecked]}>
-                {formData.requiresExperience && <Icon name="check" size={14} color="#fff" />}
-              </View>
-              <Text style={styles.checkboxLabel}>Expérience en animation requise</Text>
-            </Pressable>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Informations complémentaires</Text>
-              <Input
-                placeholder="Autres précisions..."
-                value={formData.additionalInfo}
-                onChangeText={(v) => updateField('additionalInfo', v)}
-                multiline
-                numberOfLines={3}
-                style={styles.textArea}
-              />
-            </View>
-          </View>
-        )}
-      </ScrollView>
-
-      {/* Footer avec boutons */}
-      <View style={styles.footer}>
-        {step > 1 && (
-          <Button
-            title="Retour"
-            onPress={prevStep}
-            variant="outline"
-            style={styles.footerButton}
+        {/* Titre */}
+        <View style={styles.fieldContainer}>
+          <Input
+            label="Titre de la mission *"
+            placeholder="Ex: Animation dermocosmétique"
+            value={form.title}
+            onChangeText={(v) => updateForm('title', v)}
+            error={errors.title}
           />
-        )}
-        {step < 3 ? (
-          <Button
-            title="Continuer"
-            onPress={nextStep}
-            style={[styles.footerButton, step === 1 && styles.footerButtonFull]}
+        </View>
+
+        {/* Description */}
+        <View style={styles.fieldContainer}>
+          <Input
+            label="Description"
+            placeholder="Décrivez la mission, les attentes..."
+            value={form.description}
+            onChangeText={(v) => updateForm('description', v)}
+            multiline
+            numberOfLines={4}
           />
-        ) : (
+        </View>
+
+        {/* Type de mission */}
+        <SingleSelect
+          label="Type de mission *"
+          options={MISSION_TYPES}
+          selected={form.missionType}
+          onChange={(v) => updateForm('missionType', v)}
+          hint={errors.missionType}
+        />
+
+        {/* Spécialités requises */}
+        <MultiSelect
+          label="Spécialités requises *"
+          options={ANIMATION_SPECIALTIES}
+          selected={form.specialties}
+          onChange={(v) => updateForm('specialties', v)}
+          hint={errors.specialties || 'Sélectionnez une ou plusieurs spécialités'}
+        />
+
+        {/* Type d'environnement (optionnel) */}
+        <SingleSelect
+          label="Type de pharmacie"
+          options={PHARMACY_ENVIRONMENTS}  
+          selected={form.pharmacyEnvironment}
+          onChange={(v) => updateForm('pharmacyEnvironment', v)}
+          hint="Optionnel - aide les animateurs à se projeter"
+        />
+
+        {/* Dates */}
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>Dates de la mission *</Text>
+          <DateRangePicker
+            startDate={form.startDate}
+            endDate={form.endDate}
+            onStartDateChange={(d) => updateForm('startDate', d)}
+            onEndDateChange={(d) => updateForm('endDate', d)}
+            minDate={new Date()}
+          />
+          {(errors.startDate || errors.endDate) && (
+            <Text style={styles.errorText}>
+              {errors.startDate || errors.endDate}
+            </Text>
+          )}
+        </View>
+
+        {/* Tarif journalier */}
+        <View style={styles.fieldContainer}>
+          <Input
+            label="Tarif journalier (€) *"
+            placeholder="250"
+            value={form.dailyRate}
+            onChangeText={(v) => updateForm('dailyRate', v)}
+            keyboardType="numeric"
+            error={errors.dailyRate}
+            rightIcon={<Text style={styles.euroSymbol}>€/jour</Text>}
+          />
+          <Text style={styles.hint}>
+            Tarif indicatif du marché : 200-300€/jour
+          </Text>
+        </View>
+
+        {/* Localisation */}
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>Lieu de la mission *</Text>
+          <CityAutocomplete
+            value={form.city}
+            onSelect={handleCitySelect}
+            placeholder="Rechercher une ville..."
+            error={errors.city}
+          />
+        </View>
+
+        {/* Boutons d'action */}
+        <View style={styles.actions}>
+          <Button
+            title="Enregistrer brouillon"
+            onPress={() => handleSubmit(false)}
+            loading={submitting}
+            buttonStyle={styles.draftButton}
+            textStyle={styles.draftButtonText}
+          />
           <Button
             title="Publier la mission"
-            onPress={handleSubmit}
-            loading={loading}
-            style={styles.footerButton}
+            onPress={() => handleSubmit(true)}
+            loading={submitting}
+            buttonStyle={styles.publishButton}
           />
-        )}
-      </View>
+        </View>
+
+        {/* Espace en bas */}
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
     </ScreenWrapper>
   );
 }
@@ -407,59 +356,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: wp(4),
     paddingVertical: hp(1.5),
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: theme.colors.gray,
   },
   headerTitle: {
-    fontSize: hp(1.8),
-    fontFamily: theme.fonts.semiBold,
-    color: theme.colors.text,
-  },
-  stepIndicator: {
-    fontSize: hp(1.5),
-    color: theme.colors.textLight,
-    width: 40,
-    textAlign: 'right',
-  },
-  progressContainer: {
-    height: 4,
-    backgroundColor: theme.colors.border,
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: theme.colors.primary,
-  },
-  content: {
-    padding: wp(5),
-    paddingBottom: hp(4),
-  },
-  stepContainer: {
-    gap: hp(2),
-  },
-  stepTitle: {
     fontSize: hp(2.2),
-    fontFamily: theme.fonts.bold,
-    color: theme.colors.text,
-    marginBottom: hp(1),
+    fontWeight: theme.fonts.semibold,
+    color: theme.colors.textDark,
   },
-  inputGroup: {
-    gap: hp(0.5),
+  container: {
+    flex: 1,
+    paddingHorizontal: wp(4),
+    paddingTop: hp(2),
+  },
+  fieldContainer: {
+    marginBottom: hp(2.5),
   },
   label: {
-    fontSize: hp(1.5),
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.text,
+    fontSize: hp(1.8),
+    fontWeight: theme.fonts.medium,
+    color: theme.colors.textDark,
+    marginBottom: hp(1),
   },
   hint: {
-    fontSize: hp(1.3),
+    fontSize: hp(1.5),
     color: theme.colors.textLight,
-    marginBottom: hp(0.5),
+    marginTop: hp(0.5),
   },
-  textArea: {
-    minHeight: hp(12),
-    textAlignVertical: 'top',
-  },
-  multiSelectContainer: {
-    gap: hp(1),
+  errorText: {
+    fontSize: hp(1.5),
+    color: theme.colors.rose,
+    marginTop: hp(0.5),
   },
   chipsContainer: {
     flexDirection: 'row',
@@ -468,69 +394,46 @@ const styles = StyleSheet.create({
   },
   chip: {
     paddingHorizontal: wp(3),
-    paddingVertical: hp(0.8),
-    borderRadius: theme.radius.lg,
-    backgroundColor: theme.colors.card,
+    paddingVertical: hp(1),
+    borderRadius: theme.radius.xl,
+    backgroundColor: theme.colors.gray,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.gray,
   },
   chipSelected: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryLight,
     borderColor: theme.colors.primary,
   },
   chipText: {
-    fontSize: hp(1.4),
-    color: theme.colors.text,
+    fontSize: hp(1.6),
+    color: theme.colors.textLight,
   },
   chipTextSelected: {
-    color: '#fff',
-    fontFamily: theme.fonts.medium,
+    color: theme.colors.primary,
+    fontWeight: theme.fonts.medium,
   },
-  rateRow: {
+  euroSymbol: {
+    fontSize: hp(1.6),
+    color: theme.colors.textLight,
+  },
+  actions: {
     flexDirection: 'row',
-    gap: wp(4),
-  },
-  rateInput: {
-    flex: 1,
-    gap: hp(0.5),
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: wp(3),
-    paddingVertical: hp(1),
+    marginTop: hp(2),
   },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: theme.colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: theme.colors.primary,
+  draftButton: {
+    flex: 1,
+    backgroundColor: theme.colors.white,
+    borderWidth: 1,
     borderColor: theme.colors.primary,
   },
-  checkboxLabel: {
-    fontSize: hp(1.5),
-    color: theme.colors.text,
+  draftButtonText: {
+    color: theme.colors.primary,
+  },
+  publishButton: {
     flex: 1,
   },
-  footer: {
-    flexDirection: 'row',
-    gap: wp(3),
-    padding: wp(5),
-    paddingBottom: hp(4),
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.card,
-  },
-  footerButton: {
-    flex: 1,
-  },
-  footerButtonFull: {
-    flex: 1,
+  bottomSpacer: {
+    height: hp(10),
   },
 });

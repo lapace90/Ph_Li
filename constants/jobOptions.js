@@ -321,3 +321,24 @@ export const formatStartDate = (value) => {
   
   return value;
 };
+
+// ============================================
+// LISTING TYPES POUR PHARMACIES
+// ============================================
+export const LISTING_TYPES = [
+  { value: 'vente', label: 'Vente', icon: 'tag' },
+  { value: 'location-gerance', label: 'Location-gérance', icon: 'key' },
+  { value: 'association', label: 'Association', icon: 'users' },
+];
+
+// Version avec option "Tout" pour les filtres UI
+export const LISTING_TYPE_FILTERS = [
+  { value: null, label: 'Tout', icon: 'home' },
+  ...LISTING_TYPES,
+];
+
+// Helper pour récupérer le label
+export const getListingTypeLabel = (value) => {
+  const type = LISTING_TYPES.find(t => t.value === value);
+  return type?.label || value;
+};

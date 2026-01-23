@@ -11,10 +11,10 @@ export const USER_TYPES = [
   { value: 'preparateur', label: 'Préparateur(trice)', description: 'Diplômé(e) BP ou DEUST', category: 'candidate' },
   { value: 'etudiant', label: 'Étudiant(e)', description: 'En cours de formation', category: 'candidate' },
   { value: 'conseiller', label: 'Conseiller(ère)', description: 'Parapharmacie, cosmétique', category: 'candidate' },
-  
+
   // Recruteurs
   { value: 'titulaire', label: 'Titulaire / Pharmacien', description: 'Gérant de pharmacie', category: 'recruiter' },
-  
+
   // Nouveaux types
   { value: 'animateur', label: 'Animateur(trice)', description: 'Animation & formation en pharmacie', category: 'freelance' },
   { value: 'laboratoire', label: 'Laboratoire', description: 'Entreprise pharmaceutique B2B', category: 'business' },
@@ -116,7 +116,7 @@ export const PHARMACY_GROUPS = [
   { value: 'welcoop', label: 'Welcoop (ex-Astera)', type: 'cooperative' },
   { value: 'cerp', label: 'CERP', type: 'cooperative' },
   { value: 'phoenix', label: 'Phoenix Pharma', type: 'cooperative' },
-  
+
   // Enseignes
   { value: 'lafayette', label: 'Pharmacies Lafayette', type: 'enseigne' },
   { value: 'pharmabest', label: 'Pharmabest', type: 'enseigne' },
@@ -124,12 +124,12 @@ export const PHARMACY_GROUPS = [
   { value: 'pharmacie_reference', label: 'Pharmacie Référence', type: 'enseigne' },
   { value: 'citypharma', label: 'CityPharma', type: 'enseigne' },
   { value: 'monge', label: 'Pharmacie Monge', type: 'enseigne' },
-  
+
   // Groupements régionaux
   { value: 'objectif_pharma', label: 'Objectif Pharma', type: 'regional' },
   { value: 'forum_sante', label: 'Forum Santé', type: 'regional' },
   { value: 'optipharm', label: 'Optipharm', type: 'regional' },
-  
+
   // Autre
   { value: 'autre', label: 'Autre groupement', type: 'autre' },
   { value: 'independant', label: 'Indépendant (aucun groupement)', type: 'independant' },
@@ -142,6 +142,20 @@ export const getPharmacyGroupLabel = (value) => {
 
 export const getPharmacyGroupsByType = (type) => {
   return PHARMACY_GROUPS.filter(g => g.type === type);
+};
+
+export const PHARMACY_ENVIRONMENTS = [
+  { value: 'urbaine', label: 'Pharmacie urbaine' },
+  { value: 'centre_commercial', label: 'Pharmacie centre commercial' },
+  { value: 'rurale', label: 'Pharmacie rurale' },
+  { value: 'quartier', label: 'Pharmacie de quartier' },
+  { value: 'hopital', label: 'Pharmacie hospitalière' },
+];
+
+// Helper pour récupérer le label
+export const getPharmacyEnvironmentLabel = (value) => {
+  const env = PHARMACY_ENVIRONMENTS.find(e => e.value === value);
+  return env?.label || value;
 };
 
 
@@ -239,9 +253,9 @@ export const PRODUCT_CATEGORIES = [
 
 // Tiers d'abonnement laboratoire
 export const SUBSCRIPTION_TIERS = [
-  { 
-    value: 'free', 
-    label: 'Gratuit', 
+  {
+    value: 'free',
+    label: 'Gratuit',
     price: 0,
     features: [
       'Consulter les profils animateurs (sans contact)',
@@ -250,9 +264,9 @@ export const SUBSCRIPTION_TIERS = [
     ],
     limits: { contacts: 0, missions: 0 },
   },
-  { 
-    value: 'starter', 
-    label: 'Starter', 
+  {
+    value: 'starter',
+    label: 'Starter',
     price: 49,
     features: [
       'Contacter 5 animateurs/mois',
@@ -261,9 +275,9 @@ export const SUBSCRIPTION_TIERS = [
     ],
     limits: { contacts: 5, missions: 1 },
   },
-  { 
-    value: 'pro', 
-    label: 'Pro', 
+  {
+    value: 'pro',
+    label: 'Pro',
     price: 149,
     features: [
       'Contacts et missions illimités',
@@ -274,9 +288,9 @@ export const SUBSCRIPTION_TIERS = [
     ],
     limits: { contacts: Infinity, missions: Infinity },
   },
-  { 
-    value: 'enterprise', 
-    label: 'Enterprise', 
+  {
+    value: 'enterprise',
+    label: 'Enterprise',
     price: null, // Sur devis
     features: [
       'Tout Pro +',
