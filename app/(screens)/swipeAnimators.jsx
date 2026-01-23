@@ -15,7 +15,7 @@ import Icon from '../../assets/icons/Icon';
 import { AnimatorSwipeCard } from '../../components/animators/AnimatorCard';
 import { AnimatorDetailModal } from '../../components/animators/AnimatorCard';
 import { EmptyState } from '../../components/common/DashboardComponents';
-import AnimatorMatchModal from '../../components/matching/AnimatorMatchModal';
+import MatchModal from '../../components/matching/MatchModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
