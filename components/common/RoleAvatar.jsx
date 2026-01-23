@@ -1,6 +1,5 @@
 import { View, StyleSheet } from 'react-native';
 import { theme } from '../../constants/theme';
-import { hp, wp } from '../../helpers/common';
 import Icon from '../../assets/icons/Icon';
 
 const AVATAR_CONFIG = {
@@ -24,14 +23,48 @@ const AVATAR_CONFIG = {
     female: { icon: 'book', bg: '#FFF8E1', color: '#FFA000' },
     other: { icon: 'book', bg: '#F9FBE7', color: '#AFB42B' },
   },
+  // Nouveaux rôles
+  animateur: {
+    male: { icon: 'star', bg: '#FFF3E0', color: '#E65100' },
+    female: { icon: 'star', bg: '#FCE4EC', color: '#AD1457' },
+    other: { icon: 'star', bg: '#E8F5E9', color: '#2E7D32' },
+  },
+  laboratoire: {
+    // Pour les labos, pas de genre - c'est une entreprise
+    default: { icon: 'building', bg: '#E3F2FD', color: '#1565C0' },
+    male: { icon: 'building', bg: '#E3F2FD', color: '#1565C0' },
+    female: { icon: 'building', bg: '#E3F2FD', color: '#1565C0' },
+    other: { icon: 'building', bg: '#E3F2FD', color: '#1565C0' },
+  },
 };
 
-const RoleAvatar = ({ role, gender, size = 60, style }) => {
-  const config = AVATAR_CONFIG[role]?.[gender] || AVATAR_CONFIG[role]?.other || {
-    icon: 'user',
-    bg: theme.colors.primaryLight + '20',
-    color: theme.colors.primary,
-  };
+const RoleAvatar = ({ role, gender = 'other', size = 60, style }) => {
+  const roleConfig = AVATAR_CONFIG[role];
+  
+  // Fallback si le rôle n'existe pas
+  if (!roleConfig) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            backgroundColor: theme.colors.primaryLight + '20',
+          },
+          style,
+        ]}
+      >
+        <Icon name="user" size={size * 0.45} color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  // Pour les labos, ignorer le genre
+  const config = role === 'laboratoire' 
+    ? roleConfig.default 
+    : (roleConfig[gender] || roleConfig.other);
 
   const iconSize = size * 0.45;
 

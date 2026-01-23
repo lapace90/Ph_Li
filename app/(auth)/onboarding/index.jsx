@@ -1,4 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+// Écran de sélection du rôle utilisateur lors de l'onboarding
+
+import { Pressable, StyleSheet, Text, View, ScrollView } from 'react-native';
 import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -9,18 +11,83 @@ import Button from '../../../components/common/Button';
 import Icon from '../../../assets/icons/Icon';
 
 const ROLES = [
-  { value: 'preparateur', label: 'Préparateur(trice)', icon: 'briefcase', description: 'Vous travaillez ou cherchez un poste en officine' },
-  { value: 'titulaire', label: 'Titulaire / Pharmacien', icon: 'user', description: 'Vous gérez une ou plusieurs pharmacies' },
-  { value: 'conseiller', label: 'Conseiller(ère)', icon: 'users', description: 'Vous conseillez en parapharmacie' },
-  { value: 'etudiant', label: 'Étudiant(e)', icon: 'book', description: 'Vous êtes en formation pharmaceutique' },
+  // Section Candidats
+  { 
+    value: 'preparateur', 
+    label: 'Préparateur(trice)', 
+    icon: 'briefcase', 
+    description: 'Vous travaillez ou cherchez un poste en officine',
+    section: 'candidate',
+  },
+  { 
+    value: 'conseiller', 
+    label: 'Conseiller(ère)', 
+    icon: 'users', 
+    description: 'Vous conseillez en parapharmacie',
+    section: 'candidate',
+  },
+  { 
+    value: 'etudiant', 
+    label: 'Étudiant(e)', 
+    icon: 'book', 
+    description: 'Vous êtes en formation pharmaceutique',
+    section: 'candidate',
+  },
+  
+  // Section Recruteurs
+  { 
+    value: 'titulaire', 
+    label: 'Titulaire / Pharmacien', 
+    icon: 'user', 
+    description: 'Vous gérez une ou plusieurs pharmacies',
+    section: 'recruiter',
+  },
+  
+  // Section Freelance
+  { 
+    value: 'animateur', 
+    label: 'Animateur(trice)', 
+    icon: 'star', 
+    description: 'Animation & formation en pharmacie',
+    section: 'freelance',
+  },
+  
+  // Section Business
+  { 
+    value: 'laboratoire', 
+    label: 'Laboratoire', 
+    icon: 'building', 
+    description: 'Entreprise pharmaceutique B2B',
+    section: 'business',
+  },
 ];
+
+const SECTIONS = {
+  candidate: { title: 'Je cherche un emploi', color: theme.colors.primary },
+  recruiter: { title: 'Je recrute', color: '#F57C00' },
+  freelance: { title: 'Je suis freelance', color: '#E91E63' },
+  business: { title: 'Je représente une entreprise', color: '#1565C0' },
+};
 
 export default function OnboardingRole() {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState(null);
 
   const handleContinue = () => {
-    if (selectedRole) {
+    if (!selectedRole) return;
+
+    // Rediriger vers le bon formulaire selon le type
+    if (selectedRole === 'animateur') {
+      router.push({
+        pathname: '/(auth)/onboarding/animator',
+        params: { role: selectedRole },
+      });
+    } else if (selectedRole === 'laboratoire') {
+      router.push({
+        pathname: '/(auth)/onboarding/laboratory',
+        params: { role: selectedRole },
+      });
+    } else {
       router.push({
         pathname: '/(auth)/onboarding/form',
         params: { role: selectedRole },
@@ -28,53 +95,72 @@ export default function OnboardingRole() {
     }
   };
 
+  // Grouper les rôles par section
+  const rolesBySection = ROLES.reduce((acc, role) => {
+    if (!acc[role.section]) acc[role.section] = [];
+    acc[role.section].push(role);
+    return acc;
+  }, {});
+
   return (
     <ScreenWrapper bg={theme.colors.background}>
       <StatusBar style="dark" />
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.step}>Étape 1/3</Text>
-          <Text style={styles.title}>Quel est votre rôle ?</Text>
+          <Text style={styles.title}>Quel est votre profil ?</Text>
           <Text style={styles.subtitle}>
             Cela nous permet d'adapter votre expérience
           </Text>
         </View>
 
-        <View style={styles.roles}>
-          {ROLES.map((role) => (
-            <Pressable
-              key={role.value}
-              style={[
-                styles.roleCard,
-                selectedRole === role.value && styles.roleCardSelected,
-              ]}
-              onPress={() => setSelectedRole(role.value)}
-            >
-              <View style={[
-                styles.roleIcon,
-                selectedRole === role.value && styles.roleIconSelected,
-              ]}>
-                <Icon
-                  name={role.icon}
-                  size={24}
-                  color={selectedRole === role.value ? 'white' : theme.colors.primary}
-                />
-              </View>
-              <View style={styles.roleContent}>
-                <Text style={[
-                  styles.roleLabel,
-                  selectedRole === role.value && styles.roleLabelSelected,
-                ]}>
-                  {role.label}
-                </Text>
-                <Text style={styles.roleDescription}>{role.description}</Text>
-              </View>
-              {selectedRole === role.value && (
-                <Icon name="check" size={20} color={theme.colors.primary} />
-              )}
-            </Pressable>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.roles}
+          showsVerticalScrollIndicator={false}
+        >
+          {Object.entries(rolesBySection).map(([sectionKey, sectionRoles]) => (
+            <View key={sectionKey} style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: SECTIONS[sectionKey].color }]}>
+                {SECTIONS[sectionKey].title}
+              </Text>
+              
+              {sectionRoles.map((role) => (
+                <Pressable
+                  key={role.value}
+                  style={[
+                    styles.roleCard,
+                    selectedRole === role.value && styles.roleCardSelected,
+                  ]}
+                  onPress={() => setSelectedRole(role.value)}
+                >
+                  <View style={[
+                    styles.roleIcon,
+                    selectedRole === role.value && styles.roleIconSelected,
+                  ]}>
+                    <Icon
+                      name={role.icon}
+                      size={24}
+                      color={selectedRole === role.value ? '#fff' : theme.colors.primary}
+                    />
+                  </View>
+                  <View style={styles.roleContent}>
+                    <Text style={[
+                      styles.roleLabel,
+                      selectedRole === role.value && styles.roleLabelSelected,
+                    ]}>
+                      {role.label}
+                    </Text>
+                    <Text style={styles.roleDescription}>{role.description}</Text>
+                  </View>
+                  {selectedRole === role.value && (
+                    <Icon name="check" size={20} color={theme.colors.primary} />
+                  )}
+                </Pressable>
+              ))}
+            </View>
           ))}
-        </View>
+        </ScrollView>
 
         <View style={styles.footer}>
           <Button
@@ -93,11 +179,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: wp(5),
-    paddingTop: hp(6),
-    paddingBottom: hp(4),
+    paddingTop: hp(2),
   },
   header: {
-    marginBottom: hp(4),
+    marginBottom: hp(2),
   },
   step: {
     fontSize: hp(1.6),
@@ -115,18 +200,31 @@ const styles = StyleSheet.create({
     color: theme.colors.textLight,
     marginTop: hp(0.5),
   },
-  roles: {
+  scrollView: {
     flex: 1,
-    gap: hp(2),
+  },
+  roles: {
+    paddingBottom: hp(2),
+  },
+  section: {
+    marginBottom: hp(2),
+  },
+  sectionTitle: {
+    fontSize: hp(1.5),
+    fontFamily: theme.fonts.semibold,
+    marginBottom: hp(1),
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   roleCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.card,
     padding: hp(2),
-    borderRadius: theme.radius.xl,
+    borderRadius: theme.radius.lg,
+    marginBottom: hp(1),
     borderWidth: 2,
-    borderColor: theme.colors.border,
+    borderColor: 'transparent',
   },
   roleCardSelected: {
     borderColor: theme.colors.primary,
@@ -145,12 +243,12 @@ const styles = StyleSheet.create({
   },
   roleContent: {
     flex: 1,
-    marginLeft: wp(4),
+    marginLeft: wp(3),
   },
   roleLabel: {
     fontSize: hp(1.9),
     color: theme.colors.text,
-    fontFamily: theme.fonts.semiBold,
+    fontFamily: theme.fonts.semibold,
   },
   roleLabelSelected: {
     color: theme.colors.primary,
@@ -161,7 +259,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   footer: {
-    marginTop: hp(2),
+    paddingVertical: hp(2),
   },
   buttonDisabled: {
     opacity: 0.5,
