@@ -1202,4 +1202,340 @@ export const commonStyles = StyleSheet.create({
     bottomSpacer: {
         height: hp(10),
     },
+
+    // ============================================
+    // HOME DASHBOARD
+    // ============================================
+    homeContent: {
+        paddingBottom: hp(4),
+    },
+    homeHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: wp(5),
+        paddingTop: hp(1),
+        paddingBottom: hp(2),
+    },
+    homeHeaderButtons: {
+        flexDirection: 'row',
+        gap: wp(2),
+    },
+    homeGreetingSection: {
+        paddingHorizontal: wp(5),
+        marginBottom: hp(2),
+    },
+    homeGreeting: {
+        fontSize: hp(2.8),
+        fontFamily: theme.fonts.bold,
+        color: theme.colors.text,
+        marginBottom: hp(0.5),
+    },
+    homeStatusRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(1.5),
+    },
+
+    // Stats Card (barre horizontale)
+    homeStatsCard: {
+        flexDirection: 'row',
+        backgroundColor: theme.colors.card,
+        marginHorizontal: wp(5),
+        marginBottom: hp(3),
+        borderRadius: theme.radius.xl,
+        padding: hp(2),
+        alignItems: 'center',
+    },
+    homeStatItem: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    homeStatItemRow: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: wp(1.5),
+    },
+    homeStatValue: {
+        fontSize: hp(2.2),
+        fontFamily: theme.fonts.bold,
+        color: theme.colors.text,
+    },
+    homeStatLabel: {
+        fontSize: hp(1.3),
+        color: theme.colors.textLight,
+        marginTop: hp(0.3),
+    },
+    homeStatDivider: {
+        width: 1,
+        height: hp(4),
+        backgroundColor: theme.colors.border,
+    },
+    homeStatusDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: theme.colors.gray,
+    },
+    homeStatusDotActive: {
+        backgroundColor: theme.colors.success,
+    },
+
+    // Sections
+    homeSection: {
+        marginBottom: hp(3),
+        paddingHorizontal: wp(5),
+    },
+    homeSeeAllText: {
+        fontSize: hp(1.4),
+        color: theme.colors.primary,
+        fontFamily: theme.fonts.medium,
+    },
+    homeItemsList: {
+        marginTop: hp(1.5),
+        gap: hp(1.5),
+    },
+
+    // Quick Actions
+    homeQuickActions: {
+        flexDirection: 'row',
+        gap: wp(3),
+        marginTop: hp(1),
+    },
+    homeQuickAction: {
+        flex: 1,
+        backgroundColor: theme.colors.card,
+        borderRadius: theme.radius.lg,
+        padding: wp(4),
+        alignItems: 'center',
+        gap: hp(1),
+    },
+    homeQuickActionIcon: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    homeQuickActionText: {
+        fontSize: hp(1.3),
+        color: theme.colors.text,
+        fontFamily: theme.fonts.medium,
+        textAlign: 'center',
+    },
+
+    // Empty State (compact pour home)
+    homeEmptyState: {
+        alignItems: 'center',
+        paddingVertical: hp(4),
+        gap: hp(1),
+    },
+    homeEmptyTitle: {
+        fontSize: hp(1.6),
+        fontFamily: theme.fonts.semiBold,
+        color: theme.colors.text,
+    },
+    homeEmptySubtitle: {
+        fontSize: hp(1.4),
+        color: theme.colors.textLight,
+        textAlign: 'center',
+    },
+
+    // Preview Card (bas de page)
+    homePreviewCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.card,
+        borderRadius: theme.radius.lg,
+        padding: wp(4),
+        marginTop: hp(1.5),
+        gap: wp(3),
+    },
+    homePreviewIcon: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    homePreviewTitle: {
+        fontSize: hp(1.5),
+        fontFamily: theme.fonts.semiBold,
+        color: theme.colors.text,
+    },
+    homePreviewSubtitle: {
+        fontSize: hp(1.3),
+        color: theme.colors.textLight,
+    },
+    
+    // ============================================
+    // FORMULAIRES
+    // ============================================
+
+    // AVATAR SECTION (formulaires)
+    avatarSection: {
+        alignItems: 'center',
+        paddingVertical: hp(2),
+    },
+    avatarHint: {
+        fontSize: hp(1.3),
+        color: theme.colors.textLight,
+        marginTop: hp(1),
+    },
+
+    // BIO / TEXTAREA
+    bioContainer: {
+        backgroundColor: theme.colors.card,
+        borderRadius: theme.radius.lg,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        padding: hp(1.5),
+    },
+    bioInput: {
+        fontSize: hp(1.6),
+        fontFamily: theme.fonts.regular,
+        color: theme.colors.text,
+        minHeight: hp(12),
+        textAlignVertical: 'top',
+    },
+    bioCounter: {
+        fontSize: hp(1.2),
+        color: theme.colors.textLight,
+        textAlign: 'right',
+        marginTop: hp(0.5),
+    },
+
+    // SWITCH CARDS
+    switchCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.card,
+        padding: hp(1.5),
+        borderRadius: theme.radius.lg,
+    },
+    switchCardHighlight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.success + '10',
+        padding: hp(1.5),
+        borderRadius: theme.radius.lg,
+    },
+    switchLabel: {
+        fontSize: hp(1.6),
+        fontFamily: theme.fonts.medium,
+        color: theme.colors.text,
+    },
+
+    // TABS (formulaires avec onglets)
+    tabs: {
+        flexDirection: 'row',
+        paddingHorizontal: wp(4),
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
+    },
+    tab: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: wp(1.5),
+        paddingVertical: hp(1.5),
+        borderBottomWidth: 2,
+        borderBottomColor: 'transparent',
+    },
+    tabActive: {
+        borderBottomColor: theme.colors.primary,
+    },
+    tabText: {
+        fontSize: hp(1.5),
+        fontFamily: theme.fonts.medium,
+        color: theme.colors.textLight,
+    },
+    tabTextActive: {
+        color: theme.colors.primary,
+    },
+
+    // INPUT ROW AVEC BOUTON
+    inputRowWithButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(2),
+    },
+    addButton: {
+        backgroundColor: theme.colors.primary,
+        width: 44,
+        height: 44,
+        borderRadius: theme.radius.md,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    addButtonSmall: {
+        backgroundColor: theme.colors.primary,
+        width: 36,
+        height: 36,
+        borderRadius: theme.radius.md,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+
+    // CALENDAR
+    monthNav: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: hp(1.5),
+    },
+    monthButton: {
+        padding: hp(1),
+    },
+    monthTitle: {
+        fontSize: hp(1.8),
+        fontFamily: theme.fonts.semiBold,
+        color: theme.colors.text,
+    },
+    legend: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: wp(4),
+        marginBottom: hp(2),
+    },
+    legendItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(1.5),
+    },
+    legendDot: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+    },
+    weekDays: {
+        flexDirection: 'row',
+        marginBottom: hp(1),
+    },
+    weekDay: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: hp(1.3),
+        fontFamily: theme.fonts.medium,
+        color: theme.colors.textLight,
+    },
+    daysGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+    },
+    dayCell: {
+        width: `${100 / 7}%`,
+        aspectRatio: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: theme.radius.sm,
+    },
+    dayText: {
+        fontSize: hp(1.5),
+        fontFamily: theme.fonts.regular,
+        color: theme.colors.text,
+    },
 });

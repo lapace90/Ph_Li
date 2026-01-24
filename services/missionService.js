@@ -67,7 +67,8 @@ export const missionService = {
         specialties_required: missionData.specialties || [],
         start_date: missionData.startDate,
         end_date: missionData.endDate,
-        daily_rate: missionData.dailyRate,
+        daily_rate_min: missionData.dailyRateMin || missionData.dailyRate,
+        daily_rate_max: missionData.dailyRateMax || missionData.dailyRate,
         latitude: missionData.latitude,
         longitude: missionData.longitude,
         city: missionData.city,
@@ -146,7 +147,7 @@ export const missionService = {
     // Mettre à jour les disponibilités de l'animateur
     const mission = data;
     const dates = this._getDatesBetween(mission.start_date, mission.end_date);
-    
+
     for (const date of dates) {
       await supabase
         .from('animator_availability')
@@ -324,9 +325,9 @@ export const missionService = {
       query = query.eq('mission_type', filters.missionType);
     }
 
-    // Filtre par tarif minimum
+    //  Filtre : missions dont le tarif max couvre le tarif minimum de l'animateur
     if (filters.minDailyRate) {
-      query = query.gte('daily_rate', filters.minDailyRate);
+        query = query.gte('daily_rate_max', filters.minDailyRate);
     }
 
     // Filtre par spécialités
@@ -355,13 +356,13 @@ export const missionService = {
           .select('first_name, last_name')
           .eq('id', mission.client_id)
           .single();
-        
+
         const { data: pharmacy } = await supabase
           .from('pharmacy_details')
           .select('name, siret_verified')
           .eq('owner_id', mission.client_id)
           .maybeSingle();
-        
+
         mission.client_profile = { ...profile, pharmacy };
       }
     }
@@ -432,7 +433,7 @@ export const missionService = {
 
     // Note: Idéalement, créer une table mission_applications
     // Pour l'instant on peut stocker dans le champ data de notifications
-    
+
     if (error) throw error;
     return data;
   },

@@ -1,4 +1,3 @@
-// constants/profileOptions.js
 // Options centralisées pour les profils - VERSION COMPLÈTE
 // Inclut: animateurs, labos, groupements, quick wins
 
@@ -388,6 +387,22 @@ export const AVAILABILITY_DURATIONS = [
   { value: 7, label: '1 semaine' },
   { value: 14, label: '2 semaines' },
   { value: 30, label: '1 mois' },
+];
+
+export const FRENCH_REGIONS = [
+  'Auvergne-Rhône-Alpes',
+  'Bourgogne-Franche-Comté',
+  'Bretagne',
+  'Centre-Val de Loire',
+  'Corse',
+  'Grand Est',
+  'Hauts-de-France',
+  'Île-de-France',
+  'Normandie',
+  'Nouvelle-Aquitaine',
+  'Occitanie',
+  "Provence-Alpes-Côte d'Azur",
+  'Pays de la Loire',
 ];
 
 /**

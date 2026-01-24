@@ -12,8 +12,7 @@ import { FAVORITE_TYPES } from '../../services/favoritesService';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import BackButton from '../../components/common/BackButton';
 import Icon from '../../assets/icons/Icon';
-import { AnimatorSwipeCard } from '../../components/animators/AnimatorCard';
-import { AnimatorDetailModal } from '../../components/animators/AnimatorCard';
+import { AnimatorSwipeCard, AnimatorDetailModal } from '../../components/animators/AnimatorCard';
 import { EmptyState } from '../../components/common/DashboardComponents';
 import MatchModal from '../../components/matching/MatchModal';
 
@@ -56,17 +55,24 @@ export default function SwipeAnimators() {
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onPanResponderMove: (_, { dx, dy }) => position.setValue({ x: dx, y: dy }),
-      onPanResponderRelease: (_, { dx, dy }) => {
-        if (dx > SWIPE_THRESHOLD) handleSwipe('right');
-        else if (dx < -SWIPE_THRESHOLD) handleSwipe('left');
-        else if (dy < -SWIPE_THRESHOLD * 0.8) handleSwipe('up');
-        else Animated.spring(position, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start();
+      onPanResponderMove: (_, gesture) => {
+        position.setValue({ x: gesture.dx, y: gesture.dy });
+      },
+      onPanResponderRelease: (_, gesture) => {
+        if (gesture.dx > SWIPE_THRESHOLD) {
+          handleSwipe('right');
+        } else if (gesture.dx < -SWIPE_THRESHOLD) {
+          handleSwipe('left');
+        } else if (gesture.dy < -SWIPE_THRESHOLD) {
+          handleSwipe('up');
+        } else {
+          Animated.spring(position, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start();
+        }
       },
     })
   ).current;
 
-  const handleSwipe = async (direction) => {
+  const handleSwipe = (direction) => {
     const currentAnimator = animators[currentIndex];
     if (!currentAnimator) return;
 
@@ -86,7 +92,7 @@ export default function SwipeAnimators() {
   const handleMatchMessage = () => {
     if (lastMatch) {
       clearLastMatch();
-      router.push({ pathname: '/animatorConversation', params: { matchId: lastMatch.id } });
+      router.push({ pathname: '/(screens)/animatorConversation', params: { matchId: lastMatch.id } });
     }
   };
 
@@ -124,7 +130,7 @@ export default function SwipeAnimators() {
           icon="briefcase"
           title="Sélectionnez une mission"
           subtitle="Choisissez une mission pour voir les animateurs disponibles"
-          action={() => router.push('/myMissions')}
+          action={() => router.push('/(screens)/laboratoryMissions')}
           actionLabel="Mes missions"
         />
       </ScreenWrapper>
@@ -153,7 +159,7 @@ export default function SwipeAnimators() {
   return (
     <ScreenWrapper>
       {/* Modal de match */}
-      <AnimatorMatchModal
+      <MatchModal
         visible={!!lastMatch}
         match={lastMatch}
         onMessage={handleMatchMessage}

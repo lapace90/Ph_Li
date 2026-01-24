@@ -71,6 +71,11 @@ const iconMap = {
   target: { lib: 'feather', name: 'target' },
   grid: { lib: 'feather', name: 'grid' }, // merchandising
 
+  // Transport (pour animateurs)
+  car: { lib: 'material', name: 'directions-car' },  // Feather n'a pas 'car', on utilise 'truck'
+  truck: { lib: 'feather', name: 'truck' },
+  navigation: { lib: 'feather', name: 'navigation' },
+
   // Stats / Analytics
   'trending-up': { lib: 'feather', name: 'trending-up' },
   'bar-chart': { lib: 'feather', name: 'bar-chart-2' },

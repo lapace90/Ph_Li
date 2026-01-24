@@ -12,7 +12,6 @@ export const animatorMatchingService = {
    * Animateur swipe sur une mission
    */
   async animatorSwipeMission(animatorId, missionId, action) {
-    // 1. Enregistrer le swipe
     const { data: swipe, error: swipeError } = await supabase
       .from('swipes')
       .upsert({
@@ -27,7 +26,6 @@ export const animatorMatchingService = {
 
     if (swipeError) throw swipeError;
 
-    // 2. Si like/superlike, vérifier le match
     if (action === 'like' || action === 'superlike') {
       const match = await this.checkAnimatorMatch(animatorId, missionId);
       return { swipe, match };
@@ -40,7 +38,6 @@ export const animatorMatchingService = {
    * Labo swipe sur un animateur (pour une mission spécifique)
    */
   async laboratorySwipeAnimator(laboratoryId, animatorId, missionId, action) {
-    // 1. Enregistrer le swipe
     const { data: swipe, error: swipeError } = await supabase
       .from('swipes')
       .upsert({
@@ -55,7 +52,6 @@ export const animatorMatchingService = {
 
     if (swipeError) throw swipeError;
 
-    // 2. Si like/superlike, vérifier le match
     if (action === 'like' || action === 'superlike') {
       const match = await this.checkLaboratoryMatch(laboratoryId, animatorId, missionId);
       return { swipe, match };
@@ -68,7 +64,6 @@ export const animatorMatchingService = {
    * Vérifie si un match existe côté animateur
    */
   async checkAnimatorMatch(animatorId, missionId) {
-    // Récupérer la mission pour avoir le labo
     const { data: mission } = await supabase
       .from('animation_missions')
       .select('client_id')
@@ -77,7 +72,6 @@ export const animatorMatchingService = {
 
     if (!mission) return null;
 
-    // Vérifier si le labo a déjà liké cet animateur
     const { data: labSwipe } = await supabase
       .from('swipes')
       .select('*')
@@ -88,11 +82,9 @@ export const animatorMatchingService = {
       .maybeSingle();
 
     if (labSwipe) {
-      // Match mutuel !
       return await this.createMatch(missionId, animatorId, mission.client_id, true, true);
     }
 
-    // Créer/mettre à jour match en attente
     return await this.createMatch(missionId, animatorId, mission.client_id, true, false);
   },
 
@@ -100,7 +92,6 @@ export const animatorMatchingService = {
    * Vérifie si un match existe côté labo
    */
   async checkLaboratoryMatch(laboratoryId, animatorId, missionId) {
-    // Vérifier si l'animateur a déjà liké cette mission
     const { data: animatorSwipe } = await supabase
       .from('swipes')
       .select('*')
@@ -111,11 +102,9 @@ export const animatorMatchingService = {
       .maybeSingle();
 
     if (animatorSwipe) {
-      // Match mutuel !
       return await this.createMatch(missionId, animatorId, laboratoryId, true, true);
     }
 
-    // Créer/mettre à jour match en attente
     return await this.createMatch(missionId, animatorId, laboratoryId, false, true);
   },
 
@@ -137,15 +126,35 @@ export const animatorMatchingService = {
         matched_at: isMatched ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'mission_id,animator_id' })
-      .select(`
-        *,
-        mission:animation_missions(*),
-        animator:animator_profiles(*, profile:profiles(*)),
-        laboratory:laboratory_profiles(*)
-      `)
+      .select()
       .single();
 
     if (error) throw error;
+
+    // Enrichir manuellement
+    if (data) {
+      const { data: mission } = await supabase
+        .from('animation_missions')
+        .select('*')
+        .eq('id', missionId)
+        .single();
+      data.mission = mission;
+
+      const { data: animator } = await supabase
+        .from('animator_profiles')
+        .select('*, profile:profiles(*)')
+        .eq('id', animatorId)
+        .single();
+      data.animator = animator;
+
+      const { data: laboratory } = await supabase
+        .from('laboratory_profiles')
+        .select('*')
+        .eq('id', laboratoryId)
+        .single();
+      data.laboratory = laboratory;
+    }
+
     return data;
   },
 
@@ -166,7 +175,7 @@ export const animatorMatchingService = {
 
     const excludeIds = swipedIds?.map(s => s.target_id) || [];
 
-    // Récupérer le profil animateur pour les filtres
+    // Profil animateur pour filtres
     const { data: animatorProfile } = await supabase
       .from('animator_profiles')
       .select('mobility_zones, animation_specialties, daily_rate_min')
@@ -175,10 +184,7 @@ export const animatorMatchingService = {
 
     let query = supabase
       .from('animation_missions')
-      .select(`
-        *,
-        client_profile:laboratory_profiles!animation_missions_client_id_fkey(*)
-      `)
+      .select('*')
       .eq('status', 'open')
       .is('animator_id', null);
 
@@ -186,14 +192,12 @@ export const animatorMatchingService = {
       query = query.not('id', 'in', `(${excludeIds.join(',')})`);
     }
 
-    // Filtrer par région si l'animateur a des zones de mobilité
     if (animatorProfile?.mobility_zones?.length > 0 && !filters.ignoreLocation) {
       query = query.in('region', animatorProfile.mobility_zones);
     }
 
-    // Filtrer par tarif minimum
     if (animatorProfile?.daily_rate_min) {
-      query = query.gte('daily_rate', animatorProfile.daily_rate_min);
+      query = query.gte('daily_rate_max', animatorProfile.daily_rate_min);
     }
 
     query = query.order('created_at', { ascending: false }).limit(filters.limit || 50);
@@ -201,14 +205,33 @@ export const animatorMatchingService = {
     const { data, error } = await query;
     if (error) throw error;
 
-    return this.shuffleArray(data || []);
+    // Enrichir avec client_profile selon client_type
+    const missions = data || [];
+    for (const mission of missions) {
+      if (mission.client_type === 'laboratory') {
+        const { data: lab } = await supabase
+          .from('laboratory_profiles')
+          .select('id, company_name, brand_name, logo_url, verified')
+          .eq('id', mission.client_id)
+          .single();
+        mission.client_profile = lab;
+      } else {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, photo_url')
+          .eq('id', mission.client_id)
+          .single();
+        mission.client_profile = profile;
+      }
+    }
+
+    return this.shuffleArray(missions);
   },
 
   /**
    * Animateurs swipables pour un labo (par mission)
    */
   async getSwipeableAnimators(laboratoryId, missionId, filters = {}) {
-    // IDs déjà swipés par ce labo
     const { data: swipedIds } = await supabase
       .from('swipes')
       .select('target_id')
@@ -217,7 +240,6 @@ export const animatorMatchingService = {
 
     const excludeIds = swipedIds?.map(s => s.target_id) || [];
 
-    // Récupérer la mission pour les critères
     const { data: mission } = await supabase
       .from('animation_missions')
       .select('*')
@@ -226,33 +248,26 @@ export const animatorMatchingService = {
 
     let query = supabase
       .from('animator_profiles')
-      .select(`
-        *,
-        profile:profiles!animator_profiles_id_fkey(*)
-      `);
+      .select('*, profile:profiles!animator_profiles_id_fkey(*)');
 
     if (excludeIds.length > 0) {
       query = query.not('id', 'in', `(${excludeIds.join(',')})`);
     }
 
-    // Filtrer par disponibilité
     if (filters.availableOnly) {
       query = query.eq('available_now', true);
     }
 
-    // Filtrer par spécialités requises
     if (mission?.specialties_required?.length > 0) {
       query = query.overlaps('animation_specialties', mission.specialties_required);
     }
 
-    // Filtrer par région
     if (mission?.region) {
       query = query.contains('mobility_zones', [mission.region]);
     }
 
-    // Filtrer par tarif max
-    if (mission?.daily_rate) {
-      query = query.lte('daily_rate_min', mission.daily_rate);
+    if (mission?.daily_rate_max) {
+      query = query.lte('daily_rate_min', mission.daily_rate_max);
     }
 
     query = query.limit(filters.limit || 50);
@@ -260,123 +275,111 @@ export const animatorMatchingService = {
     const { data, error } = await query;
     if (error) throw error;
 
-    // Calculer les scores et trier
-    const scoredAnimators = (data || []).map(animator => ({
-      ...animator,
-      matchScore: this.calculateAnimatorScore(animator, mission),
+    const animators = (data || []).map(a => ({
+      ...a,
+      matchScore: this.calculateMatchScore(a, mission),
     }));
 
-    scoredAnimators.sort((a, b) => b.matchScore - a.matchScore);
+    animators.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
 
-    return scoredAnimators;
+    return animators;
   },
 
   /**
-   * Calcule un score de compatibilité animateur/mission
+   * Calcule un score de matching animateur/mission
    */
-  calculateAnimatorScore(animator, mission) {
-    let score = 0;
+  calculateMatchScore(animator, mission) {
+    if (!animator || !mission) return 0;
 
-    // Spécialités correspondantes (40%)
-    if (mission?.specialties_required?.length > 0 && animator.animation_specialties?.length > 0) {
-      const matchingSpecs = mission.specialties_required.filter(s => 
-        animator.animation_specialties.includes(s)
-      );
-      score += (matchingSpecs.length / mission.specialties_required.length) * 40;
-    } else {
-      score += 20; // Pas de spécialité requise = bonus
+    let score = 50;
+
+    const commonSpecialties = (animator.animation_specialties || [])
+      .filter(s => (mission.specialties_required || []).includes(s));
+    score += commonSpecialties.length * 10;
+
+    if (animator.available_now) score += 10;
+
+    if (animator.average_rating) {
+      score += animator.average_rating * 2;
     }
 
-    // Tarif dans la fourchette (25%)
-    if (animator.daily_rate_min && animator.daily_rate_max && mission?.daily_rate) {
-      if (mission.daily_rate >= animator.daily_rate_min && mission.daily_rate <= animator.daily_rate_max) {
-        score += 25;
-      } else if (mission.daily_rate >= animator.daily_rate_min) {
-        score += 15;
-      }
+    if (animator.missions_completed) {
+      score += Math.min(animator.missions_completed, 10);
     }
 
-    // Disponibilité immédiate (15%)
-    if (animator.available_now) {
-      score += 15;
-    }
-
-    // Expérience (missions complétées) (10%)
-    if (animator.missions_completed >= 10) score += 10;
-    else if (animator.missions_completed >= 5) score += 7;
-    else if (animator.missions_completed >= 1) score += 4;
-
-    // Note moyenne (10%)
-    if (animator.average_rating >= 4.5) score += 10;
-    else if (animator.average_rating >= 4) score += 7;
-    else if (animator.average_rating >= 3.5) score += 4;
-
-    return Math.round(score);
+    return Math.min(score, 100);
   },
 
   // ==========================================
-  // MATCHES
+  // MATCHS
   // ==========================================
 
   /**
-   * Récupère les matches d'un animateur
+   * Récupère les matchs d'un animateur
    */
-  async getAnimatorMatches(animatorId, status = 'matched') {
+  async getAnimatorMatches(animatorId) {
     const { data, error } = await supabase
       .from('animator_matches')
-      .select(`
-        *,
-        mission:animation_missions(*),
-        laboratory:laboratory_profiles(*)
-      `)
+      .select('*')
       .eq('animator_id', animatorId)
-      .eq('status', status)
+      .eq('status', 'matched')
       .order('matched_at', { ascending: false });
 
     if (error) throw error;
+
+    for (const match of data || []) {
+      const { data: mission } = await supabase
+        .from('animation_missions')
+        .select('*')
+        .eq('id', match.mission_id)
+        .single();
+      match.mission = mission;
+
+      const { data: lab } = await supabase
+        .from('laboratory_profiles')
+        .select('*')
+        .eq('id', match.laboratory_id)
+        .single();
+      match.laboratory = lab;
+    }
+
     return data || [];
   },
 
   /**
-   * Récupère les matches d'un labo
+   * Récupère les matchs d'un labo
    */
-  async getLaboratoryMatches(laboratoryId, status = 'matched') {
+  async getLaboratoryMatches(laboratoryId) {
     const { data, error } = await supabase
       .from('animator_matches')
-      .select(`
-        *,
-        mission:animation_missions(*),
-        animator:animator_profiles(*, profile:profiles(*))
-      `)
+      .select('*')
       .eq('laboratory_id', laboratoryId)
-      .eq('status', status)
+      .eq('status', 'matched')
       .order('matched_at', { ascending: false });
 
     if (error) throw error;
+
+    for (const match of data || []) {
+      const { data: mission } = await supabase
+        .from('animation_missions')
+        .select('*')
+        .eq('id', match.mission_id)
+        .single();
+      match.mission = mission;
+
+      const { data: animator } = await supabase
+        .from('animator_profiles')
+        .select('*, profile:profiles(*)')
+        .eq('id', match.animator_id)
+        .single();
+      match.animator = animator;
+    }
+
     return data || [];
-  },
-
-  /**
-   * Récupère un match par ID avec tous les détails
-   */
-  async getMatchById(matchId) {
-    const { data, error } = await supabase
-      .from('animator_matches')
-      .select(`
-        *,
-        mission:animation_missions(*),
-        animator:animator_profiles(*, profile:profiles(*)),
-        laboratory:laboratory_profiles(*)
-      `)
-      .eq('id', matchId)
-      .single();
-
-    if (error) throw error;
-    return data;
   },
 
   // ==========================================
-  // HELPERS
+  // UTILITAIRES
   // ==========================================
 
   shuffleArray(array) {

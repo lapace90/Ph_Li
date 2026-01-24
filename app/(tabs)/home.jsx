@@ -1,92 +1,71 @@
-/**
- * Dashboard / Accueil
- * Affiche les stats, offres recommandées et activité récente
- */
-
-import { StyleSheet, Text, View, ScrollView, Pressable, FlatList, RefreshControl, ActivityIndicator } from 'react-native';
+// app/(tabs)/home.jsx
+import { useState, useCallback } from 'react';
+import { View, Text, ScrollView, RefreshControl, Pressable, ActivityIndicator, FlatList, StyleSheet, Image } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Image } from 'expo-image';
 import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
 import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePrivacy } from '../../hooks/usePrivacy';
 import { useDashboard } from '../../hooks/useDashboard';
-import { getContractTypeLabel, getContractColor } from '../../constants/jobOptions';
-import { formatRelativeTime } from '../../helpers/dateHelpers';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import Icon from '../../assets/icons/Icon';
 import Logo from '../../assets/icons/Logo';
 
 // ============================================
-// COMPOSANTS INTERNES
+// HELPERS
 // ============================================
 
-const StatsCard = ({ stats, isTitulaire, isSearchActive }) => {
-  const router = useRouter();
-  
-  return (
-    <View style={styles.statsCard}>
-      {/* Statut recherche (candidats uniquement) */}
-      {!isTitulaire && (
-        <Pressable 
-          style={styles.searchStatus}
-          onPress={() => router.push('/(screens)/privacySettings')}
-        >
-          <View style={[
-            styles.statusIndicator,
-            { backgroundColor: isSearchActive ? theme.colors.success : theme.colors.gray }
-          ]} />
-          <View style={commonStyles.flex1}>
-            <Text style={styles.statusTitle}>
-              {isSearchActive ? 'Recherche active' : 'Recherche inactive'}
-            </Text>
-            <Text style={styles.statusSubtitle}>
-              {isSearchActive ? 'Visible par les recruteurs' : 'Profil masqué'}
-            </Text>
-          </View>
-          <Icon name="chevronRight" size={18} color={theme.colors.textLight} />
-        </Pressable>
-      )}
-
-      {/* Stats en ligne */}
-      <View style={styles.statsRow}>
-        <Pressable style={styles.statItem} onPress={() => router.push('/(screens)/matches')}>
-          <View style={[styles.statIcon, { backgroundColor: theme.colors.rose + '15' }]}>
-            <Icon name="heart" size={20} color={theme.colors.rose} />
-          </View>
-          <View>
-            <Text style={styles.statValue}>{stats.matches}</Text>
-            <Text style={styles.statLabel}>Matchs</Text>
-          </View>
-        </Pressable>
-
-        <Pressable style={styles.statItem} onPress={() => router.push('/(tabs)/matching')}>
-          <View style={[styles.statIcon, { backgroundColor: theme.colors.primary + '15' }]}>
-            <Icon name={isTitulaire ? 'clock' : 'send'} size={20} color={theme.colors.primary} />
-          </View>
-          <View>
-            <Text style={styles.statValue}>{stats.applications}</Text>
-            <Text style={styles.statLabel}>{isTitulaire ? 'En attente' : 'Candidatures'}</Text>
-          </View>
-        </Pressable>
-
-        <Pressable 
-          style={styles.statItem} 
-          onPress={() => router.push(isTitulaire ? '/(screens)/recruiterDashboard' : '/(tabs)/profile')}
-        >
-          <View style={[styles.statIcon, { backgroundColor: theme.colors.secondary + '15' }]}>
-            <Icon name={isTitulaire ? 'briefcase' : 'eye'} size={20} color={theme.colors.secondary} />
-          </View>
-          <View>
-            <Text style={styles.statValue}>{stats.profileViews}</Text>
-            <Text style={styles.statLabel}>{isTitulaire ? 'Annonces' : 'Vues profil'}</Text>
-          </View>
-        </Pressable>
-      </View>
-    </View>
-  );
+const getContractColor = (type) => {
+  const colors = {
+    CDI: theme.colors.success,
+    CDD: theme.colors.secondary,
+    vacation: theme.colors.warning,
+    remplacement: theme.colors.primary,
+  };
+  return colors[type] || theme.colors.textLight;
 };
+
+const getContractTypeLabel = (type) => {
+  const labels = { CDI: 'CDI', CDD: 'CDD', vacation: 'Vacation', remplacement: 'Remplacement' };
+  return labels[type] || type;
+};
+
+// ============================================
+// SOUS-COMPOSANTS
+// ============================================
+
+const StatsCard = ({ stats, isTitulaire, isSearchActive }) => (
+  <View style={commonStyles.homeStatsCard}>
+    <View style={commonStyles.homeStatItem}>
+      <Text style={commonStyles.homeStatValue}>{isTitulaire ? stats?.publishedOffers || 0 : stats?.applications || 0}</Text>
+      <Text style={commonStyles.homeStatLabel}>{isTitulaire ? 'Annonces' : 'Candidatures'}</Text>
+    </View>
+    <View style={commonStyles.homeStatDivider} />
+    <View style={commonStyles.homeStatItem}>
+      <Text style={commonStyles.homeStatValue}>{stats?.matches || 0}</Text>
+      <Text style={commonStyles.homeStatLabel}>Matchs</Text>
+    </View>
+    <View style={commonStyles.homeStatDivider} />
+    <View style={commonStyles.homeStatItem}>
+      <Text style={commonStyles.homeStatValue}>{stats?.views || 0}</Text>
+      <Text style={commonStyles.homeStatLabel}>Vues</Text>
+    </View>
+    <View style={commonStyles.homeStatDivider} />
+    <View style={commonStyles.homeStatItemRow}>
+      <View style={[commonStyles.homeStatusDot, isSearchActive && commonStyles.homeStatusDotActive]} />
+      <Text style={commonStyles.homeStatLabel}>{isSearchActive ? 'Visible' : 'Masqué'}</Text>
+    </View>
+  </View>
+);
+
+const EmptyState = ({ icon, title, subtitle }) => (
+  <View style={commonStyles.homeEmptyState}>
+    <Icon name={icon} size={32} color={theme.colors.gray} />
+    <Text style={commonStyles.homeEmptyTitle}>{title}</Text>
+    {subtitle && <Text style={commonStyles.homeEmptySubtitle}>{subtitle}</Text>}
+  </View>
+);
 
 const JobCard = ({ job, onPress, isInternship }) => {
   const pharmacyName = job.owner_profile?.first_name 
@@ -123,10 +102,6 @@ const JobCard = ({ job, onPress, isInternship }) => {
         <Icon name="mapPin" size={12} color={theme.colors.textLight} />
         <Text style={styles.jobMetaText}>{job.city}</Text>
       </View>
-
-      {job.salary_range && (
-        <Text style={styles.salary} numberOfLines={1}>{job.salary_range}</Text>
-      )}
     </Pressable>
   );
 };
@@ -149,57 +124,28 @@ const CandidateCard = ({ data, onPress }) => {
       <Text style={styles.jobTitle} numberOfLines={1}>
         {candidate?.first_name} {candidate?.last_name?.charAt(0)}.
       </Text>
-      
-      {candidate?.experience_years > 0 && (
-        <Text style={styles.pharmacyName}>
-          {candidate.experience_years} an{candidate.experience_years > 1 ? 's' : ''} d'exp.
+      <Text style={styles.pharmacyName} numberOfLines={1}>
+        {candidate?.current_city || 'Non renseigné'}
+      </Text>
+      {offer && (
+        <Text style={styles.offerTag} numberOfLines={1}>
+          → {offer.title}
         </Text>
       )}
-
-      <View style={styles.jobMeta}>
-        <Icon name="mapPin" size={12} color={theme.colors.textLight} />
-        <Text style={styles.jobMetaText}>{candidate?.current_city || 'N/C'}</Text>
-      </View>
-
-      {offer && (
-        <Text style={styles.offerTag} numberOfLines={1}>{offer.title}</Text>
-      )}
     </Pressable>
   );
 };
 
-const ActivityItem = ({ activity, onPress }) => {
-  const getActivityIcon = (type) => {
-    switch (type) {
-      case 'match': return { name: 'heart', color: theme.colors.rose };
-      case 'application': return { name: 'send', color: theme.colors.secondary };
-      case 'application_viewed': return { name: 'eye', color: theme.colors.warning };
-      default: return { name: 'bell', color: theme.colors.gray };
-    }
-  };
-
-  const iconConfig = getActivityIcon(activity.type);
-
-  return (
-    <Pressable style={styles.activityItem} onPress={onPress}>
-      <View style={[styles.activityIcon, { backgroundColor: iconConfig.color + '15' }]}>
-        <Icon name={iconConfig.name} size={16} color={iconConfig.color} />
-      </View>
-      <View style={styles.activityContent}>
-        <Text style={styles.activityTitle} numberOfLines={2}>{activity.title}</Text>
-        <Text style={styles.activityTime}>{formatRelativeTime(activity.created_at)}</Text>
-      </View>
-      <Icon name="chevronRight" size={16} color={theme.colors.textLight} />
-    </Pressable>
-  );
-};
-
-const EmptyState = ({ icon, title, subtitle }) => (
-  <View style={styles.emptyState}>
-    <Icon name={icon} size={40} color={theme.colors.gray} />
-    <Text style={styles.emptyTitle}>{title}</Text>
-    {subtitle && <Text style={styles.emptySubtitle}>{subtitle}</Text>}
-  </View>
+const ActivityItem = ({ activity, onPress }) => (
+  <Pressable style={styles.activityItem} onPress={onPress}>
+    <View style={[styles.activityIcon, { backgroundColor: theme.colors.primary + '15' }]}>
+      <Icon name={activity.icon || 'bell'} size={18} color={theme.colors.primary} />
+    </View>
+    <View style={styles.activityContent}>
+      <Text style={styles.activityTitle}>{activity.title}</Text>
+      <Text style={styles.activityTime}>{activity.time}</Text>
+    </View>
+  </Pressable>
 );
 
 // ============================================
@@ -242,44 +188,30 @@ export default function Home() {
     <ScreenWrapper bg={theme.colors.background}>
       <ScrollView 
         style={commonStyles.flex1}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={commonStyles.homeContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={refresh} />
-        }
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} colors={[theme.colors.primary]} />}
       >
-        {/* Header avec logo */}
-        <View style={styles.header}>
+        {/* Header */}
+        <View style={commonStyles.homeHeader}>
           <Logo size={hp(5)} />
-          
-          <View style={styles.headerButtons}>
-            <Pressable 
-              style={styles.headerButton}
-              onPress={() => router.push('/(tabs)/messages')}
-            >
+          <View style={commonStyles.homeHeaderButtons}>
+            <Pressable style={commonStyles.headerButton} onPress={() => router.push('/(tabs)/messages')}>
               <Icon name="messageCircle" size={22} color={theme.colors.text} />
             </Pressable>
-            <Pressable 
-              style={styles.headerButton}
-              onPress={() => router.push('/(screens)/notifications')}
-            >
+            <Pressable style={commonStyles.headerButton} onPress={() => router.push('/(screens)/notifications')}>
               <Icon name="bell" size={22} color={theme.colors.text} />
             </Pressable>
           </View>
         </View>
 
         {/* Salutation */}
-        <View style={styles.greetingSection}>
-          <Text style={styles.greeting}>Bonjour {profile?.first_name} !</Text>
+        <View style={commonStyles.homeGreetingSection}>
+          <Text style={commonStyles.homeGreeting}>Bonjour {profile?.first_name} !</Text>
           {isTitulaire && (
-            <Pressable 
-              style={[commonStyles.row, styles.statusRow]}
-              onPress={() => router.push('/(screens)/recruiterDashboard')}
-            >
+            <Pressable style={commonStyles.homeStatusRow} onPress={() => router.push('/(screens)/recruiterDashboard')}>
               <Icon name="briefcase" size={14} color={theme.colors.primary} />
-              <Text style={[commonStyles.hint, { color: theme.colors.primary }]}>
-                Gérer mes annonces
-              </Text>
+              <Text style={[commonStyles.hint, { color: theme.colors.primary }]}>Gérer mes annonces</Text>
               <Icon name="chevronRight" size={14} color={theme.colors.primary} />
             </Pressable>
           )}
@@ -289,31 +221,26 @@ export default function Home() {
         <StatsCard stats={stats} isTitulaire={isTitulaire} isSearchActive={isSearchActive} />
 
         {/* Offres recommandées / Candidats récents */}
-        <View style={styles.section}>
+        <View style={commonStyles.homeSection}>
           <View style={commonStyles.rowBetween}>
-            <Text style={commonStyles.sectionTitle}>
-              {isTitulaire ? 'Candidats récents' : 'Offres pour vous'}
-            </Text>
-            <Pressable 
-              style={[commonStyles.row, { gap: wp(1) }]}
-              onPress={() => router.push(isTitulaire ? '/(screens)/matches' : '/(tabs)/search')}
-            >
-              <Text style={styles.seeAllText}>Voir tout</Text>
+            <Text style={commonStyles.sectionTitle}>{isTitulaire ? 'Candidats récents' : 'Offres pour vous'}</Text>
+            <Pressable style={commonStyles.row} onPress={() => router.push(isTitulaire ? '/(screens)/matches' : '/(tabs)/search')}>
+              <Text style={commonStyles.homeSeeAllText}>Voir tout</Text>
               <Icon name="chevronRight" size={16} color={theme.colors.primary} />
             </Pressable>
           </View>
           
           {loading ? (
-            <View style={styles.loadingContainer}>
+            <View style={commonStyles.loadingContainer}>
               <ActivityIndicator size="small" color={theme.colors.primary} />
             </View>
-          ) : recommendedOffers.length > 0 ? (
+          ) : recommendedOffers?.length > 0 ? (
             <FlatList
               data={recommendedOffers}
               keyExtractor={(item) => item.id}
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.jobsList}
+              contentContainerStyle={{ paddingTop: hp(1.5), gap: wp(3) }}
               renderItem={({ item }) => (
                 isTitulaire ? (
                   <CandidateCard data={item} onPress={() => handleCandidatePress(item)} />
@@ -326,106 +253,93 @@ export default function Home() {
             <EmptyState 
               icon={isTitulaire ? 'users' : 'briefcase'}
               title={isTitulaire ? 'Aucun candidat récent' : 'Aucune offre trouvée'}
-              subtitle={isTitulaire 
-                ? 'Les candidats qui matchent avec vos offres apparaîtront ici'
-                : 'Swipez sur des offres pour commencer !'
-              }
+              subtitle={isTitulaire ? 'Les candidats qui matchent avec vos offres apparaîtront ici' : 'Swipez sur des offres pour commencer !'}
             />
           )}
         </View>
 
         {/* Activité récente */}
-        <View style={styles.section}>
+        <View style={commonStyles.homeSection}>
           <Text style={commonStyles.sectionTitle}>Activité récente</Text>
           
           {loading ? (
-            <View style={styles.loadingContainer}>
+            <View style={commonStyles.loadingContainer}>
               <ActivityIndicator size="small" color={theme.colors.primary} />
             </View>
-          ) : activities.length > 0 ? (
+          ) : activities?.length > 0 ? (
             <View style={styles.activitiesList}>
               {activities.map((activity) => (
-                <ActivityItem 
-                  key={activity.id}
-                  activity={activity}
-                  onPress={() => handleActivityPress(activity)}
-                />
+                <ActivityItem key={activity.id} activity={activity} onPress={() => handleActivityPress(activity)} />
               ))}
             </View>
           ) : (
             <EmptyState 
               icon="clock"
               title="Aucune activité récente"
-              subtitle={isTitulaire 
-                ? 'Les interactions avec vos annonces apparaîtront ici'
-                : 'Vos matchs apparaîtront ici'
-              }
+              subtitle={isTitulaire ? 'Les interactions avec vos annonces apparaîtront ici' : 'Vos matchs apparaîtront ici'}
             />
           )}
         </View>
 
         {/* Accès rapide */}
-        <View style={styles.section}>
+        <View style={commonStyles.homeSection}>
           <Text style={commonStyles.sectionTitle}>Accès rapide</Text>
           
-          <View style={styles.quickActions}>
+          <View style={commonStyles.homeQuickActions}>
             {isTitulaire ? (
               <>
-                <Pressable style={styles.quickAction} onPress={() => router.push('/(screens)/recruiterDashboard')}>
-                  <View style={[styles.quickActionIcon, { backgroundColor: theme.colors.primary + '15' }]}>
+                <Pressable style={commonStyles.homeQuickAction} onPress={() => router.push('/(screens)/recruiterDashboard')}>
+                  <View style={[commonStyles.homeQuickActionIcon, { backgroundColor: theme.colors.primary + '15' }]}>
                     <Icon name="briefcase" size={20} color={theme.colors.primary} />
                   </View>
-                  <Text style={styles.quickActionText}>Mes annonces</Text>
+                  <Text style={commonStyles.homeQuickActionText}>Mes annonces</Text>
                 </Pressable>
-                <Pressable style={styles.quickAction} onPress={() => router.push('/(tabs)/matching')}>
-                  <View style={[styles.quickActionIcon, { backgroundColor: theme.colors.rose + '15' }]}>
+                <Pressable style={commonStyles.homeQuickAction} onPress={() => router.push('/(tabs)/matching')}>
+                  <View style={[commonStyles.homeQuickActionIcon, { backgroundColor: theme.colors.rose + '15' }]}>
                     <Icon name="heart" size={20} color={theme.colors.rose} />
                   </View>
-                  <Text style={styles.quickActionText}>Swipe candidats</Text>
+                  <Text style={commonStyles.homeQuickActionText}>Swipe candidats</Text>
                 </Pressable>
-                <Pressable style={styles.quickAction} onPress={() => router.push('/(screens)/matches')}>
-                  <View style={[styles.quickActionIcon, { backgroundColor: theme.colors.secondary + '15' }]}>
+                <Pressable style={commonStyles.homeQuickAction} onPress={() => router.push('/(screens)/matches')}>
+                  <View style={[commonStyles.homeQuickActionIcon, { backgroundColor: theme.colors.secondary + '15' }]}>
                     <Icon name="users" size={20} color={theme.colors.secondary} />
                   </View>
-                  <Text style={styles.quickActionText}>Mes matchs</Text>
+                  <Text style={commonStyles.homeQuickActionText}>Mes matchs</Text>
                 </Pressable>
               </>
             ) : (
               <>
-                <Pressable style={styles.quickAction} onPress={() => router.push('/(tabs)/matching')}>
-                  <View style={[styles.quickActionIcon, { backgroundColor: theme.colors.rose + '15' }]}>
+                <Pressable style={commonStyles.homeQuickAction} onPress={() => router.push('/(tabs)/matching')}>
+                  <View style={[commonStyles.homeQuickActionIcon, { backgroundColor: theme.colors.rose + '15' }]}>
                     <Icon name="heart" size={20} color={theme.colors.rose} />
                   </View>
-                  <Text style={styles.quickActionText}>Swiper</Text>
+                  <Text style={commonStyles.homeQuickActionText}>Swiper</Text>
                 </Pressable>
-                <Pressable style={styles.quickAction} onPress={() => router.push('/(tabs)/search')}>
-                  <View style={[styles.quickActionIcon, { backgroundColor: theme.colors.primary + '15' }]}>
+                <Pressable style={commonStyles.homeQuickAction} onPress={() => router.push('/(tabs)/search')}>
+                  <View style={[commonStyles.homeQuickActionIcon, { backgroundColor: theme.colors.primary + '15' }]}>
                     <Icon name="search" size={20} color={theme.colors.primary} />
                   </View>
-                  <Text style={styles.quickActionText}>Rechercher</Text>
+                  <Text style={commonStyles.homeQuickActionText}>Rechercher</Text>
                 </Pressable>
-                <Pressable style={styles.quickAction} onPress={() => router.push('/(screens)/matches')}>
-                  <View style={[styles.quickActionIcon, { backgroundColor: theme.colors.secondary + '15' }]}>
+                <Pressable style={commonStyles.homeQuickAction} onPress={() => router.push('/(screens)/matches')}>
+                  <View style={[commonStyles.homeQuickActionIcon, { backgroundColor: theme.colors.secondary + '15' }]}>
                     <Icon name="messageCircle" size={20} color={theme.colors.secondary} />
                   </View>
-                  <Text style={styles.quickActionText}>Mes matchs</Text>
+                  <Text style={commonStyles.homeQuickActionText}>Mes matchs</Text>
                 </Pressable>
               </>
             )}
           </View>
 
-          {/* Prévisualiser ma carte */}
+          {/* Prévisualiser ma carte (candidats seulement) */}
           {!isTitulaire && (
-            <Pressable 
-              style={styles.previewCard}
-              onPress={() => router.push('/(screens)/previewMyCard')}
-            >
-              <View style={[styles.previewIcon, { backgroundColor: theme.colors.warning + '15' }]}>
+            <Pressable style={commonStyles.homePreviewCard} onPress={() => router.push('/(screens)/previewMyCard')}>
+              <View style={[commonStyles.homePreviewIcon, { backgroundColor: theme.colors.warning + '15' }]}>
                 <Icon name="eye" size={20} color={theme.colors.warning} />
               </View>
               <View style={commonStyles.flex1}>
-                <Text style={styles.previewTitle}>Prévisualiser ma carte</Text>
-                <Text style={styles.previewSubtitle}>Voir comment les recruteurs vous voient</Text>
+                <Text style={commonStyles.homePreviewTitle}>Prévisualiser ma carte</Text>
+                <Text style={commonStyles.homePreviewSubtitle}>Voir comment les recruteurs vous voient</Text>
               </View>
               <Icon name="chevronRight" size={18} color={theme.colors.textLight} />
             </Pressable>
@@ -442,118 +356,7 @@ export default function Home() {
 // ============================================
 
 const styles = StyleSheet.create({
-  content: {
-    padding: wp(5),
-    paddingBottom: hp(12),
-  },
-  
-  // Header
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: hp(1),
-  },
-  logo: {
-    width: wp(35),
-    height: hp(4),
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    gap: wp(2),
-  },
-  headerButton: {
-    backgroundColor: theme.colors.card,
-    padding: wp(2.5),
-    borderRadius: theme.radius.md,
-  },
-  
-  // Greeting
-  greetingSection: {
-    marginBottom: hp(1),
-  },
-  greeting: {
-    fontSize: hp(2.8),
-    fontWeight: '700',
-    color: theme.colors.text,
-  },
-  statusRow: {
-    gap: wp(1.5),
-    marginTop: hp(0.5),
-  },
-
-  // Stats Card
-  statsCard: {
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.radius.lg,
-    padding: wp(4),
-    marginTop: hp(2),
-    marginBottom: hp(2),
-  },
-  searchStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: wp(3),
-    paddingBottom: hp(1.5),
-    marginBottom: hp(1.5),
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  statusIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  statusTitle: {
-    fontSize: hp(1.6),
-    fontWeight: '600',
-    color: theme.colors.text,
-  },
-  statusSubtitle: {
-    fontSize: hp(1.3),
-    color: theme.colors.textLight,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: wp(2),
-  },
-  statIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: hp(2),
-    fontWeight: '700',
-    color: theme.colors.text,
-  },
-  statLabel: {
-    fontSize: hp(1.2),
-    color: theme.colors.textLight,
-  },
-
-  // Section
-  section: {
-    marginBottom: hp(3),
-  },
-  seeAllText: {
-    fontSize: hp(1.5),
-    color: theme.colors.primary,
-    fontWeight: '500',
-  },
-
-  // Job cards
-  jobsList: {
-    paddingTop: hp(1),
-    gap: wp(3),
-  },
+  // Job Card
   jobCard: {
     width: wp(42),
     backgroundColor: theme.colors.card,
@@ -591,14 +394,13 @@ const styles = StyleSheet.create({
     fontSize: hp(1.3),
     color: theme.colors.textLight,
   },
-  salary: {
-    fontSize: hp(1.3),
+  offerTag: {
+    fontSize: hp(1.2),
     color: theme.colors.primary,
-    fontWeight: '500',
     marginTop: hp(0.5),
   },
 
-  // Candidate card
+  // Candidate Card
   candidateAvatar: {
     alignSelf: 'center',
     marginBottom: hp(1),
@@ -616,18 +418,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  offerTag: {
-    fontSize: hp(1.2),
-    color: theme.colors.primary,
-    marginTop: hp(0.5),
-  },
 
-  // Activities
-  activitiesList: {
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.radius.lg,
-    overflow: 'hidden',
-  },
+  // Activity
   activityItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -656,79 +448,11 @@ const styles = StyleSheet.create({
     color: theme.colors.textLight,
   },
 
-  // Quick actions
-  quickActions: {
-    flexDirection: 'row',
-    gap: wp(3),
-    marginTop: hp(1),
-  },
-  quickAction: {
-    flex: 1,
+  // Activities container
+  activitiesList: {
     backgroundColor: theme.colors.card,
     borderRadius: theme.radius.lg,
-    padding: wp(4),
-    alignItems: 'center',
-    gap: hp(1),
-  },
-  quickActionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  quickActionText: {
-    fontSize: hp(1.3),
-    color: theme.colors.text,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-
-  // Empty & Loading
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: hp(4),
-    gap: hp(1),
-  },
-  emptyTitle: {
-    fontSize: hp(1.6),
-    fontWeight: '600',
-    color: theme.colors.text,
-  },
-  emptySubtitle: {
-    fontSize: hp(1.4),
-    color: theme.colors.textLight,
-    textAlign: 'center',
-  },
-  loadingContainer: {
-    paddingVertical: hp(4),
-    alignItems: 'center',
-  },
-
-  // Preview Card
-  previewCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.radius.lg,
-    padding: wp(4),
+    overflow: 'hidden',
     marginTop: hp(1.5),
-    gap: wp(3),
-  },
-  previewIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  previewTitle: {
-    fontSize: hp(1.5),
-    fontWeight: '600',
-    color: theme.colors.text,
-  },
-  previewSubtitle: {
-    fontSize: hp(1.3),
-    color: theme.colors.textLight,
   },
 });

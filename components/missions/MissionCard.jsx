@@ -194,7 +194,7 @@ export const MissionListCard = ({
             <Icon name="mapPin" size={12} color={theme.colors.textLight} />
             <Text style={styles.listMetaText}>{mission.city || 'N/C'}</Text>
           </View>
-          <Text style={styles.listRate}>{mission.daily_rate_min}€/j</Text>
+          <Text style={styles.listRate}>{mission.daily_rate}€/j</Text>
         </View>
       </View>
 

@@ -38,12 +38,19 @@ const MainLayout = () => {
       router.replace('/welcome');
     } else if (session && !profile?.first_name && !segments.includes('onboarding')) {
       router.replace('/(auth)/onboarding');
-    } else if (session && profile?.first_name && (inAuth || isWelcome)) {
-      router.replace('/(tabs)/home');
+    } else if (user && profile?.first_name && (inAuth || isWelcome)) {
+      // Connecté avec profil → App principale selon user_type
+      if (user.user_type === 'animateur') {
+        router.replace('/(tabs)/homeAnimator');
+      } else if (user.user_type === 'laboratoire') {
+        router.replace('/(tabs)/homeLaboratory');
+      } else {
+        router.replace('/(tabs)/home');
+      }
     }
   }, [session, profile, loading, segments]);
 
-  // ← ICI : Afficher le LoadingScreen pendant le chargement
+  // Afficher le LoadingScreen pendant le chargement
   if (loading) {
     return <LoadingScreen />;
   }

@@ -27,7 +27,7 @@ export default function SwipeMissions() {
   // Hook de matching
   const { missions, loading, lastMatch, swipeRight, swipeLeft, superLike, clearLastMatch, refresh } = useSwipeMissions();
 
-  // Favoris (pour bookmarker sans swiper)
+  // Favoris
   const { isFavorite: isMissionFav } = useFavoriteIds(session?.user?.id, FAVORITE_TYPES.MISSION);
   const { isFavorite: isLabFav } = useFavoriteIds(session?.user?.id, FAVORITE_TYPES.LABORATORY);
   const { toggleFavorite: toggleMissionFav } = useFavorites(session?.user?.id, FAVORITE_TYPES.MISSION);
@@ -57,17 +57,24 @@ export default function SwipeMissions() {
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onPanResponderMove: (_, { dx, dy }) => position.setValue({ x: dx, y: dy }),
-      onPanResponderRelease: (_, { dx, dy }) => {
-        if (dx > SWIPE_THRESHOLD) handleSwipe('right');
-        else if (dx < -SWIPE_THRESHOLD) handleSwipe('left');
-        else if (dy < -SWIPE_THRESHOLD * 0.8) handleSwipe('up'); // Super like
-        else Animated.spring(position, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start();
+      onPanResponderMove: (_, gesture) => {
+        position.setValue({ x: gesture.dx, y: gesture.dy });
+      },
+      onPanResponderRelease: (_, gesture) => {
+        if (gesture.dx > SWIPE_THRESHOLD) {
+          handleSwipe('right');
+        } else if (gesture.dx < -SWIPE_THRESHOLD) {
+          handleSwipe('left');
+        } else if (gesture.dy < -SWIPE_THRESHOLD) {
+          handleSwipe('up');
+        } else {
+          Animated.spring(position, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start();
+        }
       },
     })
   ).current;
 
-  const handleSwipe = async (direction) => {
+  const handleSwipe = (direction) => {
     const currentMission = missions[currentIndex];
     if (!currentMission) return;
 
@@ -75,7 +82,6 @@ export default function SwipeMissions() {
     const y = direction === 'up' ? -SCREEN_WIDTH : 0;
 
     Animated.timing(position, { toValue: { x, y }, duration: 250, useNativeDriver: false }).start(async () => {
-      // Appeler le bon swipe
       if (direction === 'right') await swipeRight(currentMission.id);
       else if (direction === 'left') await swipeLeft(currentMission.id);
       else if (direction === 'up') await superLike(currentMission.id);
@@ -88,7 +94,7 @@ export default function SwipeMissions() {
   const handleMatchMessage = () => {
     if (lastMatch) {
       clearLastMatch();
-      router.push({ pathname: '/animatorConversation', params: { matchId: lastMatch.id } });
+      router.push({ pathname: '/(screens)/animatorConversation', params: { matchId: lastMatch.id } });
     }
   };
 
@@ -136,7 +142,7 @@ export default function SwipeMissions() {
   return (
     <ScreenWrapper>
       {/* Modal de match */}
-      <AnimatorMatchModal
+      <MatchModal
         visible={!!lastMatch}
         match={lastMatch}
         onMessage={handleMatchMessage}
