@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform, Switch, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform, Switch, StyleSheet, Modal, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
 import { commonStyles } from '../../constants/styles';
 import { hp, wp } from '../../helpers/common';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMyListings } from '../../hooks/usePharmacyListings';
+import { usePharmacyDetails } from '../../hooks/usePharmacyDetails';
 import { storageService } from '../../services/storageService';
 import {
   LISTING_TYPES,
@@ -38,10 +39,11 @@ export default function ListingCreate() {
   const router = useRouter();
   const { session, user, profile } = useAuth();
   const { createListing } = useMyListings(session?.user?.id);
-  
+  const { pharmacies, loading: pharmaciesLoading } = usePharmacyDetails(session?.user?.id);
+
   // Vérification RPPS requise
   const canPublish = DEV_BYPASS_RPPS_CHECK || (user?.user_type === 'titulaire' && user?.rpps_verified);
-  
+
   useEffect(() => {
     if (!canPublish) {
       Alert.alert(
@@ -56,6 +58,8 @@ export default function ListingCreate() {
   const [loading, setLoading] = useState(false);
   const [photoLoading, setPhotoLoading] = useState(false);
   const [publishAsActive, setPublishAsActive] = useState(true);
+  const [showPharmacySelector, setShowPharmacySelector] = useState(false);
+  const [selectedPharmacy, setSelectedPharmacy] = useState(null);
   const [formData, setFormData] = useState({
     ...EMPTY_LISTING,
     city: profile?.current_city || '',
@@ -67,12 +71,49 @@ export default function ListingCreate() {
   });
 
   const updateField = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
-  
+
   const updateCharacteristic = (field, value) => {
     setFormData(prev => ({
       ...prev,
       characteristics: { ...prev.characteristics, [field]: value },
     }));
+  };
+
+  const handlePharmacySelect = (pharmacy) => {
+    setSelectedPharmacy(pharmacy);
+
+    // Générer un titre suggéré selon le type
+    let suggestedTitle = '';
+    if (formData.type === 'vente') {
+      suggestedTitle = `${pharmacy.name} - À vendre`;
+    } else if (formData.type === 'location') {
+      suggestedTitle = `${pharmacy.name} - Location-gérance`;
+    } else if (formData.type === 'association') {
+      suggestedTitle = `${pharmacy.name} - Recherche associé`;
+    }
+
+    // Pré-remplir le formulaire
+    setFormData(prev => ({
+      ...prev,
+      title: suggestedTitle,
+      city: pharmacy.city || prev.city,
+      postal_code: pharmacy.postal_code || prev.postal_code,
+      region: pharmacy.region || prev.region,
+      department: pharmacy.department || prev.department,
+      latitude: pharmacy.latitude || prev.latitude,
+      longitude: pharmacy.longitude || prev.longitude,
+      characteristics: {
+        ...prev.characteristics,
+        staff_count: pharmacy.employee_count || prev.characteristics.staff_count,
+      },
+    }));
+
+    setShowPharmacySelector(false);
+    Alert.alert(
+      'Pharmacie sélectionnée',
+      'Les informations de la pharmacie ont été pré-remplies. Vous pouvez les modifier si nécessaire.',
+      [{ text: 'OK' }]
+    );
   };
 
   const toggleNearby = (item) => {
@@ -217,6 +258,15 @@ export default function ListingCreate() {
           </Pressable>
         </View>
 
+        {/* Pharmacy Selector Modal */}
+        <PharmacySelectorModal
+          visible={showPharmacySelector}
+          onClose={() => setShowPharmacySelector(false)}
+          pharmacies={pharmacies}
+          loading={pharmaciesLoading}
+          onSelect={handlePharmacySelect}
+        />
+
         {/* Progress */}
         <ProgressSteps steps={STEPS} currentStep={currentStep} />
 
@@ -228,7 +278,16 @@ export default function ListingCreate() {
           keyboardShouldPersistTaps="handled"
         >
           {currentStep === 0 && <StepType formData={formData} updateField={updateField} />}
-          {currentStep === 1 && <StepInfo formData={formData} updateField={updateField} onCitySelect={handleCitySelect} />}
+          {currentStep === 1 && (
+            <StepInfo
+              formData={formData}
+              updateField={updateField}
+              onCitySelect={handleCitySelect}
+              pharmacies={pharmacies}
+              selectedPharmacy={selectedPharmacy}
+              onSelectPharmacy={() => setShowPharmacySelector(true)}
+            />
+          )}
           {currentStep === 2 && <StepDetails formData={formData} updateCharacteristic={updateCharacteristic} toggleNearby={toggleNearby} />}
           {currentStep === 3 && <StepPhotos formData={formData} onAddPhoto={handleAddPhoto} onRemovePhoto={handleRemovePhoto} photoLoading={photoLoading} />}
           {currentStep === 4 && <StepPreview formData={formData} updateField={updateField} publishAsActive={publishAsActive} setPublishAsActive={setPublishAsActive} />}
@@ -317,13 +376,50 @@ const StepType = ({ formData, updateField }) => (
   </View>
 );
 
-const StepInfo = ({ formData, updateField, onCitySelect }) => {
+const StepInfo = ({ formData, updateField, onCitySelect, pharmacies = [], selectedPharmacy, onSelectPharmacy }) => {
   const isVente = formData.type === 'vente';
   const isLocation = formData.type === 'location';
   const isAssociation = formData.type === 'association';
+  const hasPharmacies = pharmacies && pharmacies.length > 0;
 
   return (
     <View style={commonStyles.section}>
+      {/* Pharmacy Selector Button */}
+      {hasPharmacies && (
+        <View style={[commonStyles.formGroup, { marginBottom: hp(2) }]}>
+          {selectedPharmacy ? (
+            <View style={styles.selectedPharmacyCard}>
+              <View style={styles.selectedPharmacyIcon}>
+                <Icon name="building" size={20} color={theme.colors.success} />
+              </View>
+              <View style={commonStyles.flex1}>
+                <Text style={styles.selectedPharmacyTitle}>{selectedPharmacy.name}</Text>
+                <Text style={commonStyles.hint} numberOfLines={1}>
+                  {selectedPharmacy.city}
+                  {selectedPharmacy.siret_verified && ' • Vérifié'}
+                </Text>
+              </View>
+              <Pressable onPress={onSelectPharmacy} style={styles.changeButton}>
+                <Text style={styles.changeButtonText}>Changer</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable style={styles.pharmacySelectorButton} onPress={onSelectPharmacy}>
+              <View style={styles.pharmacySelectorIcon}>
+                <Icon name="building" size={24} color={theme.colors.primary} />
+              </View>
+              <View style={commonStyles.flex1}>
+                <Text style={styles.pharmacySelectorTitle}>Choisir une pharmacie</Text>
+                <Text style={commonStyles.hint}>
+                  Pré-remplir avec une de vos pharmacies ({pharmacies.length})
+                </Text>
+              </View>
+              <Icon name="chevronRight" size={20} color={theme.colors.textLight} />
+            </Pressable>
+          )}
+        </View>
+      )}
+
       <View style={commonStyles.formGroup}>
         <Text style={commonStyles.label}>Titre de l'annonce *</Text>
         <Input 
@@ -682,6 +778,75 @@ const InfoRow = ({ icon, text }) => (
   </View>
 );
 
+const PharmacySelectorModal = ({ visible, onClose, pharmacies = [], loading, onSelect }) => (
+  <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <View style={styles.modalOverlay}>
+      <View style={styles.modalContainer}>
+        {/* Header */}
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>Sélectionner une pharmacie</Text>
+          <Pressable onPress={onClose} style={styles.modalCloseButton}>
+            <Icon name="x" size={24} color={theme.colors.text} />
+          </Pressable>
+        </View>
+
+        {/* Content */}
+        {loading ? (
+          <View style={[commonStyles.centered, { padding: hp(4) }]}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={[commonStyles.hint, { marginTop: hp(2) }]}>Chargement...</Text>
+          </View>
+        ) : pharmacies.length === 0 ? (
+          <View style={[commonStyles.centered, { padding: hp(4) }]}>
+            <Icon name="building" size={48} color={theme.colors.textLight} />
+            <Text style={[commonStyles.hint, { marginTop: hp(2), textAlign: 'center' }]}>
+              Aucune pharmacie enregistrée
+            </Text>
+          </View>
+        ) : (
+          <ScrollView style={styles.modalList} showsVerticalScrollIndicator={false}>
+            {pharmacies.map((pharmacy) => (
+              <Pressable
+                key={pharmacy.id}
+                style={styles.pharmacyOption}
+                onPress={() => onSelect(pharmacy)}
+              >
+                <View style={styles.pharmacyOptionIcon}>
+                  <Icon name="building" size={20} color={theme.colors.primary} />
+                </View>
+                <View style={commonStyles.flex1}>
+                  <View style={commonStyles.rowGapSmall}>
+                    <Text style={styles.pharmacyOptionName}>{pharmacy.name}</Text>
+                    {pharmacy.siret_verified && (
+                      <View style={styles.verifiedBadge}>
+                        <Icon name="checkCircle" size={12} color={theme.colors.success} />
+                      </View>
+                    )}
+                  </View>
+                  <Text style={commonStyles.hint} numberOfLines={1}>
+                    {pharmacy.address}, {pharmacy.city}
+                  </Text>
+                  {pharmacy.siret && (
+                    <Text style={[commonStyles.hint, { fontSize: hp(1.2), marginTop: hp(0.2) }]}>
+                      SIRET: {pharmacy.siret.replace(/(\d{3})(\d{3})(\d{3})(\d{5})/, '$1 $2 $3 $4')}
+                    </Text>
+                  )}
+                </View>
+                <Icon name="chevronRight" size={20} color={theme.colors.textLight} />
+              </Pressable>
+            ))}
+          </ScrollView>
+        )}
+
+        {/* Footer */}
+        <View style={styles.modalFooter}>
+          <Button title="Annuler" onPress={onClose} buttonStyle={styles.cancelButton} />
+        </View>
+      </View>
+    </View>
+  </Modal>
+);
+
 // ============================================
 // STYLES LOCAUX
 // ============================================
@@ -776,5 +941,140 @@ const styles = StyleSheet.create({
     fontSize: hp(1.5),
     fontFamily: theme.fonts.semiBold,
     color: theme.colors.text,
+  },
+  // Pharmacy Selector Button
+  pharmacySelectorButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(3),
+    backgroundColor: theme.colors.card,
+    padding: hp(2),
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.primary + '30',
+  },
+  pharmacySelectorIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pharmacySelectorTitle: {
+    fontSize: hp(1.6),
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.text,
+  },
+  selectedPharmacyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(3),
+    backgroundColor: theme.colors.success + '10',
+    padding: hp(1.5),
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.success + '30',
+  },
+  selectedPharmacyIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.success + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedPharmacyTitle: {
+    fontSize: hp(1.5),
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.success,
+  },
+  changeButton: {
+    paddingHorizontal: wp(3),
+    paddingVertical: hp(0.8),
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.success + '40',
+  },
+  changeButtonText: {
+    fontSize: hp(1.3),
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.success,
+  },
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: theme.colors.background,
+    borderTopLeftRadius: theme.radius.xxl,
+    borderTopRightRadius: theme.radius.xxl,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: hp(2),
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  modalTitle: {
+    fontSize: hp(2),
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.text,
+  },
+  modalCloseButton: {
+    padding: hp(0.5),
+  },
+  modalList: {
+    flex: 1,
+    paddingHorizontal: wp(5),
+    paddingVertical: hp(1),
+  },
+  modalFooter: {
+    padding: hp(2),
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  cancelButton: {
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  pharmacyOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(3),
+    backgroundColor: theme.colors.card,
+    padding: hp(1.8),
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: hp(1.5),
+  },
+  pharmacyOptionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pharmacyOptionName: {
+    fontSize: hp(1.6),
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.text,
+  },
+  verifiedBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: theme.colors.success + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

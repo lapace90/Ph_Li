@@ -216,6 +216,35 @@ export const missionService = {
   },
 
   // ==========================================
+  // CONFLITS DE MATCHING
+  // ==========================================
+
+  /**
+   * Vérifie si l'animateur a des matches confirmés qui chevauchent ces dates
+   * (Uniquement les matches avec chat ouvert, pas les simples likes)
+   */
+  async checkMatchConflicts(animatorId, startDate, endDate) {
+    const { data, error } = await supabase
+      .from('animator_matches')
+      .select(`
+        id,
+        mission:animation_missions(
+          id,
+          title,
+          start_date,
+          end_date
+        )
+      `)
+      .eq('animator_id', animatorId)
+      .eq('status', 'matched') // Seulement les matches confirmés (chat ouvert)
+      .gte('mission.end_date', startDate)
+      .lte('mission.start_date', endDate);
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  // ==========================================
   // RECHERCHE / LISTING
   // ==========================================
 

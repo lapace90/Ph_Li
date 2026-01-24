@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }) => {
   const loadUserData = async (userId, email) => {
     try {
       // Charger les données de base en parallèle
-      const [userData, profileData, privacyData, rppsData] = await Promise.all([
+      const [userData, profileData, privacyData, rppsData, siretData] = await Promise.all([
         userService.getById(userId).catch(() => null),
         profileService.getById(userId).catch(() => null),
         privacyService.getByUserId(userId).catch(() => null),
@@ -55,15 +55,25 @@ export const AuthProvider = ({ children }) => {
           .maybeSingle()
           .then(({ data }) => data)
           .catch(() => null),
+        supabase
+          .from('verification_documents')
+          .select('id, status')
+          .eq('user_id', userId)
+          .eq('verification_type', 'siret')
+          .eq('status', 'approved')
+          .maybeSingle()
+          .then(({ data }) => data)
+          .catch(() => null),
       ]);
 
-      // Ajouter rpps_verified au userData
-      const userWithRpps = userData ? {
+      // Ajouter rpps_verified et siret_verified au userData
+      const userWithVerifications = userData ? {
         ...userData,
         rpps_verified: !!rppsData,
+        siret_verified: !!siretData,
       } : null;
 
-      setUser(userWithRpps);
+      setUser(userWithVerifications);
       setProfile(profileData);
       setPrivacy(privacyData);
 

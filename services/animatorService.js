@@ -165,6 +165,8 @@ export const animatorService = {
         date,
         status,
         updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'animator_id,date'
       })
       .select()
       .single();

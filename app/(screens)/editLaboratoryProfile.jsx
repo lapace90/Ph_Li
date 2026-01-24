@@ -241,9 +241,9 @@ export default function EditLaboratoryProfile() {
         {/* Description */}
         <View style={commonStyles.section}>
           <Text style={commonStyles.sectionTitle}>Description</Text>
-          <View style={styles.descContainer}>
+          <View style={commonStyles.bioContainer}>
             <TextInput
-              style={styles.descInput}
+              style={commonStyles.bioInput}
               value={formData.description}
               onChangeText={v => updateField('description', v)}
               placeholder="Présentez votre laboratoire, vos produits et votre expertise..."
@@ -251,7 +251,7 @@ export default function EditLaboratoryProfile() {
               multiline
               maxLength={1000}
             />
-            <Text style={styles.descCounter}>
+            <Text style={commonStyles.bioCounter}>
               {formData.description.length}/1000
             </Text>
           </View>
@@ -261,7 +261,7 @@ export default function EditLaboratoryProfile() {
         <View style={commonStyles.section}>
           <Text style={commonStyles.sectionTitle}>Catégories de produits</Text>
           <Text style={commonStyles.hint}>Sélectionnez vos domaines d'activité</Text>
-          <View style={styles.chipsContainer}>
+          <View style={commonStyles.chipsContainer}>
             {PRODUCT_CATEGORIES.map(cat => (
               <Pressable
                 key={cat.value}
@@ -323,8 +323,8 @@ export default function EditLaboratoryProfile() {
             onChangeText={v => updateField('address', v)}
             placeholder="123 rue du Laboratoire"
           />
-          
-          <View style={styles.row}>
+
+          <View style={commonStyles.formRow}>
             <Input
               label="Code postal"
               value={formData.postalCode}
@@ -434,10 +434,6 @@ const styles = StyleSheet.create({
   content: {
     padding: wp(5),
   },
-  row: {
-    flexDirection: 'row',
-    gap: wp(3),
-  },
   postalCodeInput: {
     width: '35%',
   },
@@ -494,35 +490,6 @@ const styles = StyleSheet.create({
     fontSize: hp(1.4),
     color: theme.colors.success,
     fontFamily: theme.fonts.medium,
-  },
-
-  // Description
-  descContainer: {
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.radius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: hp(1.5),
-  },
-  descInput: {
-    fontSize: hp(1.5),
-    color: theme.colors.text,
-    minHeight: hp(12),
-    textAlignVertical: 'top',
-  },
-  descCounter: {
-    fontSize: hp(1.2),
-    color: theme.colors.textLight,
-    textAlign: 'right',
-    marginTop: hp(0.5),
-  },
-
-  // Chips
-  chipsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: wp(2),
-    marginTop: hp(1),
   },
 
   // Subscription

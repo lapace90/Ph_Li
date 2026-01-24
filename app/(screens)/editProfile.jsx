@@ -191,7 +191,7 @@ export default function EditProfile() {
                     keyboardShouldPersistTaps="handled"
                 >
                     {/* Photo de profil */}
-                    <View style={styles.avatarSection}>
+                    <View style={commonStyles.avatarSection}>
                         <ImagePickerBox
                             value={avatarUri}
                             onChange={handleAvatarChange}
@@ -200,13 +200,13 @@ export default function EditProfile() {
                             placeholder="Photo"
                             loading={avatarLoading}
                         />
-                        <Text style={styles.avatarHint}>Touchez pour modifier</Text>
+                        <Text style={commonStyles.avatarHint}>Touchez pour modifier</Text>
                     </View>
 
                     {/* Identité */}
                     <View style={commonStyles.section}>
                         <Text style={commonStyles.sectionTitle}>Identité</Text>
-                        <View style={styles.row}>
+                        <View style={commonStyles.formRow}>
                             <View style={commonStyles.formHalf}>
                                 <Input
                                     placeholder="Prénom *"
@@ -247,9 +247,9 @@ export default function EditProfile() {
                         <Text style={commonStyles.sectionHint}>
                             Décrivez-vous en quelques mots pour les recruteurs
                         </Text>
-                        <View style={styles.bioContainer}>
+                        <View style={commonStyles.bioContainer}>
                             <TextInput
-                                style={styles.bioInput}
+                                style={commonStyles.bioInput}
                                 placeholder="Ex: Préparatrice passionnée avec 5 ans d'expérience en officine, spécialisée en dermocosmétique et conseil personnalisé..."
                                 placeholderTextColor={theme.colors.textLight}
                                 value={formData.bio}
@@ -259,7 +259,7 @@ export default function EditProfile() {
                                 maxLength={500}
                                 textAlignVertical="top"
                             />
-                            <Text style={styles.bioCounter}>
+                            <Text style={commonStyles.bioCounter}>
                                 {formData.bio.length}/500
                             </Text>
                         </View>
@@ -374,39 +374,6 @@ const styles = StyleSheet.create({
         fontSize: hp(2),
         fontFamily: theme.fonts.semiBold,
         color: theme.colors.text,
-    },
-    row: {
-        flexDirection: 'row',
-        gap: wp(2),
-    },
-    avatarSection: {
-        alignItems: 'center',
-        paddingVertical: hp(2),
-    },
-    avatarHint: {
-        fontSize: hp(1.3),
-        color: theme.colors.textLight,
-        marginTop: hp(1),
-    },
-    bioContainer: {
-        backgroundColor: theme.colors.card,
-        borderRadius: theme.radius.lg,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        padding: hp(1.5),
-    },
-    bioInput: {
-        fontSize: hp(1.5),
-        fontFamily: theme.fonts.regular,
-        color: theme.colors.text,
-        minHeight: hp(10),
-        textAlignVertical: 'top',
-    },
-    bioCounter: {
-        fontSize: hp(1.2),
-        color: theme.colors.textLight,
-        textAlign: 'right',
-        marginTop: hp(0.5),
     },
     radiusContainer: {
         marginTop: hp(1.5),

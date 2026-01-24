@@ -187,6 +187,9 @@ export const commonStyles = StyleSheet.create({
         backgroundColor: theme.colors.card,
         borderWidth: 1,
         borderColor: theme.colors.border,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(1.5),
     },
     chipSmall: {
         paddingHorizontal: wp(2.5),
@@ -1537,5 +1540,34 @@ export const commonStyles = StyleSheet.create({
         fontSize: hp(1.5),
         fontFamily: theme.fonts.regular,
         color: theme.colors.text,
+    },
+
+    // CALENDAR STATES
+    calendarLegendAvailable: {
+        backgroundColor: theme.colors.primary,
+    },
+    calendarLegendUnavailable: {
+        backgroundColor: theme.colors.gray,
+    },
+    calendarLegendBooked: {
+        backgroundColor: theme.colors.warning,
+    },
+    calendarDayAvailable: {
+        backgroundColor: theme.colors.success + '20',
+    },
+    calendarDayUnavailable: {
+        backgroundColor: theme.colors.gray + '30',
+    },
+    calendarDayBooked: {
+        backgroundColor: theme.colors.primary + '30',
+    },
+    calendarDayPast: {
+        opacity: 0.4,
+    },
+    calendarDayTextUnavailable: {
+        color: theme.colors.textLight,
+    },
+    calendarDayTextPast: {
+        color: theme.colors.textLight,
     },
 });

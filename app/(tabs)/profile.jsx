@@ -1,5 +1,5 @@
 // app/(tabs)/profile.jsx
-import { StyleSheet, Text, View, Pressable, ScrollView, Switch } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, Switch, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
@@ -7,10 +7,12 @@ import { hp, wp } from '../../helpers/common';
 import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePrivacy } from '../../hooks/usePrivacy';
+import { usePharmacyDetails } from '../../hooks/usePharmacyDetails';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import RoleAvatar from '../../components/common/RoleAvatar';
 import Icon from '../../assets/icons/Icon';
 import RppsBadge from '../../components/common/RppsBadge';
+import SiretBadge from '../../components/common/SiretBadge';
 import { getRoleLabel } from '../../helpers/roleLabel';
 
 export default function Profile() {
@@ -21,11 +23,25 @@ export default function Profile() {
     // Déterminer le type d'utilisateur
     const isTitulaire = user?.user_type === 'titulaire';
     const isPreparateur = user?.user_type === 'preparateur';
-    const isCandidate = !isTitulaire;
+    const isAnimator = user?.user_type === 'animateur';
+    const isLaboratory = user?.user_type === 'laboratoire';
+    const isCandidate = !isTitulaire && !isAnimator && !isLaboratory;
     const canHaveRPPS = isTitulaire || isPreparateur;
+
+    // Charger les pharmacies pour les titulaires
+    const { pharmacies, loading: pharmaciesLoading, verifiedPharmacies } = usePharmacyDetails(
+        isTitulaire ? session?.user?.id : null
+    );
 
     const handleToggleSearchable = async (value) => {
         await setSearchable(value);
+    };
+
+    // Déterminer la route d'édition selon le type d'utilisateur
+    const getEditProfileRoute = () => {
+        if (isAnimator) return '/(screens)/editAnimatorProfile';
+        if (isLaboratory) return '/(screens)/editLaboratoryProfile';
+        return '/(screens)/editProfile';
     };
 
     const formatAvailability = () => {
@@ -98,7 +114,7 @@ export default function Profile() {
                     <Text style={commonStyles.headerTitleLarge}>Profil</Text>
                     <Pressable
                         style={styles.editButton}
-                        onPress={() => router.push('/(screens)/editProfile')}
+                        onPress={() => router.push(getEditProfileRoute())}
                     >
                         <Icon name="edit" size={20} color={theme.colors.primary} />
                     </Pressable>
@@ -122,6 +138,7 @@ export default function Profile() {
                                     {profile?.first_name} {profile?.last_name}
                                 </Text>
                                 {user?.rpps_verified && <RppsBadge verified={true} size="small" />}
+                                {user?.siret_verified && <SiretBadge verified={true} size="small" />}
                             </View>
                             <Text style={styles.role}>{getRoleLabel(user?.user_type, profile?.gender)}</Text>
                             {getLocation() && (
@@ -142,7 +159,7 @@ export default function Profile() {
                 ) : (
                     <Pressable
                         style={styles.bioEmpty}
-                        onPress={() => router.push('/(screens)/editProfile')}
+                        onPress={() => router.push(getEditProfileRoute())}
                     >
                         <Icon name="edit" size={18} color={theme.colors.textLight} />
                         <Text style={commonStyles.hint}>Ajouter une présentation</Text>
@@ -238,13 +255,89 @@ export default function Profile() {
                                 label="Mes annonces"
                                 subtitle="Emplois, stages et pharmacies"
                                 onPress={() => router.push('/(screens)/recruiterDashboard')}
-                                showBorder={false}
+                                showBorder
                                 highlight
+                            />
+                            <MenuItem
+                                icon="shield"
+                                label="Vérifications & Pharmacies"
+                                subtitle={user?.siret_verified ? "✓ SIRET vérifié" : "Vérifiez votre SIRET"}
+                                onPress={() => router.push('/(screens)/pharmacyManagement')}
+                                showBorder={false}
                             />
                         </View>
 
-                        {/* Infos pharmacie */}
-                        {profile?.pharmacy_name && (
+                        {/* Mes pharmacies */}
+                        {pharmacies.length > 0 && (
+                            <View style={[commonStyles.card, { padding: 0, overflow: 'hidden' }]}>
+                                <View style={styles.pharmaciesSectionHeader}>
+                                    <View style={commonStyles.flex1}>
+                                        <Text style={commonStyles.sectionTitleSmall}>Mes pharmacies</Text>
+                                        <Text style={commonStyles.hint}>
+                                            {verifiedPharmacies.length} sur {pharmacies.length} vérifiée{verifiedPharmacies.length > 1 ? 's' : ''}
+                                        </Text>
+                                    </View>
+                                    <Pressable
+                                        style={styles.viewAllButton}
+                                        onPress={() => router.push('/(screens)/pharmacyManagement')}
+                                    >
+                                        <Text style={styles.viewAllText}>Voir tout</Text>
+                                        <Icon name="chevronRight" size={16} color={theme.colors.primary} />
+                                    </Pressable>
+                                </View>
+
+                                {pharmacies.slice(0, 3).map((pharmacy, index) => (
+                                    <Pressable
+                                        key={pharmacy.id}
+                                        style={[
+                                            styles.pharmacyCompactCard,
+                                            index < Math.min(2, pharmacies.length - 1) && styles.pharmacyCardBorder
+                                        ]}
+                                        onPress={() => router.push('/(screens)/pharmacyManagement')}
+                                    >
+                                        <View style={styles.pharmacyCompactIcon}>
+                                            <Icon name="building" size={16} color={theme.colors.primary} />
+                                        </View>
+                                        <View style={commonStyles.flex1}>
+                                            <View style={commonStyles.rowGapSmall}>
+                                                <Text style={styles.pharmacyCompactName} numberOfLines={1}>
+                                                    {pharmacy.name}
+                                                </Text>
+                                                {pharmacy.siret_verified && (
+                                                    <View style={styles.verifiedBadgeSmall}>
+                                                        <Icon name="checkCircle" size={10} color={theme.colors.success} />
+                                                    </View>
+                                                )}
+                                            </View>
+                                            <Text style={commonStyles.hint} numberOfLines={1}>
+                                                {pharmacy.city}
+                                            </Text>
+                                        </View>
+                                        <Icon name="chevronRight" size={16} color={theme.colors.textLight} />
+                                    </Pressable>
+                                ))}
+                            </View>
+                        )}
+
+                        {/* Message si aucune pharmacie */}
+                        {pharmacies.length === 0 && !pharmaciesLoading && (
+                            <Pressable
+                                style={styles.addPharmacyCard}
+                                onPress={() => router.push('/(screens)/pharmacyManagement')}
+                            >
+                                <Icon name="building" size={24} color={theme.colors.primary} />
+                                <View style={commonStyles.flex1}>
+                                    <Text style={styles.addPharmacyTitle}>Ajoutez vos pharmacies</Text>
+                                    <Text style={commonStyles.hint}>
+                                        Facilitez la création d'annonces et renforcez votre crédibilité
+                                    </Text>
+                                </View>
+                                <Icon name="chevronRight" size={20} color={theme.colors.textLight} />
+                            </Pressable>
+                        )}
+
+                        {/* Infos pharmacie principale (si définie dans le profil) */}
+                        {profile?.pharmacy_name && pharmacies.length === 0 && (
                             <View style={[commonStyles.card, { gap: hp(1.2) }]}>
                                 <View style={[commonStyles.row, { gap: wp(3) }]}>
                                     <Icon name="home" size={18} color={theme.colors.primary} />
@@ -261,9 +354,9 @@ export default function Profile() {
                     </>
                 )}
 
-                {/* ====== VÉRIFICATION RPPS (préparateurs et titulaires) ====== */}
+                {/* ====== VÉRIFICATIONS MANQUANTES (préparateurs et titulaires) ====== */}
                 {canHaveRPPS && !user?.rpps_verified && (
-                    <Pressable 
+                    <Pressable
                         style={styles.rppsWarning}
                         onPress={() => router.push('/(screens)/rppsVerification')}
                     >
@@ -271,12 +364,29 @@ export default function Profile() {
                         <View style={commonStyles.flex1}>
                             <Text style={styles.rppsWarningTitle}>Vérification RPPS</Text>
                             <Text style={commonStyles.hint}>
-                                {isTitulaire 
+                                {isTitulaire
                                     ? 'Requis pour publier des annonces'
                                     : 'Obtenez le badge vérifié sur votre profil'}
                             </Text>
                         </View>
                         <Icon name="chevronRight" size={18} color={theme.colors.warning} />
+                    </Pressable>
+                )}
+
+                {/* Alerte SIRET pour titulaires */}
+                {isTitulaire && !user?.siret_verified && (
+                    <Pressable
+                        style={[styles.rppsWarning, { backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary + '30' }]}
+                        onPress={() => router.push('/(screens)/pharmacyManagement')}
+                    >
+                        <Icon name="building" size={20} color={theme.colors.primary} />
+                        <View style={commonStyles.flex1}>
+                            <Text style={[styles.rppsWarningTitle, { color: theme.colors.primary }]}>Vérification SIRET</Text>
+                            <Text style={commonStyles.hint}>
+                                Sécurisez votre profil sur le marketplace
+                            </Text>
+                        </View>
+                        <Icon name="chevronRight" size={18} color={theme.colors.primary} />
                     </Pressable>
                 )}
 
@@ -412,5 +522,74 @@ const styles = StyleSheet.create({
     menuLabel: {
         fontSize: hp(1.6),
         color: theme.colors.text,
+    },
+    // Pharmacies section
+    pharmaciesSectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: hp(2),
+        paddingBottom: hp(1.5),
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
+    },
+    viewAllButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(1),
+    },
+    viewAllText: {
+        fontSize: hp(1.4),
+        fontFamily: theme.fonts.medium,
+        color: theme.colors.primary,
+    },
+    pharmacyCompactCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(3),
+        padding: hp(1.5),
+        paddingHorizontal: hp(2),
+    },
+    pharmacyCardBorder: {
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
+    },
+    pharmacyCompactIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: theme.colors.primary + '15',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    pharmacyCompactName: {
+        fontSize: hp(1.5),
+        fontFamily: theme.fonts.semiBold,
+        color: theme.colors.text,
+    },
+    verifiedBadgeSmall: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        backgroundColor: theme.colors.success + '20',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    addPharmacyCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(3),
+        backgroundColor: theme.colors.card,
+        padding: hp(2),
+        borderRadius: theme.radius.lg,
+        borderWidth: 1,
+        borderColor: theme.colors.primary + '30',
+        borderStyle: 'dashed',
+    },
+    addPharmacyTitle: {
+        fontSize: hp(1.6),
+        fontFamily: theme.fonts.semiBold,
+        color: theme.colors.text,
+        marginBottom: hp(0.3),
     },
 });

@@ -52,6 +52,20 @@ export default function ExportData() {
         .eq('verification_type', 'rpps')
         .maybeSingle();
 
+      setProgress('Récupération des vérifications SIRET...');
+      const { data: siretVerification } = await supabase
+        .from('verification_documents')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .eq('verification_type', 'siret')
+        .maybeSingle();
+
+      setProgress('Récupération des pharmacies...');
+      const { data: pharmacies } = await supabase
+        .from('pharmacy_details')
+        .select('*')
+        .eq('owner_id', session.user.id);
+
       setProgress('Récupération des candidatures...');
       const { data: matches } = await supabase
         .from('matches')
@@ -106,6 +120,31 @@ export default function ExportData() {
           verifiedAt: rppsVerification.verified_at,
           rejectionReason: rppsVerification.rejection_reason,
         } : null,
+        siretVerification: siretVerification ? {
+          siretNumber: siretVerification.document_reference,
+          status: siretVerification.status,
+          verificationData: siretVerification.verification_data,
+          submittedAt: siretVerification.submitted_at,
+          verifiedAt: siretVerification.verified_at,
+          rejectionReason: siretVerification.rejection_reason,
+        } : null,
+        pharmacies: pharmacies?.map(pharmacy => ({
+          name: pharmacy.name,
+          legalName: pharmacy.legal_name,
+          siret: pharmacy.siret,
+          siretVerified: pharmacy.siret_verified,
+          address: pharmacy.address,
+          city: pharmacy.city,
+          postalCode: pharmacy.postal_code,
+          department: pharmacy.department,
+          region: pharmacy.region,
+          phone: pharmacy.phone,
+          email: pharmacy.email,
+          pharmacyType: pharmacy.pharmacy_type,
+          finessNumber: pharmacy.finess_number,
+          createdAt: pharmacy.created_at,
+          verifiedAt: pharmacy.verified_at,
+        })) || [],
         cvs: cvs?.map(cv => ({
           title: cv.title,
           visibility: cv.visibility,

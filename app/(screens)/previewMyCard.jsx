@@ -72,8 +72,8 @@ export default function PreviewMyCard() {
   const visibilityText = isAnimator
     ? (animatorProfile?.available_now ? 'Visible par les laboratoires' : 'Non visible (indisponible)')
     : (isSearchable ? 'Visible par les recruteurs' : 'Profil masqué');
-  const settingsRoute = isAnimator ? '/editAnimatorProfile' : '/(screens)/privacySettings';
-  const editRoute = isAnimator ? '/editAnimatorProfile' : '/(screens)/editProfile';
+  const settingsRoute = isAnimator ? '/(screens)/editAnimatorProfile' : '/(screens)/privacySettings';
+  const editRoute = isAnimator ? '/(screens)/editAnimatorProfile' : '/(screens)/editProfile';
 
   return (
     <ScreenWrapper>
@@ -395,7 +395,7 @@ export default function PreviewMyCard() {
         {isAnimator ? (
           <CompletionCard score={animatorCompletionScore} items={animatorCompletionItems} editRoute={editRoute} router={router} />
         ) : (
-          <TipsCard profile={profile} hasStandardCV={hasStandardCV} router={router} />
+          <TipsCard profile={profile} hasStandardCV={hasStandardCV} router={router} editRoute={editRoute} />
         )}
 
         {/* Action */}
@@ -442,11 +442,11 @@ const CompletionCard = ({ score, items, editRoute, router }) => (
   </View>
 );
 
-const TipsCard = ({ profile, hasStandardCV, router }) => (
+const TipsCard = ({ profile, hasStandardCV, router, editRoute }) => (
   <View style={styles.tipsCard}>
     <Text style={styles.tipsTitle}>💡 Améliorer mon profil</Text>
-    {!profile?.photo_url && <TipItem icon="camera" text="Ajouter une photo" onPress={() => router.push('/(screens)/editProfile')} />}
-    {!profile?.bio && <TipItem icon="edit" text="Rédiger une bio" onPress={() => router.push('/(screens)/editProfile')} />}
+    {!profile?.photo_url && <TipItem icon="camera" text="Ajouter une photo" onPress={() => router.push(editRoute)} />}
+    {!profile?.bio && <TipItem icon="edit" text="Rédiger une bio" onPress={() => router.push(editRoute)} />}
     {!hasStandardCV && <TipItem icon="file" text="Créer un CV standardisé" onPress={() => router.push('/(screens)/cvList')} />}
     {profile?.photo_url && profile?.bio && hasStandardCV && (
       <View style={styles.tipItem}>

@@ -4,6 +4,7 @@ import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
 import { commonStyles } from '../../constants/styles';
 import Icon from '../../assets/icons/Icon';
+import SiretBadge from '../common/SiretBadge';
 import { getAnimationSpecialtyLabel } from '../../constants/profileOptions';
 
 /**
@@ -26,8 +27,11 @@ export const AnimatorSwipeCard = ({ animator, mission, matchScore, isFavorite, o
         )}
         
         <View style={styles.headerInfo}>
-          <Text style={styles.name}>{fullName}</Text>
-          
+          <View style={commonStyles.rowGapSmall}>
+            <Text style={styles.name}>{fullName}</Text>
+            <SiretBadge verified={animator.siret_verified} size="small" />
+          </View>
+
           {animator.average_rating > 0 && (
             <View style={commonStyles.rowGapSmall}>
               <Icon name="star" size={14} color={theme.colors.warning} />
@@ -168,8 +172,11 @@ export const AnimatorDetailModal = ({ visible, animator, isFavorite, onClose, on
                 <Icon name="user" size={50} color={theme.colors.primary} />
               </View>
             )}
-            <Text style={styles.profileName}>{fullName}</Text>
-            
+            <View style={[commonStyles.rowGapSmall, { marginBottom: hp(0.5) }]}>
+              <Text style={styles.profileName}>{fullName}</Text>
+              <SiretBadge verified={animator.siret_verified} size="small" />
+            </View>
+
             {animator.available_now && (
               <View style={[commonStyles.badge, commonStyles.badgeSuccess]}>
                 <Text style={[commonStyles.badgeText, commonStyles.badgeTextSuccess]}>🟢 Disponible immédiatement</Text>

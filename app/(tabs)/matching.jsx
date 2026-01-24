@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
 import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
-import { useMatching } from '../../hooks/useMatching';
+import { useSwipeScreen } from '../../hooks/useMatching';
 import { useClientMissions } from '../../hooks/useMissions';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import Icon from '../../assets/icons/Icon';
@@ -38,10 +38,25 @@ function ClassicMatching({ isCandidate, router }) {
   const [offerType, setOfferType] = useState('job_offer');
 
   const {
-    cards, loading, lastMatch, superLikesRemaining,
-    handleSwipeLeft, handleSwipeRight, handleSwipeUp,
-    clearLastMatch, refresh,
-  } = useMatching(offerType);
+    currentCard,
+    remainingCards,
+    hasMoreCards,
+    cardsLoading,
+    refreshCards,
+    handleSwipe,
+    lastMatch,
+    clearLastMatch,
+    superLikesRemaining,
+  } = useSwipeScreen(offerType);
+
+  // Adaptation pour compatibilité avec l'ancienne API
+  const cards = currentCard ? [currentCard] : [];
+  const loading = cardsLoading;
+  const refresh = refreshCards;
+
+  const handleSwipeLeft = () => handleSwipe('left');
+  const handleSwipeRight = () => handleSwipe('right');
+  const handleSwipeUp = () => handleSwipe('up');
 
   const handleMatchMessage = (matchId) => {
     clearLastMatch();

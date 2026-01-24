@@ -179,7 +179,7 @@ export default function Search() {
               <Icon 
                 name={type.icon} 
                 size={16} 
-                color={isActive ? theme.colors.white : theme.colors.textLight} 
+                color={isActive ? 'white' : theme.colors.textLight} 
               />
               <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
                 {type.label}
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     gap: wp(1),
     paddingVertical: hp(1),
     paddingHorizontal: wp(2),
-    backgroundColor: theme.colors.white,
+    backgroundColor: 'white',
     borderRadius: theme.radius.lg,
     borderWidth: 1,
     borderColor: theme.colors.gray,
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textLight,
   },
   filterChipTextActive: {
-    color: theme.colors.white,
+    color: 'white',
   },
   countBadge: {
     minWidth: 20,
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textLight,
   },
   countTextActive: {
-    color: theme.colors.white,
+    color: 'white',
   },
   statsBar: {
     flexDirection: 'row',

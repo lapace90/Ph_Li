@@ -19,6 +19,7 @@ import { hp, wp } from '../../helpers/common';
 import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { animatorService } from '../../services/animatorService';
+import { siretVerificationService } from '../../services/siretVerificationService';
 import { storageService } from '../../services/storageService';
 import { supabase } from '../../lib/supabase';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
@@ -57,11 +58,13 @@ export default function EditAnimatorProfile() {
     availableNow: false,
     brandsExperience: [],
     experienceYears: '',
+    siret: '',
   });
   const [newBrand, setNewBrand] = useState('');
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [availability, setAvailability] = useState({});
+  const [siretVerificationStatus, setSiretVerificationStatus] = useState(null);
 
   // ============================================
   // INITIALISATION
@@ -82,10 +85,26 @@ export default function EditAnimatorProfile() {
         availableNow: animatorProfile.available_now || false,
         brandsExperience: animatorProfile.brands_experience || [],
         experienceYears: animatorProfile.experience_years?.toString() || '',
+        siret: '',
       });
       setAvatarUri(profile.photo_url);
     }
   }, [profile, animatorProfile]);
+
+  // Charger le statut de vérification SIRET
+  useEffect(() => {
+    loadSiretStatus();
+  }, []);
+
+  const loadSiretStatus = async () => {
+    if (!session?.user?.id) return;
+    try {
+      const status = await siretVerificationService.getVerificationStatus(session.user.id);
+      setSiretVerificationStatus(status);
+    } catch (error) {
+      console.error('Erreur chargement statut SIRET:', error);
+    }
+  };
 
   // ============================================
   // CALENDRIER
@@ -126,7 +145,8 @@ export default function EditAnimatorProfile() {
       await animatorService.setAvailability(session.user.id, date, nextStatus);
       setAvailability(prev => ({ ...prev, [date]: nextStatus }));
     } catch (error) {
-      Alert.alert('Erreur', 'Impossible de modifier la disponibilité');
+      console.error('Erreur modification disponibilité:', error);
+      Alert.alert('Erreur', error.message || 'Impossible de modifier la disponibilité');
     }
   };
 
@@ -252,22 +272,22 @@ export default function EditAnimatorProfile() {
       const { error: animatorError } = await supabase
         .from('animator_profiles')
         .update({
-          animation_specialties: formData.specialties.length > 0 
-            ? formData.specialties 
+          animation_specialties: formData.specialties.length > 0
+            ? formData.specialties
             : null,
-          mobility_zones: formData.mobilityZones.length > 0 
-            ? formData.mobilityZones 
+          mobility_zones: formData.mobilityZones.length > 0
+            ? formData.mobilityZones
             : null,
-          daily_rate_min: formData.dailyRateMin 
-            ? parseInt(formData.dailyRateMin) 
+          daily_rate_min: formData.dailyRateMin
+            ? parseInt(formData.dailyRateMin)
             : null,
-          daily_rate_max: formData.dailyRateMax 
-            ? parseInt(formData.dailyRateMax) 
+          daily_rate_max: formData.dailyRateMax
+            ? parseInt(formData.dailyRateMax)
             : null,
           has_vehicle: formData.hasVehicle,
           available_now: formData.availableNow,
-          brands_experience: formData.brandsExperience.length > 0 
-            ? formData.brandsExperience 
+          brands_experience: formData.brandsExperience.length > 0
+            ? formData.brandsExperience
             : null,
         })
         .eq('id', session.user.id);
@@ -327,7 +347,7 @@ export default function EditAnimatorProfile() {
       <View style={commonStyles.section}>
         <Text style={commonStyles.sectionTitle}>Informations personnelles</Text>
         
-        <View style={styles.row}>
+        <View style={commonStyles.formRow}>
           <View style={commonStyles.formHalf}>
             <Input
               icon={<Icon name="user" size={20} color={theme.colors.textLight} />}
@@ -361,6 +381,45 @@ export default function EditAnimatorProfile() {
           onChangeText={v => updateField('experienceYears', v)}
           keyboardType="number-pad"
         />
+      </View>
+
+      {/* Vérification SIRET */}
+      <View style={commonStyles.section}>
+        <Text style={commonStyles.sectionTitle}>Vérification professionnelle</Text>
+        <Text style={commonStyles.sectionHint}>
+          Obtenez le badge vérifié en certifiant votre statut d'auto-entrepreneur
+        </Text>
+
+        {siretVerificationStatus?.verified ? (
+          <View style={styles.siretBadge}>
+            <Icon name="checkCircle" size={20} color={theme.colors.success} />
+            <View style={commonStyles.flex1}>
+              <Text style={styles.siretTitle}>SIRET Vérifié</Text>
+              <Text style={styles.siretNumber}>
+                {siretVerificationStatus.siretNumber?.replace(/(\d{3})(\d{3})(\d{3})(\d{5})/, '$1 $2 $3 $4')}
+              </Text>
+            </View>
+            <Pressable onPress={() => router.push('/(screens)/siretVerification')}>
+              <Icon name="chevronRight" size={20} color={theme.colors.textLight} />
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable
+            style={styles.verifyButton}
+            onPress={() => router.push('/(screens)/siretVerification')}
+          >
+            <View style={styles.verifyButtonIcon}>
+              <Icon name="shield" size={24} color={theme.colors.primary} />
+            </View>
+            <View style={commonStyles.flex1}>
+              <Text style={styles.verifyButtonTitle}>Vérifier mon SIRET</Text>
+              <Text style={commonStyles.hint}>
+                Badge vérifié + crédibilité renforcée
+              </Text>
+            </View>
+            <Icon name="chevronRight" size={20} color={theme.colors.textLight} />
+          </Pressable>
+        )}
       </View>
 
       {/* Bio */}
@@ -410,7 +469,7 @@ export default function EditAnimatorProfile() {
       {/* Tarifs */}
       <View style={commonStyles.section}>
         <Text style={commonStyles.sectionTitle}>Tarif journalier (€)</Text>
-        <View style={styles.row}>
+        <View style={commonStyles.formRow}>
           <View style={commonStyles.formHalf}>
             <Input
               icon={<Icon name="dollarSign" size={20} color={theme.colors.textLight} />}
@@ -493,7 +552,7 @@ export default function EditAnimatorProfile() {
             />
           </View>
           <Pressable style={commonStyles.addButton} onPress={addBrand}>
-            <Icon name="plus" size={20} color={theme.colors.white} />
+            <Icon name="plus" size={20} color="white" />
           </Pressable>
         </View>
 
@@ -503,7 +562,7 @@ export default function EditAnimatorProfile() {
               <View key={index} style={[commonStyles.chip, commonStyles.chipActive]}>
                 <Text style={commonStyles.chipTextActive}>{brand}</Text>
                 <Pressable onPress={() => removeBrand(brand)} hitSlop={8}>
-                  <Icon name="x" size={14} color={theme.colors.white} />
+                  <Icon name="x" size={14} color="white" />
                 </Pressable>
               </View>
             ))}
@@ -541,15 +600,15 @@ export default function EditAnimatorProfile() {
         {/* Légende */}
         <View style={commonStyles.legend}>
           <View style={commonStyles.legendItem}>
-            <View style={[commonStyles.legendDot, styles.legendAvailable]} />
+            <View style={[commonStyles.legendDot, commonStyles.calendarLegendAvailable]} />
             <Text style={commonStyles.hint}>Disponible</Text>
           </View>
           <View style={commonStyles.legendItem}>
-            <View style={[commonStyles.legendDot, styles.legendUnavailable]} />
+            <View style={[commonStyles.legendDot, commonStyles.calendarLegendUnavailable]} />
             <Text style={commonStyles.hint}>Indisponible</Text>
           </View>
           <View style={commonStyles.legendItem}>
-            <View style={[commonStyles.legendDot, styles.legendBooked]} />
+            <View style={[commonStyles.legendDot, commonStyles.calendarLegendBooked]} />
             <Text style={commonStyles.hint}>Réservé</Text>
           </View>
         </View>
@@ -577,18 +636,18 @@ export default function EditAnimatorProfile() {
                 key={index}
                 style={[
                   commonStyles.dayCell,
-                  status === 'available' && styles.dayAvailable,
-                  status === 'unavailable' && styles.dayUnavailable,
-                  status === 'booked' && styles.dayBooked,
-                  isPast && styles.dayPast,
+                  status === 'available' && commonStyles.calendarDayAvailable,
+                  status === 'unavailable' && commonStyles.calendarDayUnavailable,
+                  status === 'booked' && commonStyles.calendarDayBooked,
+                  isPast && commonStyles.calendarDayPast,
                 ]}
                 onPress={() => !isPast && !isBooked && toggleDayAvailability(item.date)}
                 disabled={isPast || isBooked}
               >
                 <Text style={[
                   commonStyles.dayText,
-                  status === 'unavailable' && styles.dayTextUnavailable,
-                  isPast && styles.dayTextPast,
+                  status === 'unavailable' && commonStyles.calendarDayTextUnavailable,
+                  isPast && commonStyles.calendarDayTextPast,
                 ]}>
                   {item.day}
                 </Text>
@@ -671,12 +730,6 @@ export default function EditAnimatorProfile() {
 }
 
 const styles = StyleSheet.create({
-  // Layout
-  row: {
-    flexDirection: 'row',
-    gap: wp(2),
-  },
-
   // Available now card
   availableNowCard: {
     flexDirection: 'row',
@@ -698,49 +751,54 @@ const styles = StyleSheet.create({
     marginTop: hp(1.5),
   },
 
-  // Switch label
-  switchLabel: {
-    fontSize: hp(1.6),
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.text,
-  },
-
   // Brand input
   brandInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: wp(2),
   },
-  legendAvailable: {
-    backgroundColor: theme.colors.primary,
+
+  // SIRET verification
+  siretBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(3),
+    backgroundColor: theme.colors.success + '15',
+    padding: hp(1.8),
+    borderRadius: theme.radius.lg,
   },
-  legendUnavailable: {
-    backgroundColor: theme.colors.gray,
+  siretTitle: {
+    fontSize: hp(1.6),
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.success,
+    marginBottom: hp(0.3),
   },
-  legendBooked: {
-    backgroundColor: theme.colors.warning,
+  siretNumber: {
+    fontSize: hp(1.3),
+    color: theme.colors.success,
+    fontFamily: theme.fonts.medium,
   },
-  dayAvailable: {
-    backgroundColor: theme.colors.success + '20',
+  verifyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(3),
+    backgroundColor: theme.colors.card,
+    padding: hp(1.8),
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.primary + '30',
   },
-  dayUnavailable: {
-    backgroundColor: theme.colors.gray + '30',
+  verifyButtonIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  dayBooked: {
-    backgroundColor: theme.colors.primary + '30',
-  },
-  dayPast: {
-    opacity: 0.4,
-  },
-  dayText: {
-    fontSize: hp(1.5),
-    fontFamily: theme.fonts.regular,
+  verifyButtonTitle: {
+    fontSize: hp(1.6),
+    fontFamily: theme.fonts.semiBold,
     color: theme.colors.text,
-  },
-  dayTextUnavailable: {
-    color: theme.colors.textLight,
-  },
-  dayTextPast: {
-    color: theme.colors.textLight,
   },
 });
