@@ -83,22 +83,35 @@ const verifySiretProduction = async (siretNumber) => {
 
   try {
     const response = await fetch(
-      `https://entreprise.data.gouv.fr/api/sirene/v3/etablissements/${cleanSiret}`
+      `https://recherche-entreprises.api.gouv.fr/search?q=${cleanSiret}`
     );
 
     if (!response.ok) {
-      if (response.status === 404) {
-        return {
-          verified: false,
-          message: 'SIRET non trouvé dans la base SIRENE',
-          data: null,
-        };
-      }
       throw new Error('Erreur lors de la vérification du SIRET');
     }
 
     const result = await response.json();
-    const etablissement = result.etablissement;
+
+    if (!result.results || result.results.length === 0) {
+      return {
+        verified: false,
+        message: 'SIRET non trouvé dans la base SIRENE',
+        data: null,
+      };
+    }
+
+    // Trouver l'établissement correspondant au SIRET exact
+    const company = result.results[0];
+    const etablissement = company.matching_etablissements?.find(e => e.siret === cleanSiret)
+      || (company.siege?.siret === cleanSiret ? company.siege : null);
+
+    if (!etablissement) {
+      return {
+        verified: false,
+        message: 'SIRET non trouvé dans la base SIRENE',
+        data: null,
+      };
+    }
 
     // Vérifier si l'établissement est actif
     const isActive = etablissement.etat_administratif === 'A';
@@ -116,13 +129,14 @@ const verifySiretProduction = async (siretNumber) => {
       message: 'SIRET vérifié avec succès',
       data: {
         siret: cleanSiret,
-        name: etablissement.unite_legale?.denomination ||
-              `${etablissement.unite_legale?.prenom_1 || ''} ${etablissement.unite_legale?.nom || ''}`.trim(),
-        activity: etablissement.unite_legale?.activite_principale_libelle || '',
-        address: `${etablissement.geo_adresse || ''}, ${etablissement.code_postal || ''} ${etablissement.libelle_commune || ''}`.trim(),
+        name: company.nom_complet || company.nom_raison_sociale || '',
+        activity: etablissement.activite_principale || '',
+        address: etablissement.adresse || '',
+        postalCode: etablissement.code_postal || '',
+        city: etablissement.libelle_commune || '',
         active: isActive,
         naf_code: etablissement.activite_principale,
-        source: 'insee',
+        source: 'recherche-entreprises',
       },
     };
   } catch (error) {

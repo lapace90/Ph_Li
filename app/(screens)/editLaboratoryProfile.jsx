@@ -331,14 +331,14 @@ export default function EditLaboratoryProfile() {
               onChangeText={v => updateField('postalCode', v)}
               keyboardType="number-pad"
               placeholder="75001"
-              containerStyle={styles.postalCodeInput}
+              containerStyles={styles.postalCodeInput}
             />
             <Input
               label="Ville"
               value={formData.city}
               onChangeText={v => updateField('city', v)}
               placeholder="Paris"
-              containerStyle={commonStyles.flex1}
+              containerStyles={commonStyles.flex1}
             />
           </View>
         </View>

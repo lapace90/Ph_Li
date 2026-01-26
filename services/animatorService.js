@@ -51,7 +51,6 @@ export const animatorService = {
         mobility_zones: profileData.mobilityZones || [],
         has_vehicle: profileData.hasVehicle || false,
         siret_number: profileData.siret?.replace(/\s/g, '') || null,
-        portfolio_urls: profileData.portfolioUrls || [],
         updated_at: new Date().toISOString(),
       })
       .select()

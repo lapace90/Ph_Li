@@ -61,38 +61,33 @@ export default function LaboratoryOnboarding() {
 
     setVerifying(true);
     try {
-      // Appel API entreprise.data.gouv.fr
       const response = await fetch(
-        `https://entreprise.data.gouv.fr/api/sirene/v3/etablissements/${cleanSiret}`
+        `https://recherche-entreprises.api.gouv.fr/search?q=${cleanSiret}`
       );
 
       if (!response.ok) {
-        if (response.status === 404) {
-          Alert.alert('SIRET non trouvé', 'Ce numéro SIRET n\'existe pas dans la base SIRENE');
-          return;
-        }
         throw new Error('Erreur lors de la vérification');
       }
 
       const data = await response.json();
-      const etablissement = data.etablissement;
 
-      // Extraire les données
-      const extractedData = {
-        siret: cleanSiret,
-        companyName: etablissement.unite_legale?.denomination || 
-                     etablissement.enseigne_1 || '',
-        address: [
-          etablissement.numero_voie,
-          etablissement.type_voie,
-          etablissement.libelle_voie,
-        ].filter(Boolean).join(' '),
-        postalCode: etablissement.code_postal,
-        city: etablissement.libelle_commune,
-        isActive: etablissement.etat_administratif === 'A',
-      };
+      if (!data.results || data.results.length === 0) {
+        Alert.alert('SIRET non trouvé', 'Ce numéro SIRET n\'existe pas dans la base SIRENE');
+        return;
+      }
 
-      if (!extractedData.isActive) {
+      const company = data.results[0];
+      const etablissement = company.matching_etablissements?.find(e => e.siret === cleanSiret)
+        || (company.siege?.siret === cleanSiret ? company.siege : null);
+
+      if (!etablissement) {
+        Alert.alert('SIRET non trouvé', 'Ce numéro SIRET n\'existe pas dans la base SIRENE');
+        return;
+      }
+
+      const isActive = etablissement.etat_administratif === 'A';
+
+      if (!isActive) {
         Alert.alert(
           'Établissement fermé',
           'Ce SIRET correspond à un établissement qui n\'est plus actif.'
@@ -100,13 +95,22 @@ export default function LaboratoryOnboarding() {
         return;
       }
 
+      const extractedData = {
+        siret: cleanSiret,
+        companyName: company.nom_complet || company.nom_raison_sociale || '',
+        address: etablissement.adresse || '',
+        postalCode: etablissement.code_postal || '',
+        city: etablissement.libelle_commune || '',
+        isActive: true,
+      };
+
       setSiretData(extractedData);
       setSiretVerified(true);
       setCompanyName(extractedData.companyName);
-      
+
       Alert.alert(
         'SIRET vérifié ✓',
-        `Entreprise : ${extractedData.companyName}\nAdresse : ${extractedData.address}, ${extractedData.postalCode} ${extractedData.city}`
+        `Entreprise : ${extractedData.companyName}\nAdresse : ${extractedData.address}`
       );
 
     } catch (error) {
@@ -300,6 +304,7 @@ export default function LaboratoryOnboarding() {
                   loading={verifying}
                   buttonStyle={styles.verifyButton}
                   textStyle={styles.verifyButtonText}
+                  hasShadow={false}
                 />
 
                 {siretVerified && (
@@ -393,18 +398,16 @@ export default function LaboratoryOnboarding() {
               <View style={styles.form}>
                 <View style={styles.row}>
                   <Input
-                    label="Prénom *"
-                    placeholder="Prénom"
+                    placeholder="Prénom *"
                     value={contactFirstName}
                     onChangeText={setContactFirstName}
-                    containerStyle={styles.halfInput}
+                    containerStyles={styles.halfInput}
                   />
                   <Input
-                    label="Nom *"
-                    placeholder="Nom"
+                    placeholder="Nom *"
                     value={contactLastName}
                     onChangeText={setContactLastName}
-                    containerStyle={styles.halfInput}
+                    containerStyles={styles.halfInput}
                   />
                 </View>
 
@@ -530,7 +533,9 @@ const styles = StyleSheet.create({
     marginBottom: hp(0.5),
   },
   verifyButton: {
-    backgroundColor: theme.colors.primary + '15',
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: theme.colors.primary,
   },
   verifyButtonText: {
     color: theme.colors.primary,
@@ -597,6 +602,7 @@ const styles = StyleSheet.create({
   },
   halfInput: {
     flex: 1,
+    borderRadius: theme.radius.lg,
   },
   summaryBox: {
     backgroundColor: theme.colors.card,

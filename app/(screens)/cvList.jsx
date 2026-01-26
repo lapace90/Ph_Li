@@ -11,7 +11,7 @@ import Icon from '../../assets/icons/Icon';
 
 export default function CVList() {
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, isAnimator } = useAuth();
   const { cvs, loading, deleteCV, refresh } = useCVs(session?.user?.id);
   const [showTypeChoice, setShowTypeChoice] = useState(false);
 
@@ -116,7 +116,7 @@ export default function CVList() {
                   {cv.has_structured_cv && (
                     <View style={[commonStyles.badge, commonStyles.badgeSecondary]}>
                       <Text style={[commonStyles.badgeText, commonStyles.badgeTextSecondary]}>
-                        Formulaire
+                        {cv.structured_data?.cv_type === 'animator' ? 'Animateur' : 'Formulaire'}
                       </Text>
                     </View>
                   )}
@@ -169,11 +169,11 @@ export default function CVList() {
               </Pressable>
             </View>
 
-            <Pressable 
+            <Pressable
               style={[commonStyles.card, { marginBottom: hp(1.5) }]}
               onPress={() => {
                 setShowTypeChoice(false);
-                router.push('/(screens)/cvCreate');
+                router.push(isAnimator ? '/(screens)/cvAnimatorCreate' : '/(screens)/cvCreate');
               }}
             >
               <View style={commonStyles.rowGap}>

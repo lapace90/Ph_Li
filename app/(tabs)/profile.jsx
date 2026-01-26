@@ -17,7 +17,7 @@ import { getRoleLabel } from '../../helpers/roleLabel';
 
 export default function Profile() {
     const router = useRouter();
-    const { session, user, profile, signOut } = useAuth();
+    const { session, user, profile, laboratoryProfile, signOut } = useAuth();
     const { privacy, setSearchable } = usePrivacy(session?.user?.id);
 
     // Déterminer le type d'utilisateur
@@ -138,7 +138,7 @@ export default function Profile() {
                                     {profile?.first_name} {profile?.last_name}
                                 </Text>
                                 {user?.rpps_verified && <RppsBadge verified={true} size="small" />}
-                                {user?.siret_verified && <SiretBadge verified={true} size="small" />}
+                                {(user?.siret_verified || (isLaboratory && laboratoryProfile?.siret)) && <SiretBadge verified={true} size="small" />}
                             </View>
                             <Text style={styles.role}>{getRoleLabel(user?.user_type, profile?.gender)}</Text>
                             {getLocation() && (
@@ -151,10 +151,12 @@ export default function Profile() {
                     </View>
                 </View>
 
-                {/* Bio */}
-                {profile?.bio ? (
+                {/* Bio / Description */}
+                {(isLaboratory ? laboratoryProfile?.description : profile?.bio) ? (
                     <View style={commonStyles.card}>
-                        <Text style={styles.bioText}>{profile.bio}</Text>
+                        <Text style={styles.bioText}>
+                            {isLaboratory ? laboratoryProfile.description : profile.bio}
+                        </Text>
                     </View>
                 ) : (
                     <Pressable
@@ -354,6 +356,110 @@ export default function Profile() {
                     </>
                 )}
 
+                {/* ====== SECTION LABORATOIRE ====== */}
+                {isLaboratory && (
+                    <>
+                        {/* Accès rapide labo */}
+                        <View style={[commonStyles.card, { padding: 0, overflow: 'hidden' }]}>
+                            <MenuItem
+                                icon="briefcase"
+                                label="Mes missions"
+                                subtitle="Créer et gérer vos missions"
+                                onPress={() => router.push('/(screens)/createMission')}
+                                showBorder
+                                highlight
+                            />
+                            <MenuItem
+                                icon="heart"
+                                label="Matchs animateurs"
+                                subtitle="Vos animateurs sélectionnés"
+                                onPress={() => router.push('/(screens)/animatorMatches')}
+                                showBorder={false}
+                            />
+                        </View>
+
+                        {/* Infos labo */}
+                        {laboratoryProfile && (
+                            <View style={[commonStyles.card, { gap: hp(1.2) }]}>
+                                {laboratoryProfile.company_name && (
+                                    <View style={[commonStyles.row, { gap: wp(3) }]}>
+                                        <Icon name="building" size={18} color={theme.colors.primary} />
+                                        <Text style={commonStyles.flex1}>{laboratoryProfile.company_name}</Text>
+                                    </View>
+                                )}
+                                {laboratoryProfile.brand_name && laboratoryProfile.brand_name !== laboratoryProfile.company_name && (
+                                    <View style={[commonStyles.row, { gap: wp(3) }]}>
+                                        <Icon name="tag" size={18} color={theme.colors.primary} />
+                                        <Text style={commonStyles.flex1}>{laboratoryProfile.brand_name}</Text>
+                                    </View>
+                                )}
+                                {laboratoryProfile.product_categories?.length > 0 && (
+                                    <View style={[commonStyles.row, { gap: wp(3) }]}>
+                                        <Icon name="grid" size={18} color={theme.colors.primary} />
+                                        <Text style={commonStyles.flex1}>
+                                            {laboratoryProfile.product_categories.length} catégorie{laboratoryProfile.product_categories.length > 1 ? 's' : ''} de produits
+                                        </Text>
+                                    </View>
+                                )}
+                                {(laboratoryProfile.city || laboratoryProfile.address) && (
+                                    <View style={[commonStyles.row, { gap: wp(3) }]}>
+                                        <Icon name="mapPin" size={18} color={theme.colors.textLight} />
+                                        <Text style={[commonStyles.flex1, { color: theme.colors.textLight }]}>
+                                            {[laboratoryProfile.postal_code, laboratoryProfile.city].filter(Boolean).join(' ')}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                        )}
+
+                        {/* Abonnement */}
+                        {laboratoryProfile && (
+                            <Pressable
+                                style={styles.subscriptionQuick}
+                                onPress={() => router.push('/(screens)/editLaboratoryProfile')}
+                            >
+                                <View style={[
+                                    styles.subscriptionQuickIcon,
+                                    laboratoryProfile.subscription_tier === 'premium' && { backgroundColor: theme.colors.warning },
+                                    laboratoryProfile.subscription_tier === 'business' && { backgroundColor: theme.colors.primary },
+                                ]}>
+                                    <Icon
+                                        name={
+                                            laboratoryProfile.subscription_tier === 'business' ? 'zap' :
+                                            laboratoryProfile.subscription_tier === 'premium' ? 'star' : 'user'
+                                        }
+                                        size={16}
+                                        color={laboratoryProfile.subscription_tier !== 'free' ? '#fff' : theme.colors.primary}
+                                    />
+                                </View>
+                                <View style={commonStyles.flex1}>
+                                    <Text style={styles.subscriptionQuickLabel}>
+                                        {laboratoryProfile.subscription_tier === 'premium' ? 'Premium' :
+                                         laboratoryProfile.subscription_tier === 'business' ? 'Business' : 'Gratuit'}
+                                    </Text>
+                                    <Text style={commonStyles.hint}>Gérer mon abonnement</Text>
+                                </View>
+                                <Icon name="chevronRight" size={16} color={theme.colors.textLight} />
+                            </Pressable>
+                        )}
+
+                        {/* Alerte SIRET pour labos */}
+                        {!(user?.siret_verified || laboratoryProfile?.siret) && (
+                            <Pressable
+                                style={[styles.rppsWarning, { backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary + '30' }]}
+                                onPress={() => router.push('/(screens)/editLaboratoryProfile')}
+                            >
+                                <Icon name="building" size={20} color={theme.colors.primary} />
+                                <View style={commonStyles.flex1}>
+                                    <Text style={[styles.rppsWarningTitle, { color: theme.colors.primary }]}>Vérification SIRET</Text>
+                                    <Text style={commonStyles.hint}>Vérifiez votre SIRET pour renforcer votre crédibilité</Text>
+                                </View>
+                                <Icon name="chevronRight" size={18} color={theme.colors.primary} />
+                            </Pressable>
+                        )}
+                    </>
+                )}
+
                 {/* ====== VÉRIFICATIONS MANQUANTES (préparateurs et titulaires) ====== */}
                 {canHaveRPPS && !user?.rpps_verified && (
                     <Pressable
@@ -392,8 +498,8 @@ export default function Profile() {
 
                 {/* Menu commun */}
                 <View style={[commonStyles.card, { padding: 0, overflow: 'hidden' }]}>
-                    {/* CV seulement pour les candidats */}
-                    {isCandidate && (
+                    {/* CV pour les candidats et animateurs */}
+                    {(isCandidate || isAnimator) && (
                         <MenuItem
                             icon="fileText"
                             label="Mes CV"
@@ -591,5 +697,29 @@ const styles = StyleSheet.create({
         fontFamily: theme.fonts.semiBold,
         color: theme.colors.text,
         marginBottom: hp(0.3),
+    },
+    // Laboratory
+    subscriptionQuick: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.card,
+        padding: hp(2),
+        borderRadius: theme.radius.lg,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        gap: wp(3),
+    },
+    subscriptionQuickIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: theme.colors.primary + '15',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    subscriptionQuickLabel: {
+        fontSize: hp(1.6),
+        fontFamily: theme.fonts.semiBold,
+        color: theme.colors.text,
     },
 });

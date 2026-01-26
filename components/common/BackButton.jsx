@@ -4,17 +4,27 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from '../../assets/icons/Icon';
 import { theme } from '../../constants/theme';
 
-const BackButton = ({ size = 26, router }) => {
+const BackButton = ({ size = 26, router, onPress }) => {
   const navigation = useNavigation();
-  
-  // Ne pas afficher si on ne peut pas revenir en arrière
-  if (!navigation.canGoBack()) {
+
+  // Ne pas afficher si on ne peut pas revenir en arrière (sauf si onPress custom)
+  if (!onPress && !navigation.canGoBack()) {
     return null;
   }
 
+  const handlePress = () => {
+    if (onPress) {
+      onPress();
+    } else if (router) {
+      router.back();
+    } else {
+      navigation.goBack();
+    }
+  };
+
   return (
-    <Pressable 
-      onPress={() => router.back()} 
+    <Pressable
+      onPress={handlePress}
       style={[styles.button, { borderRadius: theme.radius.sm }]}
     >
       <Icon name="arrowLeft" strokeWidth={2.5} size={size} color={theme.colors.text} />

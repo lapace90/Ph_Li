@@ -121,29 +121,34 @@ export const pharmacyDetailsService = {
     }
 
     try {
-      // API INSEE Sirene (gratuite, nécessite un token)
-      // Alternative : API entreprise.data.gouv.fr (gratuite, sans auth)
       const response = await fetch(
-        `https://entreprise.data.gouv.fr/api/sirene/v3/etablissements/${cleanSiret}`
+        `https://recherche-entreprises.api.gouv.fr/search?q=${cleanSiret}`
       );
 
       if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('SIRET non trouvé dans la base SIRENE');
-        }
         throw new Error('Erreur lors de la vérification du SIRET');
       }
 
       const data = await response.json();
-      const etablissement = data.etablissement;
+
+      if (!data.results || data.results.length === 0) {
+        throw new Error('SIRET non trouvé dans la base SIRENE');
+      }
+
+      const company = data.results[0];
+      const etablissement = company.matching_etablissements?.find(e => e.siret === cleanSiret)
+        || (company.siege?.siret === cleanSiret ? company.siege : null);
+
+      if (!etablissement) {
+        throw new Error('SIRET non trouvé dans la base SIRENE');
+      }
 
       // Vérifier que c'est bien une pharmacie (code NAF 4773Z)
-      const nafCode = etablissement.unite_legale?.activite_principale;
+      const nafCode = etablissement.activite_principale || company.activite_principale;
       const isPharmacy = nafCode === '47.73Z' || nafCode === '4773Z';
 
       if (!isPharmacy) {
         console.warn('SIRET valide mais pas une pharmacie (NAF:', nafCode, ')');
-        // On ne bloque pas, mais on log l'info
       }
 
       return {
@@ -152,22 +157,16 @@ export const pharmacyDetailsService = {
         nafCode,
         data: {
           siret: cleanSiret,
-          name: etablissement.unite_legale?.denomination || 
-                etablissement.enseigne_1 ||
-                'Pharmacie',
-          legal_name: etablissement.unite_legale?.denomination,
-          address: [
-            etablissement.numero_voie,
-            etablissement.type_voie,
-            etablissement.libelle_voie,
-          ].filter(Boolean).join(' '),
-          postal_code: etablissement.code_postal,
-          city: etablissement.libelle_commune,
-          department: etablissement.libelle_commune, // À améliorer
-          region: null, // À récupérer via code postal
+          name: company.nom_complet || company.nom_raison_sociale || 'Pharmacie',
+          legal_name: company.nom_raison_sociale || company.nom_complet,
+          address: etablissement.adresse || '',
+          postal_code: etablissement.code_postal || '',
+          city: etablissement.libelle_commune || '',
+          department: etablissement.libelle_commune || '',
+          region: null,
           latitude: etablissement.latitude ? parseFloat(etablissement.latitude) : null,
           longitude: etablissement.longitude ? parseFloat(etablissement.longitude) : null,
-          employee_count: this._parseEmployeeCount(etablissement.tranche_effectifs),
+          employee_count: null,
           is_active: etablissement.etat_administratif === 'A',
         },
       };

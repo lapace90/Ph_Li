@@ -314,25 +314,32 @@ export const laboratoryService = {
 
     try {
       const response = await fetch(
-        `https://entreprise.data.gouv.fr/api/sirene/v3/etablissements/${cleanSiret}`
+        `https://recherche-entreprises.api.gouv.fr/search?q=${cleanSiret}`
       );
 
       if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('SIRET non trouvé');
-        }
         throw new Error('Erreur lors de la vérification');
       }
 
       const data = await response.json();
-      const etablissement = data.etablissement;
+
+      if (!data.results || data.results.length === 0) {
+        throw new Error('SIRET non trouvé');
+      }
+
+      const company = data.results[0];
+      const etablissement = company.matching_etablissements?.find(e => e.siret === cleanSiret)
+        || (company.siege?.siret === cleanSiret ? company.siege : null);
+
+      if (!etablissement) {
+        throw new Error('SIRET non trouvé');
+      }
 
       return {
         valid: true,
         data: {
           siret: cleanSiret,
-          companyName: etablissement.unite_legale?.denomination ||
-                       etablissement.enseigne_1 || '',
+          companyName: company.nom_complet || company.nom_raison_sociale || '',
           isActive: etablissement.etat_administratif === 'A',
         },
       };

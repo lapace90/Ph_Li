@@ -1,9 +1,10 @@
 // Création de mission pour les labos et titulaires
 
 import { useState } from 'react';
-import { View, Text, ScrollView, Alert } from 'react-native';
+import { View, Text, ScrollView, Alert, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { hp, wp } from '../../helpers/common';
+import { theme } from '../../constants/theme';
 import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { useClientMissions } from '../../hooks/useMissions';
@@ -129,7 +130,7 @@ export default function CreateMission() {
 
       <ScrollView
         style={commonStyles.flex1}
-        contentContainerStyle={commonStyles.containerPadded}
+        contentContainerStyle={styles.formContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -199,7 +200,7 @@ export default function CreateMission() {
           keyboardType="numeric"
           error={errors.dailyRate}
         />
-        <Text style={[commonStyles.hint, { marginTop: -hp(1), marginBottom: hp(2) }]}>
+        <Text style={[commonStyles.hint, { marginTop: -hp(1.5) }]}>
           Tarif indicatif du marché : 200-300€/jour
         </Text>
 
@@ -213,24 +214,33 @@ export default function CreateMission() {
           />
         </View>
 
-        <View style={[commonStyles.rowGap, { marginTop: hp(2) }]}>
+        <View style={commonStyles.rowGap}>
           <Button
             title="Brouillon"
             onPress={() => handleSubmit(false)}
             loading={submitting}
-            buttonStyle={commonStyles.buttonOutline}
-            textStyle={commonStyles.buttonOutlineText}
+            buttonStyle={{ flex: 1, backgroundColor: 'transparent', borderWidth: 1.5, borderColor: theme.colors.primary }}
+            textStyle={{ color: theme.colors.primary }}
             hasShadow={false}
           />
           <Button
             title="Publier"
             onPress={() => handleSubmit(true)}
             loading={submitting}
+            buttonStyle={{ flex: 1 }}
           />
         </View>
 
-        <View style={{ height: hp(10) }} />
       </ScrollView>
     </ScreenWrapper>
   );
 }
+
+const styles = StyleSheet.create({
+  formContent: {
+    paddingHorizontal: wp(5),
+    paddingTop: hp(1),
+    paddingBottom: hp(10),
+    gap: hp(2),
+  },
+});

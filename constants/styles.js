@@ -323,6 +323,7 @@ export const commonStyles = StyleSheet.create({
         fontFamily: theme.fonts.semiBold,
     },
     buttonOutline: {
+        backgroundColor: 'transparent',
         borderWidth: 1,
         borderColor: theme.colors.primary,
         paddingVertical: hp(1.5),

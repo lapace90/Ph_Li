@@ -1,9 +1,20 @@
-import { StyleSheet, Text, View, Pressable, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ActivityIndicator, ImageBackground } from 'react-native';
 import { theme } from '../../constants/theme';
 import { commonStyles } from '../../constants/styles';
 import { hp, wp } from '../../helpers/common';
 import Icon from '../../assets/icons/Icon';
 import SwipeCard from './SwipeCard';
+
+// Background PharmaLink
+const BG_PATTERN = require('../../assets/icons/background_Ph_Li.png');
+
+const TYPE_LABELS = {
+  animator: { singular: 'animateur', plural: 'animateurs', search: "Recherche d'animateurs...", empty: "Plus d'animateurs pour le moment" },
+  mission: { singular: 'mission', plural: 'missions', search: 'Recherche de missions...', empty: 'Plus de missions pour le moment' },
+  candidate: { singular: 'candidat', plural: 'candidats', search: 'Recherche de candidats...', empty: 'Plus de candidats pour le moment' },
+  job_offer: { singular: 'offre', plural: 'offres', search: "Recherche d'opportunités...", empty: "Plus d'offres pour le moment" },
+  internship_offer: { singular: 'offre', plural: 'offres', search: "Recherche d'opportunités...", empty: "Plus d'offres pour le moment" },
+};
 
 const SwipeStack = ({
   cards,
@@ -13,27 +24,32 @@ const SwipeStack = ({
   onSwipeRight,
   onSwipeUp,
   onRefresh,
-  superLikesRemaining = 0,
+  onCardPress,
+  superLikesRemaining,
 }) => {
   // Afficher seulement les 3 premières cartes
   const visibleCards = cards.slice(0, 3);
+  const labels = TYPE_LABELS[type] || TYPE_LABELS.job_offer;
+  const superLikeDisabled = superLikesRemaining != null && superLikesRemaining <= 0;
 
+  // Loading state - pas de background
   if (loading) {
     return (
       <View style={commonStyles.emptyContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={commonStyles.emptyText}>Recherche d'opportunités...</Text>
+        <Text style={commonStyles.emptyText}>{labels.search}</Text>
       </View>
     );
   }
 
+  // Empty state - pas de background
   if (cards.length === 0) {
     return (
       <View style={commonStyles.emptyContainer}>
         <View style={commonStyles.emptyIcon}>
           <Icon name="search" size={50} color={theme.colors.primary} />
         </View>
-        <Text style={commonStyles.emptyTitle}>Plus d'offres pour le moment</Text>
+        <Text style={commonStyles.emptyTitle}>{labels.empty}</Text>
         <Text style={commonStyles.emptyText}>
           Revenez plus tard ou élargissez vos critères de recherche
         </Text>
@@ -47,8 +63,13 @@ const SwipeStack = ({
     );
   }
 
+  // Avec cartes - background PharmaLink
   return (
-    <View style={styles.container}>
+    <ImageBackground
+      source={BG_PATTERN}
+      style={styles.container}
+      resizeMode="cover"
+    >
       {/* Stack de cartes */}
       <View style={styles.cardsContainer}>
         {visibleCards.map((card, index) => (
@@ -61,6 +82,7 @@ const SwipeStack = ({
             onSwipeLeft={() => onSwipeLeft?.(card)}
             onSwipeRight={() => onSwipeRight?.(card)}
             onSwipeUp={() => onSwipeUp?.(card)}
+            onCardPress={() => onCardPress?.(card)}
           />
         )).reverse()}
       </View>
@@ -68,7 +90,7 @@ const SwipeStack = ({
       {/* Boutons d'action */}
       <View style={styles.actionsContainer}>
         {/* Dislike */}
-        <Pressable 
+        <Pressable
           style={[styles.actionButton, styles.dislikeButton]}
           onPress={() => onSwipeLeft?.(cards[0])}
         >
@@ -76,27 +98,27 @@ const SwipeStack = ({
         </Pressable>
 
         {/* Super Like */}
-        <Pressable 
+        <Pressable
           style={[
-            styles.actionButton, 
+            styles.actionButton,
             styles.superLikeButton,
-            superLikesRemaining <= 0 && styles.buttonDisabled
+            superLikeDisabled && styles.buttonDisabled
           ]}
-          onPress={() => superLikesRemaining > 0 && onSwipeUp?.(cards[0])}
-          disabled={superLikesRemaining <= 0}
+          onPress={() => !superLikeDisabled && onSwipeUp?.(cards[0])}
+          disabled={superLikeDisabled}
         >
-          <Icon 
-            name="star" 
-            size={24} 
-            color={superLikesRemaining > 0 ? theme.colors.warning : theme.colors.gray} 
+          <Icon
+            name="star"
+            size={24}
+            color={superLikeDisabled ? theme.colors.gray : theme.colors.warning}
           />
-          {superLikesRemaining > 0 && (
+          {superLikesRemaining != null && superLikesRemaining > 0 && (
             <Text style={styles.superLikeCount}>{superLikesRemaining}</Text>
           )}
         </Pressable>
 
         {/* Like */}
-        <Pressable 
+        <Pressable
           style={[styles.actionButton, styles.likeButton]}
           onPress={() => onSwipeRight?.(cards[0])}
         >
@@ -106,9 +128,9 @@ const SwipeStack = ({
 
       {/* Compteur */}
       <Text style={styles.remainingText}>
-        {cards.length} offre{cards.length > 1 ? 's' : ''} restante{cards.length > 1 ? 's' : ''}
+        {cards.length} {cards.length > 1 ? labels.plural : labels.singular} restant{cards.length > 1 ? 's' : ''}
       </Text>
-    </View>
+    </ImageBackground>
   );
 };
 

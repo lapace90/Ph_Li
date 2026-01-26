@@ -203,7 +203,7 @@ export default function JobOfferCreate() {
           <View style={styles.headerCenter}>
             <Text style={commonStyles.headerTitle}>{STEPS[currentStep].title}</Text>
             <Text style={commonStyles.hint}>{STEPS[currentStep].subtitle}</Text>
-          </Pressable>
+          </View>
           <Pressable style={commonStyles.headerButton} onPress={handleCancel}>
             <Icon name="x" size={24} color={theme.colors.textLight} />
           </Pressable>

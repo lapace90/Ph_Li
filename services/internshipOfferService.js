@@ -56,6 +56,12 @@ export const internshipOfferService = {
         region: offerData.region,
         department: offerData.department,
         status: offerData.status || 'active',
+        // Pharmacy selector fields
+        pharmacy_id: offerData.pharmacy_id || null,
+        pharmacy_name: offerData.pharmacy_name || null,
+        pharmacy_siret: offerData.pharmacy_siret || null,
+        pharmacy_siret_verified: offerData.pharmacy_siret_verified || false,
+        discrete_mode: offerData.discrete_mode || false,
       })
       .select()
       .single();

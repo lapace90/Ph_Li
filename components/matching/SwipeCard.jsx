@@ -7,7 +7,10 @@ import { getRoleLabelShort } from '../../helpers/roleLabel';
 import { hp, wp } from '../../helpers/common';
 import { getDisplayName } from '../../helpers/displayName';
 import Icon from '../../assets/icons/Icon';
+import SiretBadge from '../common/SiretBadge';
 import { getContractTypeLabel, getContractColor, getPositionTypeLabel } from '../../constants/jobOptions';
+import { getAnimationSpecialtyLabel } from '../../constants/profileOptions';
+import { formatDistanceToNow } from '../../helpers/dateUtils';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
@@ -46,12 +49,21 @@ const InfoRow = ({ icon, text }) => (
   </View>
 );
 
+const MISSION_TYPE_LABELS = {
+  animation: 'Animation',
+  formation: 'Formation',
+  audit: 'Audit',
+  merchandising: 'Merchandising',
+  event: 'Événement',
+};
+
 const SwipeCard = ({
   card,
   type = 'job_offer',
   onSwipeLeft,
   onSwipeRight,
   onSwipeUp,
+  onCardPress,
   isFirst = false,
   index = 0,
 }) => {
@@ -371,6 +383,238 @@ const SwipeCard = ({
     );
   };
 
+  const renderAnimatorCard = () => {
+    const profile = card.profile || card;
+    const fullName = `${profile.first_name || ''} ${profile.last_name?.[0] || ''}.`;
+    const specialties = card.animation_specialties || [];
+
+    return (
+      <View style={styles.animatorContainer}>
+        {/* Header avec photo et infos */}
+        <View style={styles.animatorHeader}>
+          {profile.photo_url ? (
+            <Image source={{ uri: profile.photo_url }} style={styles.animatorAvatar} />
+          ) : (
+            <View style={[styles.animatorAvatar, { backgroundColor: theme.colors.primary + '15', justifyContent: 'center', alignItems: 'center' }]}>
+              <Icon name="user" size={40} color={theme.colors.primary} />
+            </View>
+          )}
+
+          <View style={styles.animatorHeaderInfo}>
+            <View style={commonStyles.rowGapSmall}>
+              <Text style={styles.animatorName}>{fullName}</Text>
+              <SiretBadge verified={card.siret_verified} size="small" />
+            </View>
+
+            {card.average_rating > 0 && (
+              <View style={commonStyles.rowGapSmall}>
+                <Icon name="star" size={14} color={theme.colors.warning} />
+                <Text style={styles.animatorRating}>{card.average_rating.toFixed(1)}</Text>
+                <Text style={commonStyles.hint}>({card.missions_completed || 0} missions)</Text>
+              </View>
+            )}
+
+            {card.available_now && (
+              <View style={[commonStyles.badge, commonStyles.badgeSuccess, { alignSelf: 'flex-start', marginTop: hp(0.5) }]}>
+                <Text style={[commonStyles.badgeText, commonStyles.badgeTextSuccess]}>Disponible</Text>
+              </View>
+            )}
+          </View>
+
+          {card.matchScore > 0 && (
+            <View style={styles.scoreBadge}>
+              <Text style={styles.scoreText}>{card.matchScore}%</Text>
+              <Text style={styles.scoreLabel}>match</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Spécialités */}
+        {specialties.length > 0 && (
+          <View style={styles.animatorSection}>
+            <Text style={styles.animatorSectionTitle}>Spécialités</Text>
+            <View style={commonStyles.chipsContainerCompact}>
+              {specialties.slice(0, 4).map((spec, i) => (
+                <View key={i} style={[commonStyles.badge, commonStyles.badgePrimary]}>
+                  <Text style={[commonStyles.badgeText, commonStyles.badgeTextPrimary]}>
+                    {getAnimationSpecialtyLabel(spec)}
+                  </Text>
+                </View>
+              ))}
+              {specialties.length > 4 && (
+                <Text style={commonStyles.hint}>+{specialties.length - 4}</Text>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Tarif */}
+        <View style={styles.animatorSection}>
+          <View style={commonStyles.rowBetween}>
+            <View style={commonStyles.rowGapSmall}>
+              <Icon name="briefcase" size={16} color={theme.colors.textLight} />
+              <Text style={commonStyles.hint}>Tarif journalier</Text>
+            </View>
+            <Text style={styles.animatorRate}>
+              {card.daily_rate_min && card.daily_rate_max
+                ? `${card.daily_rate_min}€ - ${card.daily_rate_max}€`
+                : card.daily_rate_min
+                  ? `À partir de ${card.daily_rate_min}€`
+                  : 'Non renseigné'
+              }
+            </Text>
+          </View>
+        </View>
+
+        {/* Mobilité */}
+        {card.mobility_zones?.length > 0 && (
+          <View style={styles.animatorSection}>
+            <View style={commonStyles.rowGapSmall}>
+              <Icon name="mapPin" size={16} color={theme.colors.textLight} />
+              <Text style={commonStyles.hint}>
+                {card.mobility_zones.length === 1
+                  ? card.mobility_zones[0]
+                  : `${card.mobility_zones.length} régions`
+                }
+              </Text>
+              {card.has_vehicle && (
+                <>
+                  <Text style={commonStyles.hint}>•</Text>
+                  <Icon name="car" size={14} color={theme.colors.success} />
+                </>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Marques */}
+        {card.brands_experience?.length > 0 && (
+          <View style={styles.animatorSection}>
+            <Text style={[commonStyles.hint, { marginBottom: hp(0.5) }]}>Expérience marques</Text>
+            <Text style={styles.animatorBrands} numberOfLines={2}>
+              {card.brands_experience.slice(0, 5).join(' • ')}
+              {card.brands_experience.length > 5 && ` +${card.brands_experience.length - 5}`}
+            </Text>
+          </View>
+        )}
+
+        {/* Voir profil complet */}
+        <Pressable style={styles.seeMoreButton} onPress={() => onCardPress?.()}>
+          <Text style={styles.seeMoreText}>Voir le profil complet</Text>
+          <Icon name="chevronRight" size={14} color={theme.colors.primary} />
+        </Pressable>
+      </View>
+    );
+  };
+
+  const renderMissionCard = () => {
+    const lab = card.client_profile;
+
+    const formatDates = () => {
+      if (!card.start_date) return 'Dates flexibles';
+      const start = new Date(card.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+      const end = card.end_date
+        ? new Date(card.end_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+        : null;
+      return end ? `${start} → ${end}` : start;
+    };
+
+    const formatRate = () => {
+      if (card.daily_rate_max && card.daily_rate_max !== card.daily_rate_min) {
+        return `${card.daily_rate_min} - ${card.daily_rate_max}€/jour`;
+      }
+      return `${card.daily_rate_min || card.daily_rate_max}€/jour`;
+    };
+
+    return (
+      <>
+        {/* Header labo */}
+        <Pressable style={styles.missionLabHeader} onPress={() => onCardPress?.()}>
+          {lab?.logo_url ? (
+            <Image source={{ uri: lab.logo_url }} style={styles.missionLabLogo} />
+          ) : (
+            <View style={styles.missionLabLogoPlaceholder}>
+              <Icon name="laboratory" size={24} color={theme.colors.primary} />
+            </View>
+          )}
+          <View style={styles.missionLabInfo}>
+            <Text style={styles.missionLabName} numberOfLines={1}>
+              {lab?.brand_name || lab?.company_name || 'Laboratoire'}
+            </Text>
+            {lab?.siret_verified && (
+              <View style={commonStyles.rowGapSmall}>
+                <Icon name="checkCircle" size={12} color={theme.colors.success} />
+                <Text style={styles.missionVerifiedText}>Vérifié</Text>
+              </View>
+            )}
+          </View>
+          <Icon name="chevronRight" size={20} color={theme.colors.textLight} />
+        </Pressable>
+
+        {/* Contenu mission */}
+        <View style={styles.missionContent}>
+          <Text style={styles.missionTitle} numberOfLines={2}>{card.title}</Text>
+
+          {card.description && (
+            <Text style={styles.missionDescription} numberOfLines={3}>
+              {card.description}
+            </Text>
+          )}
+
+          {/* Tags */}
+          <View style={styles.missionTags}>
+            {card.mission_type && (
+              <View style={[commonStyles.badge, { backgroundColor: theme.colors.primary + '15' }]}>
+                <Text style={[commonStyles.badgeText, { color: theme.colors.primary }]}>
+                  {MISSION_TYPE_LABELS[card.mission_type] || card.mission_type}
+                </Text>
+              </View>
+            )}
+            {card.requires_experience && (
+              <View style={[commonStyles.badge, { backgroundColor: theme.colors.warning + '15' }]}>
+                <Text style={[commonStyles.badgeText, { color: theme.colors.warning }]}>
+                  Expérience requise
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Infos */}
+          <View style={styles.infoSection}>
+            <InfoRow icon="calendar" text={formatDates()} />
+            <InfoRow icon="mapPin" text={card.city || 'Lieu à définir'} />
+            <View style={commonStyles.rowGapSmall}>
+              <Icon name="dollarSign" size={15} color={theme.colors.success} />
+              <Text style={[commonStyles.hint, { color: theme.colors.success, fontWeight: '600' }]}>{formatRate()}</Text>
+            </View>
+          </View>
+
+          {/* Spécialités requises */}
+          {card.required_specialties?.length > 0 && (
+            <View style={styles.missionSpecialties}>
+              <Text style={[commonStyles.hint, { marginBottom: hp(0.3) }]}>Spécialités :</Text>
+              <Text style={commonStyles.hint} numberOfLines={1}>
+                {card.required_specialties.join(' • ')}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Footer */}
+        <View style={styles.missionFooter}>
+          <Text style={commonStyles.hint}>
+            Publiée {formatDistanceToNow(card.created_at)}
+          </Text>
+          {card.applications_count > 0 && (
+            <Text style={[commonStyles.hint, { color: theme.colors.primary, fontWeight: '500' }]}>
+              {card.applications_count} candidature{card.applications_count > 1 ? 's' : ''}
+            </Text>
+          )}
+        </View>
+      </>
+    );
+  };
+
   // Modal détail complet
   const renderDetailModal = () => {
     const isJob = type === 'job_offer';
@@ -495,7 +739,10 @@ const SwipeCard = ({
           </>
         )}
 
-        {type === 'candidate' ? renderCandidateCard() : renderOfferCard()}
+        {type === 'animator' ? renderAnimatorCard()
+          : type === 'mission' ? renderMissionCard()
+          : type === 'candidate' ? renderCandidateCard()
+          : renderOfferCard()}
       </Animated.View>
     </>
   );
@@ -646,6 +893,131 @@ const styles = StyleSheet.create({
   candidateContent: {
     flex: 1,
     padding: wp(4),
+  },
+
+  // Animateur
+  animatorContainer: {
+    flex: 1,
+    padding: wp(4),
+  },
+  animatorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(3),
+    marginBottom: hp(1.5),
+  },
+  animatorAvatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+  },
+  animatorHeaderInfo: {
+    flex: 1,
+  },
+  animatorName: {
+    fontSize: hp(2.2),
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.text,
+  },
+  animatorRating: {
+    fontSize: hp(1.5),
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.warning,
+  },
+  animatorSection: {
+    paddingVertical: hp(1),
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  animatorSectionTitle: {
+    fontSize: hp(1.3),
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.textLight,
+    marginBottom: hp(0.8),
+  },
+  animatorRate: {
+    fontSize: hp(1.5),
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.text,
+  },
+  animatorBrands: {
+    fontSize: hp(1.4),
+    color: theme.colors.text,
+    lineHeight: hp(2),
+  },
+
+  // Mission
+  missionLabHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: hp(2),
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+  },
+  missionLabLogo: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+  },
+  missionLabLogoPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: theme.colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  missionLabInfo: {
+    flex: 1,
+    marginLeft: wp(3),
+  },
+  missionLabName: {
+    fontSize: hp(1.8),
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.text,
+  },
+  missionVerifiedText: {
+    fontSize: hp(1.2),
+    color: theme.colors.success,
+  },
+  missionContent: {
+    flex: 1,
+    padding: hp(2),
+  },
+  missionTitle: {
+    fontSize: hp(2.2),
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.text,
+    marginBottom: hp(1),
+  },
+  missionDescription: {
+    fontSize: hp(1.5),
+    color: theme.colors.textLight,
+    lineHeight: hp(2.2),
+    marginBottom: hp(1.5),
+  },
+  missionTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: wp(2),
+    marginBottom: hp(1.5),
+  },
+  missionSpecialties: {
+    marginTop: hp(1.5),
+    paddingTop: hp(1.5),
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  missionFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: hp(2),
+    paddingVertical: hp(1.5),
+    backgroundColor: theme.colors.background,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
   },
 
   // Indicateurs swipe
