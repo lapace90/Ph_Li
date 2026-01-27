@@ -1,6 +1,7 @@
 // Hook générique pour tous les favoris
 
 import { useState, useEffect, useCallback } from 'react';
+import { Alert } from 'react-native';
 import { favoritesService, FAVORITE_TYPES } from '../services/favoritesService';
 
 /**
@@ -110,7 +111,11 @@ export const useFavorites = (userId, targetType) => {
     if (favoriteIds.has(targetId)) {
       return removeFavorite(targetId);
     }
-    return addFavorite(targetId, notes);
+    const result = await addFavorite(targetId, notes);
+    if (!result.success && result.error) {
+      Alert.alert('Favoris', result.error);
+    }
+    return result;
   };
 
   // Vérifier si un élément est en favori (synchrone grâce au Set)

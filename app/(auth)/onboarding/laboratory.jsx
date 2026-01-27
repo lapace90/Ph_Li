@@ -109,7 +109,7 @@ export default function LaboratoryOnboarding() {
       setCompanyName(extractedData.companyName);
 
       Alert.alert(
-        'SIRET vérifié ✓',
+        'SIRET vérifié',
         `Entreprise : ${extractedData.companyName}\nAdresse : ${extractedData.address}`
       );
 

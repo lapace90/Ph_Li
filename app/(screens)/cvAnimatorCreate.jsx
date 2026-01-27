@@ -45,6 +45,7 @@ import ScreenWrapper from '../../components/common/ScreenWrapper';
 import BackButton from '../../components/common/BackButton';
 import Button from '../../components/common/Button';
 import Icon from '../../assets/icons/Icon';
+import { cvService } from '../../services/cvService';
 import CVAnimatorFormBrands from '../../components/cv/CVAnimatorFormBrands';
 import CVAnimatorFormMission from '../../components/cv/CVAnimatorFormMission';
 import CVFormFormation from '../../components/cv/CVFormFormation';
@@ -62,7 +63,7 @@ const STEPS = [
 export default function CVAnimatorCreate() {
     const router = useRouter();
     const { session, profile } = useAuth();
-    const { createCV, cvs } = useCVs(session?.user?.id);
+    const { createCV } = useCVs(session?.user?.id);
 
     const [currentStep, setCurrentStep] = useState(0);
     const [loading, setLoading] = useState(false);
@@ -263,8 +264,9 @@ export default function CVAnimatorCreate() {
             Alert.alert('Erreur', 'Veuillez donner un titre à votre CV');
             return;
         }
-        if (cvs.length >= 5) {
-            Alert.alert('Limite atteinte', 'Vous ne pouvez pas créer plus de 5 CV');
+        const quotaCheck = await cvService.canGenerateCV(session?.user?.id);
+        if (!quotaCheck.allowed) {
+            Alert.alert('Limite atteinte', quotaCheck.message || 'Vous ne pouvez pas creer plus de CV.');
             return;
         }
         setLoading(true);

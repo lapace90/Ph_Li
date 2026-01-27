@@ -226,7 +226,7 @@ export const AuthProvider = ({ children }) => {
       free: { contacts: 0, missions: 0 },
       starter: { contacts: 5, missions: 1 },
       pro: { contacts: Infinity, missions: Infinity },
-      enterprise: { contacts: Infinity, missions: Infinity },
+      business: { contacts: Infinity, missions: Infinity },
     };
 
     const tier = labProfile.subscription_tier || 'free';

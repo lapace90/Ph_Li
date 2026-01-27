@@ -60,11 +60,18 @@ export default function AnimatorMatches() {
           <View style={commonStyles.flex1}>
             <View style={commonStyles.rowBetween}>
               <Text style={commonStyles.listItemTitle}>{otherName}</Text>
-              {isNew && (
-                <View style={[commonStyles.badge, commonStyles.badgePrimary]}>
-                  <Text style={[commonStyles.badgeText, commonStyles.badgeTextPrimary]}>Nouveau</Text>
-                </View>
-              )}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: wp(1.5) }}>
+                {item.is_super_like && (
+                  <View style={styles.superLikeBadge}>
+                    <Icon name="star" size={12} color={theme.colors.warning} />
+                  </View>
+                )}
+                {isNew && (
+                  <View style={[commonStyles.badge, commonStyles.badgePrimary]}>
+                    <Text style={[commonStyles.badgeText, commonStyles.badgeTextPrimary]}>Nouveau</Text>
+                  </View>
+                )}
+              </View>
             </View>
             
             {item.mission && (
@@ -152,4 +159,12 @@ const styles = {
   statValue: { fontSize: hp(2.2), fontFamily: theme.fonts.bold, color: theme.colors.text },
   statDivider: { width: 1, height: hp(4), backgroundColor: theme.colors.border },
   matchDate: { fontSize: hp(1.2), color: theme.colors.textLight, marginTop: 4 },
+  superLikeBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: theme.colors.warning + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 };

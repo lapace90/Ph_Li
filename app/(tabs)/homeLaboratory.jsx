@@ -1,5 +1,5 @@
 // app/(tabs)/homeLaboratory.jsx
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, RefreshControl, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
@@ -8,10 +8,14 @@ import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { useClientMissions } from '../../hooks/useMissions';
 import { useAnimatorMatches } from '../../hooks/useAnimatorMatching';
+import { favoritesService } from '../../services/favoritesService';
+import { laboratoryPostService } from '../../services/laboratoryPostService';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import Icon from '../../assets/icons/Icon';
 import Logo from '../../assets/icons/Logo';
+import LaboCarousel from '../../components/home/LaboCarousel';
 import { MissionListCard } from '../../components/missions/MissionCard';
+import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 
 // ============================================
 // SOUS-COMPOSANTS
@@ -56,10 +60,39 @@ const EmptyState = ({ icon, title, subtitle }) => (
 export default function HomeLaboratory() {
   const router = useRouter();
   const { session, profile, laboratoryProfile, refreshLaboratoryProfile } = useAuth();
+  const unreadCount = useUnreadNotificationCount();
   const [refreshing, setRefreshing] = useState(false);
 
   const { missions, loading: loadingMissions, refresh: refreshMissions } = useClientMissions(session?.user?.id);
   const { matches, loading: loadingMatches, refresh: refreshMatches } = useAnimatorMatches();
+  const [favQuota, setFavQuota] = useState(null);
+
+  const loadFavQuota = useCallback(async () => {
+    if (!session?.user?.id) return;
+    try {
+      const quota = await favoritesService.canAddFavorite(session.user.id);
+      setFavQuota(quota);
+    } catch (err) {
+      console.error('Error loading fav quota:', err);
+    }
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    loadFavQuota();
+  }, [loadFavQuota]);
+
+  // Posts labos
+  const [laboPosts, setLaboPosts] = useState([]);
+  const fetchLaboPosts = useCallback(async () => {
+    if (!laboratoryProfile?.id) return;
+    try {
+      const data = await laboratoryPostService.getPostsByLab(laboratoryProfile.id, { isPublished: true, limit: 6 });
+      setLaboPosts(data);
+    } catch (err) {
+      console.error('Erreur posts labos:', err);
+    }
+  }, [laboratoryProfile?.id]);
+  useEffect(() => { fetchLaboPosts(); }, [fetchLaboPosts]);
 
   const activeMissions = missions?.filter(m => m.status === 'open') || [];
   const inProgressMissions = missions?.filter(m => ['assigned', 'in_progress'].includes(m.status)) || [];
@@ -76,9 +109,9 @@ export default function HomeLaboratory() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refreshMissions?.(), refreshMatches?.(), refreshLaboratoryProfile?.()]);
+    await Promise.all([refreshMissions?.(), refreshMatches?.(), refreshLaboratoryProfile?.(), loadFavQuota(), fetchLaboPosts()]);
     setRefreshing(false);
-  }, [refreshMissions, refreshMatches, refreshLaboratoryProfile]);
+  }, [refreshMissions, refreshMatches, refreshLaboratoryProfile, loadFavQuota, fetchLaboPosts]);
 
   const loading = loadingMissions || loadingMatches;
 
@@ -99,6 +132,13 @@ export default function HomeLaboratory() {
             </Pressable>
             <Pressable style={commonStyles.headerButton} onPress={() => router.push('/(screens)/notifications')}>
               <Icon name="bell" size={22} color={theme.colors.text} />
+              {unreadCount > 0 && (
+                <View style={commonStyles.notificationBadge}>
+                  <Text style={commonStyles.notificationBadgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           </View>
         </View>
@@ -117,6 +157,35 @@ export default function HomeLaboratory() {
 
         {/* Stats */}
         <StatsCard stats={stats} />
+
+        {/* Compteur favoris */}
+        {favQuota && favQuota.limit !== Infinity && (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: wp(2),
+              paddingVertical: hp(0.8),
+              paddingHorizontal: wp(4),
+              backgroundColor: theme.colors.card,
+              borderRadius: theme.radius.lg,
+              marginTop: hp(1),
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+            }}
+          >
+            <Icon name="star" size={16} color={theme.colors.primary} />
+            <Text style={{ fontSize: hp(1.4), color: theme.colors.text, fontWeight: '600' }}>
+              Favoris : {favQuota.current}/{favQuota.limit}
+            </Text>
+            {favQuota.current >= favQuota.limit && (
+              <View style={{ backgroundColor: theme.colors.rose + '15', paddingHorizontal: wp(2), paddingVertical: hp(0.2), borderRadius: theme.radius.sm }}>
+                <Text style={{ fontSize: hp(1.1), color: theme.colors.rose, fontWeight: '600' }}>Plein</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Missions en cours */}
         <View style={commonStyles.homeSection}>
@@ -137,7 +206,7 @@ export default function HomeLaboratory() {
           ) : inProgressMissions.length > 0 ? (
             <View style={commonStyles.homeItemsList}>
               {inProgressMissions.slice(0, 2).map(mission => (
-                <MissionListCard key={mission.id} mission={mission} showStatus onPress={() => router.push(`/(screens)/missionDetail/${mission.id}`)} />
+                <MissionListCard key={mission.id} mission={mission} showStatus onPress={() => router.push({ pathname: '/(screens)/missionDetail', params: { missionId: mission.id } })} />
               ))}
             </View>
           ) : (
@@ -162,13 +231,21 @@ export default function HomeLaboratory() {
           ) : activeMissions.length > 0 ? (
             <View style={commonStyles.homeItemsList}>
               {activeMissions.slice(0, 3).map(mission => (
-                <MissionListCard key={mission.id} mission={mission} onPress={() => router.push(`/(screens)/missionDetail/${mission.id}`)} />
+                <MissionListCard key={mission.id} mission={mission} onPress={() => router.push({ pathname: '/(screens)/missionDetail', params: { missionId: mission.id } })} />
               ))}
             </View>
           ) : (
             <EmptyState icon="clipboard" title="Aucune mission ouverte" subtitle="Publiez une mission pour trouver des animateurs" />
           )}
         </View>
+
+        {/* Mes publications */}
+        <LaboCarousel
+          title="Mes publications"
+          posts={laboPosts.map(p => ({ ...p, laboratory: laboratoryProfile }))}
+          emptyMessage="Aucune publication - créez votre première !"
+          onPostPress={(post) => router.push({ pathname: '/(screens)/postDetail', params: { postId: post.id } })}
+        />
 
         {/* Accès rapide */}
         <View style={commonStyles.homeSection}>
@@ -187,9 +264,15 @@ export default function HomeLaboratory() {
               </View>
               <Text style={commonStyles.homeQuickActionText}>Créer mission</Text>
             </Pressable>
-            <Pressable style={commonStyles.homeQuickAction} onPress={() => router.push('/(screens)/animatorMatches')}>
+            <Pressable style={commonStyles.homeQuickAction} onPress={() => router.push('/(screens)/laboratoryPosts')}>
               <View style={[commonStyles.homeQuickActionIcon, { backgroundColor: theme.colors.secondary + '15' }]}>
-                <Icon name="users" size={20} color={theme.colors.secondary} />
+                <Icon name="fileText" size={20} color={theme.colors.secondary} />
+              </View>
+              <Text style={commonStyles.homeQuickActionText}>Publications</Text>
+            </Pressable>
+            <Pressable style={commonStyles.homeQuickAction} onPress={() => router.push('/(screens)/animatorMatches')}>
+              <View style={[commonStyles.homeQuickActionIcon, { backgroundColor: theme.colors.warning + '15' }]}>
+                <Icon name="users" size={20} color={theme.colors.warning} />
               </View>
               <Text style={commonStyles.homeQuickActionText}>Mes matchs</Text>
             </Pressable>

@@ -19,6 +19,11 @@ export const commonStyles = StyleSheet.create({
         paddingHorizontal: wp(5),
         paddingBottom: hp(4),
     },
+    contentPadded: {
+        flex: 1,
+        paddingHorizontal: wp(5),
+        paddingTop: hp(1),
+    },
     centered: {
         justifyContent: 'center',
         alignItems: 'center',
@@ -63,6 +68,25 @@ export const commonStyles = StyleSheet.create({
         backgroundColor: theme.colors.background,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    notificationBadge: {
+        position: 'absolute',
+        top: 2,
+        right: 2,
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        backgroundColor: theme.colors.rose,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+        borderWidth: 2,
+        borderColor: theme.colors.background,
+    },
+    notificationBadgeText: {
+        fontSize: 10,
+        fontFamily: theme.fonts.bold,
+        color: '#FFFFFF',
     },
     headerButtonSmall: {
         width: 36,

@@ -1,4 +1,7 @@
 import { supabase } from '../lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const SETTINGS_KEY = '@notification_settings';
 
 /**
  * Service de notifications
@@ -158,6 +161,7 @@ export const NOTIFICATION_TYPES = {
   APPLICATION_VIEWED: 'application_viewed',
   APPLICATION_ACCEPTED: 'application_accepted',
   APPLICATION_REJECTED: 'application_rejected',
+  SUPER_LIKE: 'super_like',
   PROFILE_VIEWED: 'profile_viewed',
   OFFER_EXPIRED: 'offer_expired',
   SYSTEM: 'system',
@@ -178,12 +182,52 @@ export const getNotificationIcon = (type) => {
       return 'checkCircle';
     case NOTIFICATION_TYPES.APPLICATION_REJECTED:
       return 'x';
+    case NOTIFICATION_TYPES.SUPER_LIKE:
+      return 'star';
     case NOTIFICATION_TYPES.PROFILE_VIEWED:
       return 'user';
     case NOTIFICATION_TYPES.OFFER_EXPIRED:
       return 'clock';
     default:
       return 'bell';
+  }
+};
+
+// Mapping type → clé de paramétrage
+const NOTIFICATION_SETTINGS_MAP = {
+  [NOTIFICATION_TYPES.MATCH]: 'newMatch',
+  [NOTIFICATION_TYPES.SUPER_LIKE]: 'newMatch',
+  [NOTIFICATION_TYPES.MESSAGE]: 'newMessage',
+  [NOTIFICATION_TYPES.APPLICATION_RECEIVED]: 'applicationStatus',
+  [NOTIFICATION_TYPES.APPLICATION_VIEWED]: 'applicationStatus',
+  [NOTIFICATION_TYPES.APPLICATION_ACCEPTED]: 'applicationStatus',
+  [NOTIFICATION_TYPES.APPLICATION_REJECTED]: 'applicationStatus',
+  [NOTIFICATION_TYPES.OFFER_EXPIRED]: 'newJobInArea',
+};
+
+/**
+ * Vérifie si une notification de ce type doit déclencher une alerte
+ * (toast/push) selon les préférences utilisateur.
+ * Les notifications sont toujours créées en base, mais l'alerte
+ * visuelle peut être supprimée selon les préférences.
+ */
+export const shouldAlertForType = async (type) => {
+  try {
+    const stored = await AsyncStorage.getItem(SETTINGS_KEY);
+    if (!stored) return true; // Pas de prefs = tout activé par défaut
+
+    const settings = JSON.parse(stored);
+
+    // Master toggle
+    if (settings.pushEnabled === false) return false;
+
+    // Vérifier le paramétrage spécifique
+    const settingKey = NOTIFICATION_SETTINGS_MAP[type];
+    if (settingKey && settings[settingKey] === false) return false;
+
+    return true;
+  } catch {
+    return true;
   }
 };
 
@@ -198,6 +242,8 @@ export const getNotificationColor = (type) => {
       return '#2ECC71';
     case NOTIFICATION_TYPES.APPLICATION_REJECTED:
       return '#E74C3C';
+    case NOTIFICATION_TYPES.SUPER_LIKE:
+      return '#FFB800';
     default:
       return '#9B59B6';
   }

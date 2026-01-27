@@ -1,6 +1,6 @@
 // app/(tabs)/matching.jsx
 import { useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
@@ -53,6 +53,7 @@ function ClassicMatching({ isCandidate, router }) {
     lastMatch,
     clearLastMatch,
     superLikesRemaining,
+    superLikeQuota,
   } = useSwipeScreen(offerType);
 
   // Adaptation pour compatibilité avec l'ancienne API
@@ -63,6 +64,17 @@ function ClassicMatching({ isCandidate, router }) {
   const handleSwipeLeft = () => handleSwipe('left');
   const handleSwipeRight = () => handleSwipe('right');
   const handleSwipeUp = () => handleSwipe('up');
+
+  const handleSuperLikeBlocked = () => {
+    Alert.alert(
+      'Super Likes épuisés',
+      'Vous avez utilisé tous vos Super Likes du jour. Passez Premium pour en obtenir davantage !',
+      [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Voir les offres', onPress: () => router.push('/(screens)/subscriptionPlans') },
+      ]
+    );
+  };
 
   const handleMatchMessage = (matchId) => {
     clearLastMatch();
@@ -105,6 +117,8 @@ function ClassicMatching({ isCandidate, router }) {
         onSwipeUp={handleSwipeUp}
         onRefresh={refresh}
         superLikesRemaining={superLikesRemaining}
+        superLikeQuota={superLikeQuota}
+        onSuperLikeBlocked={handleSuperLikeBlocked}
       />
     </ScreenWrapper>
   );
@@ -114,7 +128,7 @@ function ClassicMatching({ isCandidate, router }) {
 // ANIMATEUR → Swipe missions dans l'onglet
 // ============================================
 function AnimatorMatching({ router, userId }) {
-  const { missions, loading, lastMatch, swipeRight, swipeLeft, superLike, clearLastMatch, refresh } = useSwipeMissions();
+  const { missions, loading, lastMatch, swipeRight, swipeLeft, superLike, clearLastMatch, refresh, superLikesRemaining, superLikeQuota } = useSwipeMissions();
   const { isFavorite: isLabFav } = useFavoriteIds(userId, FAVORITE_TYPES.LABORATORY);
   const { toggleFavorite: toggleLabFav } = useFavorites(userId, FAVORITE_TYPES.LABORATORY);
   const [selectedLab, setSelectedLab] = useState(null);
@@ -122,6 +136,17 @@ function AnimatorMatching({ router, userId }) {
   const handleSwipeLeft = async (card) => await swipeLeft(card.id);
   const handleSwipeRight = async (card) => await swipeRight(card.id);
   const handleSwipeUp = async (card) => await superLike(card.id);
+
+  const handleSuperLikeBlocked = () => {
+    Alert.alert(
+      'Super Likes épuisés',
+      'Vous avez utilisé tous vos Super Likes du jour. Passez Premium pour en obtenir davantage !',
+      [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Voir les offres', onPress: () => router.push('/(screens)/subscriptionPlans') },
+      ]
+    );
+  };
 
   const handleMatchMessage = () => {
     if (lastMatch) {
@@ -155,6 +180,9 @@ function AnimatorMatching({ router, userId }) {
         onSwipeUp={handleSwipeUp}
         onRefresh={refresh}
         onCardPress={(card) => setSelectedLab(card.client_profile)}
+        superLikesRemaining={superLikesRemaining}
+        superLikeQuota={superLikeQuota}
+        onSuperLikeBlocked={handleSuperLikeBlocked}
       />
 
       <LaboratoryDetailModal
@@ -217,11 +245,11 @@ function LaboratoryMatching({ router, userId }) {
               const rate = mission.daily_rate_min && mission.daily_rate_max
                 ? `${mission.daily_rate_min}-${mission.daily_rate_max}€/j`
                 : mission.daily_rate_min ? `${mission.daily_rate_min}€/j`
-                : mission.daily_rate ? `${mission.daily_rate}€/j` : null;
+                : mission.daily_rate_max ? `${mission.daily_rate_max}€/j` : null;
 
               const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null;
               const dateRange = mission.start_date
-                ? `${formatDate(mission.start_date)}${mission.end_date ? ` → ${formatDate(mission.end_date)}` : ''}`
+                ? `${formatDate(mission.start_date)}${mission.end_date ? ` - ${formatDate(mission.end_date)}` : ''}`
                 : null;
 
               return (
@@ -281,7 +309,7 @@ function LaboratoryMatching({ router, userId }) {
 // LABORATOIRE → Vue swipe animateurs (dans l'onglet)
 // ============================================
 function LaboratorySwipeView({ router, userId, missionId, onBack }) {
-  const { animators, mission, loading, lastMatch, swipeRight, swipeLeft, superLike, clearLastMatch, refresh } = useSwipeAnimators(missionId);
+  const { animators, mission, loading, lastMatch, swipeRight, swipeLeft, superLike, clearLastMatch, refresh, superLikesRemaining, superLikeQuota } = useSwipeAnimators(missionId);
   const { isFavorite: isAnimatorFav } = useFavoriteIds(userId, FAVORITE_TYPES.ANIMATOR);
   const { toggleFavorite: toggleAnimatorFav } = useFavorites(userId, FAVORITE_TYPES.ANIMATOR);
   const [selectedAnimator, setSelectedAnimator] = useState(null);
@@ -290,11 +318,26 @@ function LaboratorySwipeView({ router, userId, missionId, onBack }) {
   const handleSwipeRight = async (card) => await swipeRight(card.id);
   const handleSwipeUp = async (card) => await superLike(card.id);
 
+  const handleSuperLikeBlocked = () => {
+    Alert.alert(
+      'Super Likes épuisés',
+      'Vous avez utilisé tous vos Super Likes du jour. Passez Premium pour en obtenir davantage !',
+      [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Voir les offres', onPress: () => router.push('/(screens)/subscriptionPlans') },
+      ]
+    );
+  };
+
   const handleMatchMessage = () => {
-    if (lastMatch) {
-      clearLastMatch();
-      router.push({ pathname: '/(screens)/animatorConversation', params: { matchId: lastMatch.id } });
-    }
+    if (!lastMatch) return;
+    const matchId = lastMatch.id;
+    const animatorId = lastMatch.animator_id || lastMatch.animator?.id;
+    clearLastMatch();
+    router.push({
+      pathname: '/(screens)/missionProposal',
+      params: { missionId, matchId, animatorId },
+    });
   };
 
   return (
@@ -328,6 +371,9 @@ function LaboratorySwipeView({ router, userId, missionId, onBack }) {
         onSwipeUp={handleSwipeUp}
         onRefresh={refresh}
         onCardPress={(card) => setSelectedAnimator(card)}
+        superLikesRemaining={superLikesRemaining}
+        superLikeQuota={superLikeQuota}
+        onSuperLikeBlocked={handleSuperLikeBlocked}
       />
 
       <AnimatorDetailModal

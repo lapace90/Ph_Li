@@ -1,6 +1,7 @@
 // Service générique pour tous les favoris
 
 import { supabase } from '../lib/supabase';
+import { subscriptionService } from './subscriptionService';
 
 // Types de cibles possibles
 export const FAVORITE_TYPES = {
@@ -50,6 +51,14 @@ export const favoritesService = {
    * Ajoute un favori
    */
   async add(userId, targetType, targetId, notes = null) {
+    // Verifier le quota pour les favoris animateurs (labos uniquement)
+    if (targetType === FAVORITE_TYPES.ANIMATOR) {
+      const quota = await this.canAddFavorite(userId);
+      if (!quota.allowed) {
+        throw new Error(quota.message || 'Limite de favoris atteinte.');
+      }
+    }
+
     const { data, error } = await supabase
       .from('favorites')
       .insert({
@@ -131,6 +140,61 @@ export const favoritesService = {
 
     if (error) throw error;
     return data;
+  },
+
+  // ==========================================
+  // QUOTAS
+  // ==========================================
+
+  /**
+   * Compte les favoris d'un utilisateur
+   * @param {string} userId
+   * @param {string|null} targetType - Si fourni, filtre par type
+   * @returns {number}
+   */
+  async getFavoritesCount(userId, targetType = null) {
+    let query = supabase
+      .from('favorites')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    if (targetType) {
+      query = query.eq('target_type', targetType);
+    }
+
+    const { count, error } = await query;
+    if (error) throw error;
+    return count || 0;
+  },
+
+  /**
+   * Verifie si l'utilisateur peut ajouter un favori animateur
+   * Seuls les labos ont une limite (free=3, starter=10, pro=50, business=Infinity)
+   * @returns {{ allowed: boolean, current: number, limit: number, message: string|null }}
+   */
+  async canAddFavorite(userId) {
+    const { limits, userType, tier } = await subscriptionService.getLimits(userId);
+
+    if (userType !== 'laboratoire') {
+      return { allowed: true, current: 0, limit: Infinity };
+    }
+
+    const limit = limits.favorites;
+    if (limit === Infinity || limit == null) {
+      return { allowed: true, current: 0, limit: Infinity };
+    }
+
+    const current = await this.getFavoritesCount(userId, FAVORITE_TYPES.ANIMATOR);
+    const allowed = current < limit;
+
+    let message = null;
+    if (!allowed) {
+      const nextLabel = tier === 'free' ? 'Starter' : tier === 'starter' ? 'Pro' : 'Business';
+      const nextLimit = tier === 'free' ? 10 : tier === 'starter' ? 50 : 'illimites';
+      message = `Limite de favoris atteinte (${current}/${limit}). Passez au forfait ${nextLabel} pour sauvegarder jusqu'a ${nextLimit} animateurs.`;
+    }
+
+    return { allowed, current, limit, message };
   },
 
   // ==========================================

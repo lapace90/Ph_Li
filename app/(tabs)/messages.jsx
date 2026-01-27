@@ -109,24 +109,59 @@ export default function Messages() {
     );
   };
 
-  const renderEmpty = () => (
-    <View style={styles.emptyContainer}>
-      <View style={styles.emptyIcon}>
-        <Icon name="messageCircle" size={50} color={theme.colors.primary} />
+  const getEmptyConfig = () => {
+    const userType = user?.user_type;
+    if (userType === 'laboratoire') {
+      return {
+        subtitle: 'Vos échanges avec les animateurs apparaîtront ici après un match',
+        buttonLabel: 'Recruter des animateurs',
+        buttonIcon: 'search',
+        route: '/(tabs)/matching',
+      };
+    }
+    if (userType === 'titulaire') {
+      return {
+        subtitle: 'Vos échanges avec les candidats apparaîtront ici après un match',
+        buttonLabel: 'Trouver des candidats',
+        buttonIcon: 'heart',
+        route: '/(tabs)/matching',
+      };
+    }
+    if (userType === 'animateur') {
+      return {
+        subtitle: 'Vos échanges avec les recruteurs apparaîtront ici après un match',
+        buttonLabel: 'Découvrir des missions',
+        buttonIcon: 'briefcase',
+        route: '/(tabs)/matching',
+      };
+    }
+    return {
+      subtitle: 'Vos échanges apparaîtront ici après un match',
+      buttonLabel: 'Découvrir des offres',
+      buttonIcon: 'heart',
+      route: '/(tabs)/matching',
+    };
+  };
+
+  const renderEmpty = () => {
+    const config = getEmptyConfig();
+    return (
+      <View style={styles.emptyContainer}>
+        <View style={styles.emptyIcon}>
+          <Icon name="messageCircle" size={50} color={theme.colors.primary} />
+        </View>
+        <Text style={styles.emptyTitle}>Aucune conversation</Text>
+        <Text style={styles.emptyText}>{config.subtitle}</Text>
+        <Pressable
+          style={styles.discoverButton}
+          onPress={() => router.push(config.route)}
+        >
+          <Icon name={config.buttonIcon} size={18} color="white" />
+          <Text style={styles.discoverButtonText}>{config.buttonLabel}</Text>
+        </Pressable>
       </View>
-      <Text style={styles.emptyTitle}>Aucune conversation</Text>
-      <Text style={styles.emptyText}>
-        Vos échanges apparaîtront ici après un match
-      </Text>
-      <Pressable 
-        style={styles.discoverButton}
-        onPress={() => router.push('/(tabs)/matching')}
-      >
-        <Icon name="heart" size={18} color="white" />
-        <Text style={styles.discoverButtonText}>Découvrir des offres</Text>
-      </Pressable>
-    </View>
-  );
+    );
+  };
 
   if (loading && !refreshing) {
     return (

@@ -85,7 +85,7 @@ export default function ViewLaboratoryProfile() {
     if (matchId) {
       router.push({ pathname: '/animatorConversation', params: { matchId } });
     } else if (missionId) {
-      router.push({ pathname: '/missionDetail', params: { missionId } });
+      router.push({ pathname: '/(screens)/missionDetail', params: { missionId } });
     }
   };
 
@@ -303,9 +303,9 @@ export default function ViewLaboratoryProfile() {
               <Pressable 
                 key={mission.id} 
                 style={styles.missionCard}
-                onPress={() => router.push({ 
-                  pathname: '/missionDetail', 
-                  params: { missionId: mission.id } 
+                onPress={() => router.push({
+                  pathname: '/(screens)/missionDetail',
+                  params: { missionId: mission.id }
                 })}
               >
                 <View style={commonStyles.flex1}>
@@ -324,7 +324,7 @@ export default function ViewLaboratoryProfile() {
                   </View>
                 </View>
                 <View style={styles.missionRate}>
-                  <Text style={styles.missionRateValue}>{mission.daily_rate}€</Text>
+                  <Text style={styles.missionRateValue}>{mission.daily_rate_min || mission.daily_rate_max}€</Text>
                   <Text style={commonStyles.hint}>/jour</Text>
                 </View>
                 <Icon name="chevronRight" size={20} color={theme.colors.textLight} />

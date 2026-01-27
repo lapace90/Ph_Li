@@ -32,6 +32,7 @@ import ScreenWrapper from '../../components/common/ScreenWrapper';
 import BackButton from '../../components/common/BackButton';
 import Button from '../../components/common/Button';
 import Icon from '../../assets/icons/Icon';
+import { cvService } from '../../services/cvService';
 import CVFormExperience from '../../components/cv/CVFormExperience';
 import CVFormFormation from '../../components/cv/CVFormFormation';
 import CVPreview from '../../components/cv/CVPreview';
@@ -47,7 +48,7 @@ const STEPS = [
 export default function CVCreate() {
     const router = useRouter();
     const { session, profile } = useAuth();
-    const { createCV, cvs } = useCVs(session?.user?.id);
+    const { createCV } = useCVs(session?.user?.id);
 
     const [currentStep, setCurrentStep] = useState(0);
     const [loading, setLoading] = useState(false);
@@ -189,8 +190,9 @@ export default function CVCreate() {
             return;
         }
 
-        if (cvs.length >= 5) {
-            Alert.alert('Limite atteinte', 'Vous ne pouvez pas créer plus de 5 CV');
+        const quotaCheck = await cvService.canGenerateCV(session?.user?.id);
+        if (!quotaCheck.allowed) {
+            Alert.alert('Limite atteinte', quotaCheck.message || 'Vous ne pouvez pas creer plus de CV.');
             return;
         }
 

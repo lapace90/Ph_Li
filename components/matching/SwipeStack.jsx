@@ -26,11 +26,21 @@ const SwipeStack = ({
   onRefresh,
   onCardPress,
   superLikesRemaining,
+  superLikeQuota,
+  onSuperLikeBlocked,
 }) => {
   // Afficher seulement les 3 premières cartes
   const visibleCards = cards.slice(0, 3);
   const labels = TYPE_LABELS[type] || TYPE_LABELS.job_offer;
   const superLikeDisabled = superLikesRemaining != null && superLikesRemaining <= 0;
+
+  const handleSuperLikePress = () => {
+    if (superLikeDisabled) {
+      onSuperLikeBlocked?.();
+    } else {
+      onSwipeUp?.(cards[0]);
+    }
+  };
 
   // Loading state - pas de background
   if (loading) {
@@ -104,8 +114,7 @@ const SwipeStack = ({
             styles.superLikeButton,
             superLikeDisabled && styles.buttonDisabled
           ]}
-          onPress={() => !superLikeDisabled && onSwipeUp?.(cards[0])}
-          disabled={superLikeDisabled}
+          onPress={handleSuperLikePress}
         >
           <Icon
             name="star"
@@ -125,6 +134,16 @@ const SwipeStack = ({
           <Icon name="heart" size={28} color={theme.colors.success} />
         </Pressable>
       </View>
+
+      {/* Compteur super likes */}
+      {superLikeQuota && !superLikeQuota.unlimited && (
+        <View style={styles.superLikeQuotaRow}>
+          <Icon name="star" size={14} color={theme.colors.warning} />
+          <Text style={styles.superLikeQuotaText}>
+            {superLikeQuota.used}/{superLikeQuota.max} Super Likes aujourd'hui
+          </Text>
+        </View>
+      )}
 
       {/* Compteur */}
       <Text style={styles.remainingText}>
@@ -200,6 +219,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
     overflow: 'hidden',
+  },
+  superLikeQuotaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(1.5),
+  },
+  superLikeQuotaText: {
+    fontSize: hp(1.2),
+    color: theme.colors.warning,
+    fontWeight: '600',
   },
   remainingText: {
     fontSize: hp(1.3),

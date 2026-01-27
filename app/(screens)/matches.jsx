@@ -71,7 +71,14 @@ export default function MatchesScreen() {
             <Text style={styles.offerTitle} numberOfLines={1}>
               {offer?.title || 'Offre'}
             </Text>
-            <Text style={styles.matchDate}>{matchDate}</Text>
+            <View style={styles.matchHeaderRight}>
+              {match.is_super_like && (
+                <View style={styles.superLikeBadge}>
+                  <Icon name="star" size={12} color={theme.colors.warning} />
+                </View>
+              )}
+              <Text style={styles.matchDate}>{matchDate}</Text>
+            </View>
           </View>
 
           <Text style={styles.pharmacyName}>
@@ -322,6 +329,19 @@ const styles = StyleSheet.create({
     fontSize: hp(1.7),
     fontWeight: '600',
     color: theme.colors.text,
+  },
+  matchHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(1.5),
+  },
+  superLikeBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: theme.colors.warning + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   matchDate: {
     fontSize: hp(1.2),

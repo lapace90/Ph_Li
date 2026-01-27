@@ -72,7 +72,7 @@ export default function AnimatorFavorites() {
         >
           {activeTab === 'missions' ? (
             missions.length > 0 ? missions.map(fav => (
-              <MissionFavoriteCard key={fav.id} mission={fav.mission} onPress={() => router.push(`/mission/${fav.mission.id}`)} onRemove={() => removeMission(fav.mission.id)} />
+              <MissionFavoriteCard key={fav.id} mission={fav.mission} onPress={() => router.push({ pathname: '/(screens)/missionDetail', params: { missionId: fav.mission.id } })} onRemove={() => removeMission(fav.mission.id)} />
             )) : (
               <EmptyState icon="bookmark" title="Aucune mission sauvegardée" subtitle="Explorez les missions disponibles" action={() => router.push('/swipeMissions')} actionLabel="Explorer" />
             )
@@ -92,7 +92,7 @@ export default function AnimatorFavorites() {
         isFavorite={selectedLab && labIds.includes(selectedLab.id)}
         onClose={() => setSelectedLab(null)}
         onToggleFavorite={() => selectedLab && toggleLab(selectedLab.id)}
-        onMissionPress={m => { setSelectedLab(null); router.push(`/mission/${m.id}`); }}
+        onMissionPress={m => { setSelectedLab(null); router.push({ pathname: '/(screens)/missionDetail', params: { missionId: m.id } }); }}
       />
     </ScreenWrapper>
   );

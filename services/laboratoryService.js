@@ -126,7 +126,7 @@ export const laboratoryService = {
       free: { contacts: 0, missions: 0 },
       starter: { contacts: 5, missions: 1 },
       pro: { contacts: Infinity, missions: Infinity },
-      enterprise: { contacts: Infinity, missions: Infinity },
+      business: { contacts: Infinity, missions: Infinity },
     };
 
     const tierLimits = limits[data.subscription_tier] || limits.free;

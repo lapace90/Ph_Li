@@ -109,6 +109,13 @@ export const isBusiness = (role) => {
 };
 
 /**
+ * Alias de isBusiness pour clarté sémantique
+ */
+export const isLaboratory = (role) => {
+  return role === 'laboratoire';
+};
+
+/**
  * Vérifie si un rôle peut recevoir des alertes urgentes
  * @param {string} role - Le code du rôle
  * @returns {boolean}

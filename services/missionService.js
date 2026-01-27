@@ -1,6 +1,8 @@
 // Gestion des missions d'animation
 
 import { supabase } from '../lib/supabase';
+import { subscriptionService } from './subscriptionService';
+import { notificationService } from './notificationService';
 
 export const missionService = {
   // ==========================================
@@ -20,10 +22,6 @@ export const missionService = {
           average_rating,
           missions_completed,
           profile:profiles(first_name, last_name, photo_url)
-        ),
-        client:users!animation_missions_client_id_fkey(
-          id,
-          user_type
         )
       `)
       .eq('id', missionId)
@@ -126,8 +124,191 @@ export const missionService = {
     return this.update(missionId, { status: 'open' });
   },
 
+  // ==========================================
+  // FLOW DE CONFIRMATION (5 étapes)
+  // open → proposal_sent → animator_accepted → confirmed
+  // ==========================================
+
   /**
-   * Assigne un animateur à une mission
+   * Étape 2 : Le labo envoie une proposition détaillée à l'animateur matché
+   * Met à jour la mission avec les détails finaux et passe en proposal_sent
+   * @param {string} missionId
+   * @param {string} animatorId
+   * @param {string} matchId
+   * @param {{ startDate, endDate, dailyRate, city, department, region, latitude, longitude, description }} proposalData
+   */
+  async sendProposal(missionId, animatorId, matchId, proposalData) {
+    const { data, error } = await supabase
+      .from('animation_missions')
+      .update({
+        animator_id: animatorId,
+        status: 'proposal_sent',
+        start_date: proposalData.startDate,
+        end_date: proposalData.endDate,
+        daily_rate_min: proposalData.dailyRate,
+        daily_rate_max: proposalData.dailyRate,
+        city: proposalData.city,
+        department: proposalData.department || null,
+        region: proposalData.region || null,
+        latitude: proposalData.latitude || null,
+        longitude: proposalData.longitude || null,
+        description: proposalData.description,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', missionId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Notifier l'animateur
+    await notificationService.createNotification(
+      animatorId,
+      'mission_proposal',
+      'Nouvelle proposition de mission',
+      `Vous avez reçu une proposition pour "${data.title}"`,
+      { missionId, matchId }
+    );
+
+    return data;
+  },
+
+  /**
+   * Étape 3 : L'animateur accepte la proposition
+   * @param {string} missionId
+   * @param {string} animatorId - pour vérification
+   */
+  async acceptProposal(missionId, animatorId) {
+    const { data, error } = await supabase
+      .from('animation_missions')
+      .update({
+        status: 'animator_accepted',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', missionId)
+      .eq('animator_id', animatorId)
+      .select('*, client:client_id(*)')
+      .single();
+
+    if (error) throw error;
+
+    // Notifier le labo/titulaire
+    await notificationService.createNotification(
+      data.client_id,
+      'proposal_accepted',
+      'Proposition acceptée !',
+      `L'animateur a accepté votre proposition pour "${data.title}"`,
+      { missionId }
+    );
+
+    return data;
+  },
+
+  /**
+   * L'animateur décline la proposition → mission redevient open
+   * @param {string} missionId
+   * @param {string} animatorId
+   */
+  async declineProposal(missionId, animatorId) {
+    const { data: mission } = await supabase
+      .from('animation_missions')
+      .select('title, client_id')
+      .eq('id', missionId)
+      .single();
+
+    const { data, error } = await supabase
+      .from('animation_missions')
+      .update({
+        animator_id: null,
+        status: 'open',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', missionId)
+      .eq('animator_id', animatorId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Notifier le labo/titulaire
+    if (mission) {
+      await notificationService.createNotification(
+        mission.client_id,
+        'proposal_declined',
+        'Proposition déclinée',
+        `L'animateur a décliné votre proposition pour "${mission.title}"`,
+        { missionId }
+      );
+    }
+
+    return data;
+  },
+
+  /**
+   * Étape 4 : Confirmation définitive par le labo → frais facturés
+   * Assigne l'animateur, crée le frais, met le statut à 'confirmed'
+   * @param {string} missionId
+   * @param {string} animatorId
+   * @param {string} payerId - le labo/titulaire qui paie
+   */
+  async confirmMission(missionId, animatorId, payerId) {
+    // 1. Vérifier les frais
+    const feeStatus = await this.checkFeeStatus(payerId, missionId);
+
+    // 2. Mettre le statut à 'confirmed'
+    const { data, error } = await supabase
+      .from('animation_missions')
+      .update({
+        animator_id: animatorId,
+        status: 'confirmed',
+        assigned_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', missionId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // 3. Bloquer les disponibilités de l'animateur
+    const dates = this._getDatesBetween(data.start_date, data.end_date);
+    for (const date of dates) {
+      await supabase
+        .from('animator_availability')
+        .upsert({
+          animator_id: animatorId,
+          date,
+          status: 'booked',
+          mission_id: missionId,
+        });
+    }
+
+    // 4. Créer le frais de MER
+    await this.createFee(missionId, payerId, feeStatus.amount, feeStatus.includedInSubscription);
+
+    // 5. Notifier les deux parties
+    await Promise.all([
+      notificationService.createNotification(
+        animatorId,
+        'mission_confirmed',
+        'Mission confirmée !',
+        `La mission "${data.title}" est confirmée. Préparez-vous !`,
+        { missionId }
+      ),
+      notificationService.createNotification(
+        payerId,
+        'mission_confirmed',
+        'Mission confirmée !',
+        `La mission "${data.title}" est officiellement confirmée.`,
+        { missionId }
+      ),
+    ]);
+
+    return { mission: data, fee: feeStatus };
+  },
+
+  /**
+   * Assigne un animateur à une mission (legacy, utilisé hors flow 5 étapes)
    */
   async assignAnimator(missionId, animatorId) {
     const { data, error } = await supabase
@@ -464,6 +645,104 @@ export const missionService = {
     // Pour l'instant on peut stocker dans le champ data de notifications
 
     if (error) throw error;
+    return data;
+  },
+
+  // ==========================================
+  // FRAIS DE MISE EN RELATION
+  // ==========================================
+
+  /**
+   * Calcule le montant des frais selon la durée de la mission
+   * 1-2 jours = 10€, 3-5 jours = 15€, 6+ jours = 20€
+   * @param {string} missionId
+   * @returns {{ amount: number, days: number, startDate: string, endDate: string }}
+   */
+  async calculateFee(missionId) {
+    const { data: mission, error } = await supabase
+      .from('animation_missions')
+      .select('start_date, end_date')
+      .eq('id', missionId)
+      .single();
+
+    if (error) throw error;
+
+    const days = this._getDatesBetween(mission.start_date, mission.end_date).length;
+
+    let amount;
+    if (days <= 2) {
+      amount = 10;
+    } else if (days <= 5) {
+      amount = 15;
+    } else {
+      amount = 20;
+    }
+
+    return {
+      amount,
+      days,
+      startDate: mission.start_date,
+      endDate: mission.end_date,
+    };
+  },
+
+  /**
+   * Vérifie si la MER est incluse dans l'abonnement ou payante
+   * @param {string} userId - le payeur (labo ou titulaire)
+   * @param {string} missionId
+   * @returns {{ amount, days, includedInSubscription, tier, contactsRemaining, contactsMax }}
+   */
+  async checkFeeStatus(userId, missionId) {
+    const [feeInfo, contactCheck, limitsInfo] = await Promise.all([
+      this.calculateFee(missionId),
+      subscriptionService.canConfirmMission(userId),
+      subscriptionService.getLimits(userId),
+    ]);
+
+    const tier = limitsInfo.tier;
+    const includedInSubscription = contactCheck.allowed && contactCheck.max > 0;
+
+    return {
+      amount: feeInfo.amount,
+      days: feeInfo.days,
+      startDate: feeInfo.startDate,
+      endDate: feeInfo.endDate,
+      includedInSubscription,
+      tier,
+      contactsRemaining: contactCheck.remaining,
+      contactsMax: contactCheck.max,
+    };
+  },
+
+  /**
+   * Crée l'entrée de frais dans mission_fees
+   * Si inclus dans l'abo, le statut est 'waived' et on incrémente le compteur
+   * Si payant, le statut est 'pending' (en attente de paiement)
+   * @returns {Object} fee record
+   */
+  async createFee(missionId, payerId, amount, includedInSubscription) {
+    const status = includedInSubscription ? 'waived' : 'pending';
+
+    const { data, error } = await supabase
+      .from('mission_fees')
+      .upsert({
+        mission_id: missionId,
+        payer_id: payerId,
+        amount,
+        fee_type: 'mission_confirmation',
+        included_in_subscription: includedInSubscription,
+        status,
+      }, { onConflict: 'mission_id' })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Si inclus dans l'abo, incrémenter le compteur de contacts
+    if (includedInSubscription) {
+      await subscriptionService.incrementMissionsConfirmed(payerId);
+    }
+
     return data;
   },
 

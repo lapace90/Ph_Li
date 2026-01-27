@@ -161,7 +161,7 @@ export default function CreateUrgentAlert() {
 
       <ScrollView 
         style={commonStyles.flex1} 
-        contentContainerStyle={commonStyles.containerPadded}
+        contentContainerStyle={styles.formContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -277,7 +277,7 @@ export default function CreateUrgentAlert() {
             <Text style={commonStyles.hint}>Période :</Text>
             <Text style={commonStyles.textSmall}>
               {form.startDate && form.endDate
-                ? `${form.startDate.toLocaleDateString('fr-FR')} → ${form.endDate.toLocaleDateString('fr-FR')}`
+                ? `${form.startDate.toLocaleDateString('fr-FR')} - ${form.endDate.toLocaleDateString('fr-FR')}`
                 : '—'
               }
             </Text>
@@ -294,16 +294,20 @@ export default function CreateUrgentAlert() {
           title="🚨 Publier l'alerte"
           loading={loading}
           onPress={handleSubmit}
-          buttonStyle={{ backgroundColor: theme.colors.warning, marginTop: hp(2) }}
+          buttonStyle={{ backgroundColor: theme.colors.warning }}
         />
-
-        <View style={{ height: hp(10) }} />
       </ScrollView>
     </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
+  formContent: {
+    paddingHorizontal: wp(5),
+    paddingTop: hp(1),
+    paddingBottom: hp(10),
+    gap: hp(2),
+  },
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -311,7 +315,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.warning + '15',
     padding: hp(1.5),
     borderRadius: theme.radius.lg,
-    marginBottom: hp(2),
   },
   infoBannerText: {
     flex: 1,

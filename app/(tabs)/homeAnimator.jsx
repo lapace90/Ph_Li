@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { View, Text, ScrollView, RefreshControl, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
@@ -6,10 +6,13 @@ import { hp, wp } from '../../helpers/common';
 import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAnimatorMissions } from '../../hooks/useMissions';
+import { laboratoryPostService } from '../../services/laboratoryPostService';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import Icon from '../../assets/icons/Icon';
 import Logo from '../../assets/icons/Logo';
+import LaboCarousel from '../../components/home/LaboCarousel';
 import { MissionListCard } from '../../components/missions/MissionCard';
+import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 
 // ============================================
 // SOUS-COMPOSANTS
@@ -54,6 +57,7 @@ const EmptyState = ({ icon, title, subtitle }) => (
 export default function HomeAnimator() {
   const router = useRouter();
   const { session, profile, animatorProfile, refreshAnimatorProfile } = useAuth();
+  const unreadCount = useUnreadNotificationCount();
   const [refreshing, setRefreshing] = useState(false);
 
   const { myMissions, availableMissions, loading, refresh: refreshMissions } = useAnimatorMissions(session?.user?.id);
@@ -69,11 +73,23 @@ export default function HomeAnimator() {
 
   const isAvailable = animatorProfile?.available_now;
 
+  // Posts labos
+  const [laboPosts, setLaboPosts] = useState([]);
+  const fetchLaboPosts = useCallback(async () => {
+    try {
+      const data = await laboratoryPostService.getRecentPosts(6);
+      setLaboPosts(data);
+    } catch (err) {
+      console.error('Erreur posts labos:', err);
+    }
+  }, []);
+  useEffect(() => { fetchLaboPosts(); }, [fetchLaboPosts]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refreshMissions?.(), refreshAnimatorProfile?.()]);
+    await Promise.all([refreshMissions?.(), refreshAnimatorProfile?.(), fetchLaboPosts()]);
     setRefreshing(false);
-  }, [refreshMissions, refreshAnimatorProfile]);
+  }, [refreshMissions, refreshAnimatorProfile, fetchLaboPosts]);
 
   return (
     <ScreenWrapper bg={theme.colors.background}>
@@ -92,6 +108,13 @@ export default function HomeAnimator() {
             </Pressable>
             <Pressable style={commonStyles.headerButton} onPress={() => router.push('/(screens)/notifications')}>
               <Icon name="bell" size={22} color={theme.colors.text} />
+              {unreadCount > 0 && (
+                <View style={commonStyles.notificationBadge}>
+                  <Text style={commonStyles.notificationBadgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           </View>
         </View>
@@ -130,7 +153,7 @@ export default function HomeAnimator() {
           ) : activeMissions.length > 0 ? (
             <View style={commonStyles.homeItemsList}>
               {activeMissions.slice(0, 2).map(mission => (
-                <MissionListCard key={mission.id} mission={mission} showStatus onPress={() => router.push(`/(screens)/missionDetail/${mission.id}`)} />
+                <MissionListCard key={mission.id} mission={mission} showStatus onPress={() => router.push({ pathname: '/(screens)/missionDetail', params: { missionId: mission.id } })} />
               ))}
             </View>
           ) : (
@@ -155,7 +178,7 @@ export default function HomeAnimator() {
           ) : availableMissions?.length > 0 ? (
             <View style={commonStyles.homeItemsList}>
               {availableMissions.slice(0, 3).map(mission => (
-                <MissionListCard key={mission.id} mission={mission} onPress={() => router.push(`/(screens)/mission/${mission.id}`)} />
+                <MissionListCard key={mission.id} mission={mission} onPress={() => router.push({ pathname: '/(screens)/missionDetail', params: { missionId: mission.id } })} />
               ))}
             </View>
           ) : (
@@ -163,10 +186,18 @@ export default function HomeAnimator() {
           )}
         </View>
 
+        {/* Actualités labos */}
+        <LaboCarousel
+          title="Actualités labos"
+          posts={laboPosts}
+          emptyMessage="Aucune publication pour le moment"
+          onPostPress={(post) => router.push({ pathname: '/(screens)/postDetail', params: { postId: post.id } })}
+        />
+
         {/* Accès rapide */}
         <View style={commonStyles.homeSection}>
           <Text style={commonStyles.sectionTitle}>Accès rapide</Text>
-          
+
           <View style={commonStyles.homeQuickActions}>
             <Pressable style={commonStyles.homeQuickAction} onPress={() => router.push('/(tabs)/matching')}>
               <View style={[commonStyles.homeQuickActionIcon, { backgroundColor: theme.colors.rose + '15' }]}>

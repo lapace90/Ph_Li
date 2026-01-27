@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { animatorMatchingService } from '../services/animatorMatchingService';
+import { matchingService } from '../services/matchingService';
 
 /**
  * Hook pour le swipe de missions (côté animateur)
@@ -10,10 +11,11 @@ export const useSwipeMissions = () => {
   const [missions, setMissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [lastMatch, setLastMatch] = useState(null);
+  const [superLikeQuota, setSuperLikeQuota] = useState({ remaining: 1, max: 1, used: 0, allowed: true, unlimited: false });
 
   const fetchMissions = useCallback(async () => {
     if (!session?.user?.id) return;
-    
+
     setLoading(true);
     try {
       const data = await animatorMatchingService.getSwipeableMissions(session.user.id);
@@ -23,6 +25,20 @@ export const useSwipeMissions = () => {
     } finally {
       setLoading(false);
     }
+  }, [session?.user?.id]);
+
+  // Charger le quota de super likes
+  useEffect(() => {
+    const loadQuota = async () => {
+      if (!session?.user?.id) return;
+      try {
+        const quota = await matchingService.getSuperLikeQuota(session.user.id);
+        setSuperLikeQuota(quota);
+      } catch (err) {
+        console.error('Error loading super like quota:', err);
+      }
+    };
+    loadQuota();
   }, [session?.user?.id]);
 
   useEffect(() => {
@@ -47,6 +63,15 @@ export const useSwipeMissions = () => {
         setLastMatch(result.match);
       }
 
+      if (action === 'superlike') {
+        setSuperLikeQuota(prev => ({
+          ...prev,
+          used: prev.used + 1,
+          remaining: prev.unlimited ? prev.remaining : Math.max(0, prev.remaining - 1),
+          allowed: prev.unlimited || prev.used + 1 < prev.max,
+        }));
+      }
+
       return { success: true, match: result.match };
     } catch (error) {
       console.error('Error swiping mission:', error);
@@ -56,7 +81,12 @@ export const useSwipeMissions = () => {
 
   const swipeRight = useCallback((missionId) => swipe(missionId, 'like'), [swipe]);
   const swipeLeft = useCallback((missionId) => swipe(missionId, 'dislike'), [swipe]);
-  const superLike = useCallback((missionId) => swipe(missionId, 'superlike'), [swipe]);
+  const superLike = useCallback(async (missionId) => {
+    if (!superLikeQuota.allowed && !superLikeQuota.unlimited) {
+      return { success: false, error: 'quota_exceeded', quotaExceeded: true };
+    }
+    return swipe(missionId, 'superlike');
+  }, [swipe, superLikeQuota]);
   const clearLastMatch = useCallback(() => setLastMatch(null), []);
 
   return {
@@ -68,6 +98,8 @@ export const useSwipeMissions = () => {
     superLike,
     clearLastMatch,
     refresh: fetchMissions,
+    superLikesRemaining: superLikeQuota.unlimited ? null : superLikeQuota.remaining,
+    superLikeQuota,
   };
 };
 
@@ -80,10 +112,11 @@ export const useSwipeAnimators = (missionId) => {
   const [mission, setMission] = useState(null);
   const [loading, setLoading] = useState(true);
   const [lastMatch, setLastMatch] = useState(null);
+  const [superLikeQuota, setSuperLikeQuota] = useState({ remaining: 3, max: 3, used: 0, allowed: true, unlimited: false });
 
   const fetchAnimators = useCallback(async () => {
     if (!session?.user?.id || !missionId) return;
-    
+
     setLoading(true);
     try {
       const data = await animatorMatchingService.getSwipeableAnimators(
@@ -98,6 +131,20 @@ export const useSwipeAnimators = (missionId) => {
       setLoading(false);
     }
   }, [session?.user?.id, missionId]);
+
+  // Charger le quota de super likes
+  useEffect(() => {
+    const loadQuota = async () => {
+      if (!session?.user?.id) return;
+      try {
+        const quota = await matchingService.getSuperLikeQuota(session.user.id);
+        setSuperLikeQuota(quota);
+      } catch (err) {
+        console.error('Error loading super like quota:', err);
+      }
+    };
+    loadQuota();
+  }, [session?.user?.id]);
 
   useEffect(() => {
     fetchAnimators();
@@ -122,6 +169,15 @@ export const useSwipeAnimators = (missionId) => {
         setLastMatch(result.match);
       }
 
+      if (action === 'superlike') {
+        setSuperLikeQuota(prev => ({
+          ...prev,
+          used: prev.used + 1,
+          remaining: prev.unlimited ? prev.remaining : Math.max(0, prev.remaining - 1),
+          allowed: prev.unlimited || prev.used + 1 < prev.max,
+        }));
+      }
+
       return { success: true, match: result.match };
     } catch (error) {
       console.error('Error swiping animator:', error);
@@ -131,7 +187,12 @@ export const useSwipeAnimators = (missionId) => {
 
   const swipeRight = useCallback((animatorId) => swipe(animatorId, 'like'), [swipe]);
   const swipeLeft = useCallback((animatorId) => swipe(animatorId, 'dislike'), [swipe]);
-  const superLike = useCallback((animatorId) => swipe(animatorId, 'superlike'), [swipe]);
+  const superLike = useCallback(async (animatorId) => {
+    if (!superLikeQuota.allowed && !superLikeQuota.unlimited) {
+      return { success: false, error: 'quota_exceeded', quotaExceeded: true };
+    }
+    return swipe(animatorId, 'superlike');
+  }, [swipe, superLikeQuota]);
   const clearLastMatch = useCallback(() => setLastMatch(null), []);
 
   return {
@@ -144,6 +205,8 @@ export const useSwipeAnimators = (missionId) => {
     superLike,
     clearLastMatch,
     refresh: fetchAnimators,
+    superLikesRemaining: superLikeQuota.unlimited ? null : superLikeQuota.remaining,
+    superLikeQuota,
   };
 };
 

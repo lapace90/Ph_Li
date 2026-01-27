@@ -1,8 +1,70 @@
 // services/cvService.js
 
 import { supabase } from '../lib/supabase';
+import { subscriptionService } from './subscriptionService';
 
 export const cvService = {
+  // ==========================================
+  // QUOTAS
+  // ==========================================
+
+  /**
+   * Statistiques des CVs d'un utilisateur
+   * @returns {{ generated: number, uploaded: number, total: number, limit: number }}
+   */
+  async getCVStats(userId) {
+    const cvs = await this.getByUserId(userId);
+    const generated = cvs.filter(cv => cv.has_structured_cv).length;
+    const uploaded = cvs.filter(cv => cv.has_pdf && !cv.has_structured_cv).length;
+    return { generated, uploaded, total: cvs.length, limit: 5 };
+  },
+
+  /**
+   * Verifie si l'utilisateur peut creer un CV genere (formulaire)
+   * Free = 1, Premium = 3
+   * @returns {{ allowed: boolean, current: number, limit: number, message: string|null }}
+   */
+  async canGenerateCV(userId) {
+    const [stats, limitsInfo] = await Promise.all([
+      this.getCVStats(userId),
+      subscriptionService.getLimits(userId),
+    ]);
+
+    const limit = limitsInfo.limits.cvCount || 1;
+    const allowed = stats.generated < limit && stats.total < 5;
+
+    let message = null;
+    if (stats.total >= 5) {
+      message = 'Stockage plein (5/5). Supprimez un CV pour en ajouter un nouveau.';
+    } else if (stats.generated >= limit) {
+      const nextLimit = limit < 3 ? 3 : limit;
+      message = `Vous avez atteint la limite de ${limit} CV genere${limit > 1 ? 's' : ''}. Passez Premium pour creer jusqu'a ${nextLimit} CV differents.`;
+    }
+
+    return { allowed, current: stats.generated, limit, message };
+  },
+
+  /**
+   * Verifie si l'utilisateur peut uploader un CV (PDF)
+   * Limite de 5 CVs au total (generes + uploades) pour tous les forfaits
+   * @returns {{ allowed: boolean, current: number, limit: number, message: string|null }}
+   */
+  async canUploadCV(userId) {
+    const stats = await this.getCVStats(userId);
+    const limit = 5;
+    const allowed = stats.total < limit;
+
+    const message = !allowed
+      ? `Stockage plein (${stats.total}/${limit}). Supprimez un CV pour en ajouter un nouveau.`
+      : null;
+
+    return { allowed, current: stats.total, limit, message };
+  },
+
+  // ==========================================
+  // CRUD
+  // ==========================================
+
   /**
    * Récupère tous les CVs d'un utilisateur
    */

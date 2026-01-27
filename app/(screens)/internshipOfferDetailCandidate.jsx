@@ -19,6 +19,7 @@ import ScreenWrapper from '../../components/common/ScreenWrapper';
 import Icon from '../../assets/icons/Icon';
 import Button from '../../components/common/Button';
 import ApplyModal from '../../components/application/ApplyModal';
+import { notificationService, NOTIFICATION_TYPES } from '../../services/notificationService';
 
 export default function InternshipOfferDetailCandidate() {
   const router = useRouter();
@@ -100,10 +101,21 @@ export default function InternshipOfferDetailCandidate() {
         });
 
       if (error) throw error;
-      
+
       setHasApplied(true);
       setShowApplyModal(false);
       Alert.alert('Succès', 'Votre candidature a été envoyée !');
+
+      // Notifier le recruteur
+      if (offer?.pharmacy_owner_id) {
+        notificationService.createNotification(
+          offer.pharmacy_owner_id,
+          NOTIFICATION_TYPES.APPLICATION_RECEIVED,
+          'Nouvelle candidature',
+          `Un candidat a postulé à "${offer.title}"`,
+          { offer_id: id, offer_type: 'internship' }
+        ).catch(err => console.error('Error creating application notification:', err));
+      }
     } catch (error) {
       console.error('Error applying:', error);
       Alert.alert('Erreur', 'Impossible d\'envoyer votre candidature');
@@ -231,7 +243,7 @@ export default function InternshipOfferDetailCandidate() {
       {/* Footer avec bouton postuler */}
       <View style={styles.footer}>
         <Button
-          title={hasApplied ? 'Candidature envoyée ✓' : 'Postuler'}
+          title={hasApplied ? 'Candidature envoyée' : 'Postuler'}
           onPress={handleApplyPress}
           loading={applying}
           disabled={hasApplied}

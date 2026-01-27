@@ -15,11 +15,12 @@ import BackButton from '../../components/common/BackButton';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import Icon from '../../assets/icons/Icon';
+import { cvService } from '../../services/cvService';
 
 export default function CVAdd() {
   const router = useRouter();
   const { session } = useAuth();
-  const { createCV, cvs } = useCVs(session?.user?.id);
+  const { createCV } = useCVs(session?.user?.id);
 
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState('');
@@ -59,8 +60,9 @@ export default function CVAdd() {
       Alert.alert('Erreur', 'Veuillez sélectionner un fichier PDF');
       return;
     }
-    if (cvs.length >= 5) {
-      Alert.alert('Erreur', 'Vous avez atteint le maximum de 5 CV');
+    const quotaCheck = await cvService.canUploadCV(session?.user?.id);
+    if (!quotaCheck.allowed) {
+      Alert.alert('Limite atteinte', quotaCheck.message || 'Stockage plein.');
       return;
     }
 

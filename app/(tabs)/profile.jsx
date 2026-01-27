@@ -88,14 +88,20 @@ export default function Profile() {
         return `${profile.experience_years} an${profile.experience_years > 1 ? 's' : ''} d'expérience`;
     };
 
-    const MenuItem = ({ icon, label, subtitle, onPress, showBorder = true, highlight = false }) => (
+    const MenuItem = ({ icon, label, subtitle, onPress, highlight = false, danger = false }) => (
         <Pressable
-            style={[commonStyles.menuItem, !showBorder && commonStyles.menuItemNoBorder]}
+            style={[commonStyles.card, commonStyles.row, { padding: hp(2) }]}
             onPress={onPress}
         >
-            <Icon name={icon} size={20} color={highlight ? theme.colors.primary : theme.colors.text} />
+            <View style={[
+                styles.menuIcon,
+                highlight && { backgroundColor: theme.colors.primary + '25' },
+                danger && { backgroundColor: theme.colors.rose + '15' },
+            ]}>
+                <Icon name={icon} size={22} color={danger ? theme.colors.rose : theme.colors.primary} />
+            </View>
             <View style={{ flex: 1, marginLeft: wp(3) }}>
-                <Text style={[styles.menuLabel, highlight && { color: theme.colors.primary }]}>{label}</Text>
+                <Text style={[styles.menuLabel, danger && { color: theme.colors.rose }]}>{label}</Text>
                 {subtitle && <Text style={commonStyles.hint}>{subtitle}</Text>}
             </View>
             <Icon name="chevronRight" size={18} color={theme.colors.textLight} />
@@ -251,21 +257,25 @@ export default function Profile() {
                 {isTitulaire && (
                     <>
                         {/* Accès rapide recruteur */}
-                        <View style={[commonStyles.card, { padding: 0, overflow: 'hidden' }]}>
+                        <View style={{ gap: hp(1) }}>
                             <MenuItem
                                 icon="briefcase"
                                 label="Mes annonces"
                                 subtitle="Emplois, stages et pharmacies"
                                 onPress={() => router.push('/(screens)/recruiterDashboard')}
-                                showBorder
                                 highlight
                             />
                             <MenuItem
                                 icon="shield"
                                 label="Vérifications & Pharmacies"
-                                subtitle={user?.siret_verified ? "✓ SIRET vérifié" : "Vérifiez votre SIRET"}
+                                subtitle={user?.siret_verified ? "SIRET vérifié" : "Vérifiez votre SIRET"}
                                 onPress={() => router.push('/(screens)/pharmacyManagement')}
-                                showBorder={false}
+                            />
+                            <MenuItem
+                                icon="zap"
+                                label="Alertes urgentes"
+                                subtitle="Trouvez un remplacement en urgence"
+                                onPress={() => router.push('/(screens)/myAlerts')}
                             />
                         </View>
 
@@ -360,21 +370,31 @@ export default function Profile() {
                 {isLaboratory && (
                     <>
                         {/* Accès rapide labo */}
-                        <View style={[commonStyles.card, { padding: 0, overflow: 'hidden' }]}>
+                        <View style={{ gap: hp(1) }}>
                             <MenuItem
                                 icon="briefcase"
                                 label="Mes missions"
                                 subtitle="Créer et gérer vos missions"
-                                onPress={() => router.push('/(screens)/createMission')}
-                                showBorder
+                                onPress={() => router.push('/(screens)/laboratoryMissions')}
                                 highlight
+                            />
+                            <MenuItem
+                                icon="fileText"
+                                label="Mes publications"
+                                subtitle="Actualités, formations, événements"
+                                onPress={() => router.push('/(screens)/laboratoryPosts')}
                             />
                             <MenuItem
                                 icon="heart"
                                 label="Matchs animateurs"
                                 subtitle="Vos animateurs sélectionnés"
                                 onPress={() => router.push('/(screens)/animatorMatches')}
-                                showBorder={false}
+                            />
+                            <MenuItem
+                                icon="zap"
+                                label="Alertes urgentes"
+                                subtitle="Trouvez un animateur en urgence"
+                                onPress={() => router.push('/(screens)/myAlerts')}
                             />
                         </View>
 
@@ -416,7 +436,7 @@ export default function Profile() {
                         {laboratoryProfile && (
                             <Pressable
                                 style={styles.subscriptionQuick}
-                                onPress={() => router.push('/(screens)/editLaboratoryProfile')}
+                                onPress={() => router.push('/(screens)/subscription')}
                             >
                                 <View style={[
                                     styles.subscriptionQuickIcon,
@@ -497,7 +517,16 @@ export default function Profile() {
                 )}
 
                 {/* Menu commun */}
-                <View style={[commonStyles.card, { padding: 0, overflow: 'hidden' }]}>
+                <View style={{ gap: hp(1) }}>
+                    {/* Alertes urgentes pour candidats et animateurs */}
+                    {(isCandidate || isAnimator) && (
+                        <MenuItem
+                            icon="zap"
+                            label="Alertes urgentes"
+                            subtitle="Remplacements urgents près de vous"
+                            onPress={() => router.push('/(screens)/availableAlerts')}
+                        />
+                    )}
                     {/* CV pour les candidats et animateurs */}
                     {(isCandidate || isAnimator) && (
                         <MenuItem
@@ -507,11 +536,6 @@ export default function Profile() {
                         />
                     )}
                     <MenuItem
-                        icon="shield"
-                        label="Confidentialité"
-                        onPress={() => router.push('/(screens)/privacySettings')}
-                    />
-                    <MenuItem
                         icon="settings"
                         label="Paramètres"
                         onPress={() => router.push('/(screens)/settings')}
@@ -520,15 +544,14 @@ export default function Profile() {
                         icon="info"
                         label="À propos"
                         onPress={() => router.push('/(screens)/about')}
-                        showBorder={false}
+                    />
+                    <MenuItem
+                        icon="logOut"
+                        label="Se déconnecter"
+                        onPress={signOut}
+                        danger
                     />
                 </View>
-
-                {/* Déconnexion */}
-                <Pressable style={[commonStyles.row, styles.logoutButton]} onPress={signOut}>
-                    <Icon name="logout" size={20} color={theme.colors.rose} />
-                    <Text style={styles.logoutText}>Se déconnecter</Text>
-                </Pressable>
             </ScrollView>
         </ScreenWrapper>
     );
@@ -615,19 +638,18 @@ const styles = StyleSheet.create({
         fontFamily: theme.fonts.semiBold,
         color: theme.colors.warning,
     },
-    logoutButton: {
+    menuIcon: {
+        width: wp(10),
+        height: wp(10),
+        borderRadius: wp(5),
+        backgroundColor: theme.colors.primary + '15',
         justifyContent: 'center',
-        padding: hp(2),
-        gap: wp(2),
-    },
-    logoutText: {
-        fontSize: hp(1.6),
-        color: theme.colors.rose,
-        fontFamily: theme.fonts.medium,
+        alignItems: 'center',
     },
     menuLabel: {
-        fontSize: hp(1.6),
+        fontSize: hp(1.7),
         color: theme.colors.text,
+        fontFamily: theme.fonts.medium,
     },
     // Pharmacies section
     pharmaciesSectionHeader: {

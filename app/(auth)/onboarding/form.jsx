@@ -177,7 +177,7 @@ const SectionRPPS = ({ formData, updateField }) => (
   <View style={commonStyles.section}>
     <Text style={commonStyles.sectionTitle}>Vérification professionnelle</Text>
     <Text style={commonStyles.hint}>
-      Entrez votre numéro RPPS pour obtenir le badge vérifié ✓{'\n'}
+      Entrez votre numéro RPPS pour obtenir le badge vérifié{'\n'}
       Votre nom et prénom seront comparés avec l'Annuaire Santé.
     </Text>
 

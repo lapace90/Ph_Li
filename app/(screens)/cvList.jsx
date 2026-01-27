@@ -8,16 +8,37 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useCVs } from '../../hooks/useCVs';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import Icon from '../../assets/icons/Icon';
+import { cvService } from '../../services/cvService';
 
 export default function CVList() {
   const router = useRouter();
   const { session, isAnimator } = useAuth();
   const { cvs, loading, deleteCV, refresh } = useCVs(session?.user?.id);
   const [showTypeChoice, setShowTypeChoice] = useState(false);
+  const [generateQuota, setGenerateQuota] = useState(null);
+  const [uploadQuota, setUploadQuota] = useState(null);
+
+  const loadQuotas = async () => {
+    if (!session?.user?.id) return;
+    try {
+      const [gen, upl] = await Promise.all([
+        cvService.canGenerateCV(session.user.id),
+        cvService.canUploadCV(session.user.id),
+      ]);
+      setGenerateQuota(gen);
+      setUploadQuota(upl);
+    } catch (err) {
+      console.error('Error loading CV quotas:', err);
+    }
+  };
 
   useEffect(() => {
     refresh();
   }, []);
+
+  useEffect(() => {
+    loadQuotas();
+  }, [cvs.length]);
 
   const handleViewCV = (cv) => {
     if (cv.has_structured_cv) {
@@ -67,9 +88,9 @@ export default function CVList() {
           <Icon name="arrowLeft" size={24} color={theme.colors.text} />
         </Pressable>
         <Text style={commonStyles.headerTitleLarge}>Mes CV</Text>
-        {cvs.length > 0 && cvs.length < 5 ? (
-          <Pressable 
-            style={[commonStyles.headerButton, commonStyles.buttonIconPrimary]} 
+        {cvs.length > 0 && (generateQuota?.allowed || uploadQuota?.allowed) ? (
+          <Pressable
+            style={[commonStyles.headerButton, commonStyles.buttonIconPrimary]}
             onPress={() => setShowTypeChoice(true)}
           >
             <Icon name="plus" size={22} color={theme.colors.primary} />
@@ -78,6 +99,17 @@ export default function CVList() {
           <View style={commonStyles.headerSpacer} />
         )}
       </View>
+
+      {generateQuota && cvs.length > 0 && (
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: wp(4), paddingVertical: hp(1), paddingHorizontal: wp(5) }}>
+          <Text style={{ fontSize: hp(1.3), color: theme.colors.textLight }}>
+            CV generes : {generateQuota.current}/{generateQuota.limit}
+          </Text>
+          <Text style={{ fontSize: hp(1.3), color: theme.colors.textLight }}>
+            Total : {cvs.length}/5
+          </Text>
+        </View>
+      )}
 
       {cvs.length === 0 ? (
         <View style={commonStyles.emptyContainer}>
@@ -141,7 +173,7 @@ export default function CVList() {
       )}
 
       {/* FAB si entre 1 et 4 CVs */}
-      {cvs.length > 0 && cvs.length < 5 && (
+      {cvs.length > 0 && (generateQuota?.allowed || uploadQuota?.allowed) && (
         <Pressable style={commonStyles.fab} onPress={() => setShowTypeChoice(true)}>
           <Icon name="plus" size={28} color="white" />
         </Pressable>
@@ -172,6 +204,11 @@ export default function CVList() {
             <Pressable
               style={[commonStyles.card, { marginBottom: hp(1.5) }]}
               onPress={() => {
+                if (!generateQuota?.allowed) {
+                  Alert.alert('Limite atteinte', generateQuota?.message || 'Vous avez atteint la limite de CV generes.');
+                  setShowTypeChoice(false);
+                  return;
+                }
                 setShowTypeChoice(false);
                 router.push(isAnimator ? '/(screens)/cvAnimatorCreate' : '/(screens)/cvCreate');
               }}
@@ -196,9 +233,14 @@ export default function CVList() {
               </View>
             </Pressable>
 
-            <Pressable 
+            <Pressable
               style={commonStyles.card}
               onPress={() => {
+                if (!uploadQuota?.allowed) {
+                  Alert.alert('Limite atteinte', uploadQuota?.message || 'Stockage plein.');
+                  setShowTypeChoice(false);
+                  return;
+                }
                 setShowTypeChoice(false);
                 router.push('/(screens)/cvAdd');
               }}

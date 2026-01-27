@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase';
+import { notificationService, NOTIFICATION_TYPES } from './notificationService';
+import { subscriptionService } from './subscriptionService';
 
 /**
  * Service de matching - Gestion des swipes et matchs
@@ -28,14 +30,19 @@ export const matchingService = {
    * Enregistre un swipe (like, dislike, superlike)
    */
   async recordSwipe(userId, targetType, targetId, action) {
+    const isSuperLike = action === 'superlike';
+    const now = new Date().toISOString();
+
     const { data, error } = await supabase
       .from('swipes')
       .upsert({
         user_id: userId,
         target_type: targetType,
         target_id: targetId,
-        action: action,
-        created_at: new Date().toISOString(),
+        action,
+        is_super_like: isSuperLike,
+        super_liked_at: isSuperLike ? now : null,
+        created_at: now,
       }, {
         onConflict: 'user_id,target_type,target_id',
       })
@@ -44,9 +51,21 @@ export const matchingService = {
 
     if (error) throw error;
 
+    // Incrémenter le compteur de super likes
+    if (isSuperLike) {
+      try {
+        await subscriptionService.incrementSuperLikes(userId);
+      } catch (e) {
+        console.warn('Failed to increment super likes usage:', e);
+      }
+
+      // Notifier le destinataire
+      await this._notifySuperLike(userId, targetType, targetId);
+    }
+
     // Vérifier si un match est créé
-    if (action === 'like' || action === 'superlike') {
-      const match = await this.checkAndCreateMatch(userId, targetType, targetId);
+    if (action === 'like' || isSuperLike) {
+      const match = await this.checkAndCreateMatch(userId, targetType, targetId, isSuperLike);
       return { swipe: data, match };
     }
 
@@ -56,7 +75,7 @@ export const matchingService = {
   /**
    * Vérifie si un match mutuel existe et le crée si nécessaire
    */
-  async checkAndCreateMatch(userId, targetType, targetId) {
+  async checkAndCreateMatch(userId, targetType, targetId, isSuperLike = false) {
     // Récupérer l'offre pour avoir le pharmacy_owner_id
     const offerTable = targetType === 'job_offer' ? 'job_offers' : 'internship_offers';
     const { data: offer } = await supabase
@@ -79,23 +98,24 @@ export const matchingService = {
 
     // Si l'employeur a liké le candidat, créer le match
     if (employerSwipe) {
-      return await this.createMatch(userId, targetType, targetId, offer.pharmacy_owner_id);
+      return await this.createMatch(userId, targetType, targetId, offer.pharmacy_owner_id, isSuperLike || employerSwipe.is_super_like);
     }
 
     // Sinon, créer un match en attente (candidat a liké, mais pas encore l'employeur)
-    return await this.createPendingMatch(userId, targetType, targetId);
+    return await this.createPendingMatch(userId, targetType, targetId, isSuperLike);
   },
 
   /**
    * Crée un match confirmé (les deux parties ont liké)
    */
-  async createMatch(candidateId, targetType, targetId, employerId) {
+  async createMatch(candidateId, targetType, targetId, employerId, isSuperLike = false) {
     const matchData = {
       candidate_id: candidateId,
       candidate_liked: true,
       employer_liked: true,
       matched_at: new Date().toISOString(),
       status: 'matched',
+      is_super_like: isSuperLike,
     };
 
     if (targetType === 'job_offer') {
@@ -121,12 +141,13 @@ export const matchingService = {
   /**
    * Crée un match en attente (une seule partie a liké)
    */
-  async createPendingMatch(candidateId, targetType, targetId) {
+  async createPendingMatch(candidateId, targetType, targetId, isSuperLike = false) {
     const matchData = {
       candidate_id: candidateId,
       candidate_liked: true,
       employer_liked: false,
       status: 'pending',
+      is_super_like: isSuperLike,
     };
 
     if (targetType === 'job_offer') {
@@ -153,14 +174,19 @@ export const matchingService = {
    * Enregistre le swipe d'un employeur sur un candidat
    */
   async recordEmployerSwipe(employerId, candidateId, jobOfferId, action) {
+    const isSuperLike = action === 'superlike';
+    const now = new Date().toISOString();
+
     const { data: swipe, error } = await supabase
       .from('swipes')
       .upsert({
         user_id: employerId,
         target_type: 'candidate',
         target_id: candidateId,
-        action: action,
-        created_at: new Date().toISOString(),
+        action,
+        is_super_like: isSuperLike,
+        super_liked_at: isSuperLike ? now : null,
+        created_at: now,
       }, {
         onConflict: 'user_id,target_type,target_id',
       })
@@ -169,7 +195,18 @@ export const matchingService = {
 
     if (error) throw error;
 
-    if (action === 'like' || action === 'superlike') {
+    if (isSuperLike) {
+      try {
+        await subscriptionService.incrementSuperLikes(employerId);
+      } catch (e) {
+        console.warn('Failed to increment super likes usage:', e);
+      }
+
+      // Notifier le candidat
+      await this._notifySuperLike(employerId, 'candidate', candidateId);
+    }
+
+    if (action === 'like' || isSuperLike) {
       // Vérifier si le candidat avait déjà liké cette offre
       const { data: candidateSwipe } = await supabase
         .from('swipes')
@@ -491,22 +528,89 @@ export const matchingService = {
   },
 
   /**
-   * Compte les super likes restants ce mois
+   * Récupère le quota de super likes (quota quotidien via subscriptionService)
+   * @returns {{ remaining: number, max: number, used: number }}
    */
-  async getSuperLikesRemaining(userId, maxFree = 3) {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+  async getSuperLikeQuota(userId) {
+    try {
+      const result = await subscriptionService.canSuperLike(userId);
+      return {
+        remaining: result.remaining ?? Infinity,
+        max: result.max ?? Infinity,
+        used: result.used ?? 0,
+        allowed: result.allowed,
+        unlimited: result.max === null || result.max === Infinity,
+      };
+    } catch {
+      // Fallback si subscriptionService non disponible
+      return { remaining: 3, max: 3, used: 0, allowed: true, unlimited: false };
+    }
+  },
 
-    const { count, error } = await supabase
-      .from('swipes')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('action', 'superlike')
-      .gte('created_at', startOfMonth.toISOString());
+  /**
+   * @deprecated Utiliser getSuperLikeQuota à la place
+   */
+  async getSuperLikesRemaining(userId) {
+    const quota = await this.getSuperLikeQuota(userId);
+    return quota.remaining;
+  },
 
-    if (error) throw error;
-    return Math.max(0, maxFree - (count || 0));
+  /**
+   * Envoie une notification de super like au destinataire
+   */
+  async _notifySuperLike(senderId, targetType, targetId) {
+    try {
+      // Récupérer le nom de l'expéditeur
+      const { data: senderProfile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('id', senderId)
+        .single();
+
+      const senderName = senderProfile
+        ? `${senderProfile.first_name} ${senderProfile.last_name?.[0] || ''}.`
+        : 'Quelqu\'un';
+
+      // Déterminer le destinataire
+      let recipientId = null;
+
+      if (targetType === 'candidate' || targetType === 'animator') {
+        recipientId = targetId;
+      } else if (targetType === 'job_offer') {
+        const { data: offer } = await supabase
+          .from('job_offers')
+          .select('pharmacy_owner_id')
+          .eq('id', targetId)
+          .single();
+        recipientId = offer?.pharmacy_owner_id;
+      } else if (targetType === 'internship_offer') {
+        const { data: offer } = await supabase
+          .from('internship_offers')
+          .select('pharmacy_owner_id')
+          .eq('id', targetId)
+          .single();
+        recipientId = offer?.pharmacy_owner_id;
+      } else if (targetType === 'mission') {
+        const { data: mission } = await supabase
+          .from('animation_missions')
+          .select('client_id')
+          .eq('id', targetId)
+          .single();
+        recipientId = mission?.client_id;
+      }
+
+      if (recipientId) {
+        await notificationService.createNotification(
+          recipientId,
+          NOTIFICATION_TYPES.SUPER_LIKE,
+          'Super Like recu !',
+          `${senderName} vous a envoye un Super Like !`,
+          { sender_id: senderId, target_type: targetType, target_id: targetId }
+        );
+      }
+    } catch (e) {
+      console.warn('Failed to send super like notification:', e);
+    }
   },
 
   // ==========================================

@@ -7,6 +7,7 @@ const iconMap = {
   mail: { lib: 'feather', name: 'mail' },
   lock: { lib: 'feather', name: 'lock' },
   user: { lib: 'feather', name: 'user' },
+  userCheck: { lib: 'feather', name: 'user-check' },
   users: { lib: 'feather', name: 'users' },
   phone: { lib: 'feather', name: 'phone' },
   atSign: { lib: 'feather', name: 'at-sign' },
@@ -49,6 +50,10 @@ const iconMap = {
   // Settings
   settings: { lib: 'feather', name: 'settings' },
   logout: { lib: 'feather', name: 'log-out' },
+  logOut: { lib: 'feather', name: 'log-out' },
+
+  // Help
+  helpCircle: { lib: 'feather', name: 'help-circle' },
 
   // Location
   location: { lib: 'feather', name: 'map-pin' },
@@ -106,6 +111,9 @@ const iconMap = {
   // Media
   camera: { lib: 'feather', name: 'camera' },
   image: { lib: 'feather', name: 'image' },
+  play: { lib: 'feather', name: 'play' },
+  playCircle: { lib: 'feather', name: 'play-circle' },
+  video: { lib: 'feather', name: 'video' },
   mic: { lib: 'feather', name: 'mic' },
 
   // Misc

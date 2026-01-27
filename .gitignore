@@ -42,3 +42,4 @@ yarn-error.*
 scripts/seedDemoData.js
 scripts/seedOffersOnly.js
 scripts/seedAnimatorsLabs.js
+supabase/migrations/20260127_laboratory_content.sql

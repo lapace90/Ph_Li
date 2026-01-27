@@ -41,7 +41,7 @@ export const MissionSwipeCard = ({
           <Image source={{ uri: laboratory.logo_url }} style={styles.labLogo} />
         ) : (
           <View style={styles.labLogoPlaceholder}>
-            <Icon name="laboratory" size={24} color={theme.colors.primary} />
+            <Icon name="briefcase" size={24} color={theme.colors.primary} />
           </View>
         )}
         <View style={styles.labInfo}>
@@ -161,6 +161,9 @@ export const MissionListCard = ({
 
   const statusConfig = getStatusConfig(mission.status);
 
+  const labName = laboratory?.brand_name || laboratory?.company_name;
+  const rate = mission.daily_rate || mission.daily_rate_min || mission.daily_rate_max;
+
   return (
     <Pressable style={styles.listCard} onPress={onPress}>
       {/* Logo labo */}
@@ -168,7 +171,7 @@ export const MissionListCard = ({
         <Image source={{ uri: laboratory.logo_url }} style={styles.listLogo} />
       ) : (
         <View style={styles.listLogoPlaceholder}>
-          <Icon name="laboratory" size={20} color={theme.colors.primary} />
+          <Icon name="briefcase" size={20} color={theme.colors.primary} />
         </View>
       )}
 
@@ -180,10 +183,10 @@ export const MissionListCard = ({
             <Icon name="star-filled" size={12} color={theme.colors.warning} />
           )}
         </View>
-        
-        <Text style={styles.listLabName} numberOfLines={1}>
-          {laboratory?.brand_name || laboratory?.company_name}
-        </Text>
+
+        {labName ? (
+          <Text style={styles.listLabName} numberOfLines={1}>{labName}</Text>
+        ) : null}
 
         <View style={styles.listMeta}>
           <View style={styles.listMetaItem}>
@@ -194,7 +197,9 @@ export const MissionListCard = ({
             <Icon name="mapPin" size={12} color={theme.colors.textLight} />
             <Text style={styles.listMetaText}>{mission.city || 'N/C'}</Text>
           </View>
-          <Text style={styles.listRate}>{mission.daily_rate}€/j</Text>
+          {rate ? (
+            <Text style={styles.listRate}>{rate}€/j</Text>
+          ) : null}
         </View>
       </View>
 

@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase';
+import { subscriptionService } from './subscriptionService';
+import { matchingService } from './matchingService';
 
 /**
  * Service de matching pour Animateurs ↔ Laboratoires
@@ -12,6 +14,9 @@ export const animatorMatchingService = {
    * Animateur swipe sur une mission
    */
   async animatorSwipeMission(animatorId, missionId, action) {
+    const isSuperLike = action === 'superlike';
+    const now = new Date().toISOString();
+
     const { data: swipe, error: swipeError } = await supabase
       .from('swipes')
       .upsert({
@@ -19,15 +24,26 @@ export const animatorMatchingService = {
         target_type: 'mission',
         target_id: missionId,
         action,
-        created_at: new Date().toISOString(),
+        is_super_like: isSuperLike,
+        super_liked_at: isSuperLike ? now : null,
+        created_at: now,
       }, { onConflict: 'user_id,target_type,target_id' })
       .select()
       .single();
 
     if (swipeError) throw swipeError;
 
-    if (action === 'like' || action === 'superlike') {
-      const match = await this.checkAnimatorMatch(animatorId, missionId);
+    if (isSuperLike) {
+      try {
+        await subscriptionService.incrementSuperLikes(animatorId);
+        await matchingService._notifySuperLike(animatorId, 'mission', missionId);
+      } catch (e) {
+        console.warn('Failed to process super like:', e);
+      }
+    }
+
+    if (action === 'like' || isSuperLike) {
+      const match = await this.checkAnimatorMatch(animatorId, missionId, isSuperLike);
       return { swipe, match };
     }
 
@@ -38,6 +54,9 @@ export const animatorMatchingService = {
    * Labo swipe sur un animateur (pour une mission spécifique)
    */
   async laboratorySwipeAnimator(laboratoryId, animatorId, missionId, action) {
+    const isSuperLike = action === 'superlike';
+    const now = new Date().toISOString();
+
     const { data: swipe, error: swipeError } = await supabase
       .from('swipes')
       .upsert({
@@ -45,15 +64,26 @@ export const animatorMatchingService = {
         target_type: 'animator',
         target_id: animatorId,
         action,
-        created_at: new Date().toISOString(),
+        is_super_like: isSuperLike,
+        super_liked_at: isSuperLike ? now : null,
+        created_at: now,
       }, { onConflict: 'user_id,target_type,target_id' })
       .select()
       .single();
 
     if (swipeError) throw swipeError;
 
-    if (action === 'like' || action === 'superlike') {
-      const match = await this.checkLaboratoryMatch(laboratoryId, animatorId, missionId);
+    if (isSuperLike) {
+      try {
+        await subscriptionService.incrementSuperLikes(laboratoryId);
+        await matchingService._notifySuperLike(laboratoryId, 'animator', animatorId);
+      } catch (e) {
+        console.warn('Failed to process super like:', e);
+      }
+    }
+
+    if (action === 'like' || isSuperLike) {
+      const match = await this.checkLaboratoryMatch(laboratoryId, animatorId, missionId, isSuperLike);
       return { swipe, match };
     }
 
@@ -63,7 +93,7 @@ export const animatorMatchingService = {
   /**
    * Vérifie si un match existe côté animateur
    */
-  async checkAnimatorMatch(animatorId, missionId) {
+  async checkAnimatorMatch(animatorId, missionId, isSuperLike = false) {
     const { data: mission } = await supabase
       .from('animation_missions')
       .select('client_id')
@@ -82,16 +112,16 @@ export const animatorMatchingService = {
       .maybeSingle();
 
     if (labSwipe) {
-      return await this.createMatch(missionId, animatorId, mission.client_id, true, true);
+      return await this.createMatch(missionId, animatorId, mission.client_id, true, true, isSuperLike || labSwipe.is_super_like);
     }
 
-    return await this.createMatch(missionId, animatorId, mission.client_id, true, false);
+    return await this.createMatch(missionId, animatorId, mission.client_id, true, false, isSuperLike);
   },
 
   /**
    * Vérifie si un match existe côté labo
    */
-  async checkLaboratoryMatch(laboratoryId, animatorId, missionId) {
+  async checkLaboratoryMatch(laboratoryId, animatorId, missionId, isSuperLike = false) {
     const { data: animatorSwipe } = await supabase
       .from('swipes')
       .select('*')
@@ -102,16 +132,16 @@ export const animatorMatchingService = {
       .maybeSingle();
 
     if (animatorSwipe) {
-      return await this.createMatch(missionId, animatorId, laboratoryId, true, true);
+      return await this.createMatch(missionId, animatorId, laboratoryId, true, true, isSuperLike || animatorSwipe.is_super_like);
     }
 
-    return await this.createMatch(missionId, animatorId, laboratoryId, false, true);
+    return await this.createMatch(missionId, animatorId, laboratoryId, false, true, isSuperLike);
   },
 
   /**
    * Crée ou met à jour un match
    */
-  async createMatch(missionId, animatorId, laboratoryId, animatorLiked, laboratoryLiked) {
+  async createMatch(missionId, animatorId, laboratoryId, animatorLiked, laboratoryLiked, isSuperLike = false) {
     const isMatched = animatorLiked && laboratoryLiked;
 
     const { data, error } = await supabase
@@ -122,6 +152,7 @@ export const animatorMatchingService = {
         laboratory_id: laboratoryId,
         animator_liked: animatorLiked,
         laboratory_liked: laboratoryLiked,
+        is_super_like: isSuperLike,
         status: isMatched ? 'matched' : 'pending',
         matched_at: isMatched ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),

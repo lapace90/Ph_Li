@@ -83,15 +83,15 @@ export const useSwipeActions = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [lastMatch, setLastMatch] = useState(null);
-  const [superLikesRemaining, setSuperLikesRemaining] = useState(3);
+  const [superLikeQuota, setSuperLikeQuota] = useState({ remaining: 3, max: 3, used: 0, allowed: true, unlimited: false });
 
-  // Charger le nombre de super likes restants
+  // Charger le quota de super likes (quotidien)
   useEffect(() => {
     const loadSuperLikes = async () => {
       if (!user?.id) return;
       try {
-        const remaining = await matchingService.getSuperLikesRemaining(user.id);
-        setSuperLikesRemaining(remaining);
+        const quota = await matchingService.getSuperLikeQuota(user.id);
+        setSuperLikeQuota(quota);
       } catch (err) {
         console.error('Error loading super likes:', err);
       }
@@ -105,13 +105,18 @@ export const useSwipeActions = () => {
     setLoading(true);
     try {
       const result = await matchingService.recordSwipe(user.id, targetType, targetId, action);
-      
+
       if (result.match?.status === 'matched') {
         setLastMatch(result.match);
       }
 
       if (action === 'superlike') {
-        setSuperLikesRemaining(prev => Math.max(0, prev - 1));
+        setSuperLikeQuota(prev => ({
+          ...prev,
+          used: prev.used + 1,
+          remaining: prev.unlimited ? prev.remaining : Math.max(0, prev.remaining - 1),
+          allowed: prev.unlimited || prev.used + 1 < prev.max,
+        }));
       }
 
       return { success: true, ...result };
@@ -132,11 +137,11 @@ export const useSwipeActions = () => {
   }, [swipe]);
 
   const superLike = useCallback(async (targetType, targetId) => {
-    if (superLikesRemaining <= 0) {
-      return { success: false, error: 'Plus de super likes disponibles ce mois' };
+    if (!superLikeQuota.allowed && !superLikeQuota.unlimited) {
+      return { success: false, error: 'quota_exceeded', quotaExceeded: true };
     }
     return swipe(targetType, targetId, 'superlike');
-  }, [swipe, superLikesRemaining]);
+  }, [swipe, superLikeQuota]);
 
   const clearLastMatch = useCallback(() => {
     setLastMatch(null);
@@ -145,7 +150,8 @@ export const useSwipeActions = () => {
   return {
     loading,
     lastMatch,
-    superLikesRemaining,
+    superLikesRemaining: superLikeQuota.unlimited ? null : superLikeQuota.remaining,
+    superLikeQuota,
     swipeRight,
     swipeLeft,
     superLike,
@@ -256,5 +262,6 @@ export const useSwipeScreen = (offerType = 'job_offer', filters = {}) => {
     lastMatch: actions.lastMatch,
     clearLastMatch: actions.clearLastMatch,
     superLikesRemaining: actions.superLikesRemaining,
+    superLikeQuota: actions.superLikeQuota,
   };
 };

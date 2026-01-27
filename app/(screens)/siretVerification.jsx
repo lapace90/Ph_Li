@@ -60,7 +60,7 @@ export default function SiretVerification() {
 
       if (result.verified) {
         Alert.alert(
-          'Vérification réussie ✓',
+          'Vérification réussie',
           isAnimator
             ? 'Votre numéro SIRET a été vérifié. Votre profil affiche maintenant le badge vérifié.'
             : 'Votre numéro SIRET a été vérifié. Votre laboratoire est maintenant certifié.',
@@ -110,7 +110,7 @@ export default function SiretVerification() {
           <View style={styles.successIcon}>
             <Icon name="checkCircle" size={60} color={theme.colors.success} />
           </View>
-          <Text style={styles.statusTitle}>SIRET Vérifié ✓</Text>
+          <Text style={styles.statusTitle}>SIRET Vérifié</Text>
           <Text style={styles.statusText}>
             Votre numéro SIRET a été vérifié avec succès.
           </Text>

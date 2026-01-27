@@ -232,7 +232,7 @@ export const SubscriptionBadge = ({ tier }) => {
     free: { label: 'Gratuit', color: theme.colors.gray, bg: theme.colors.gray + '20' },
     starter: { label: 'Starter', color: theme.colors.warning, bg: theme.colors.warning + '15' },
     pro: { label: 'Pro', color: theme.colors.primary, bg: theme.colors.primary + '15' },
-    enterprise: { label: 'Enterprise', color: theme.colors.secondary, bg: theme.colors.secondary + '15' },
+    business: { label: 'Business', color: theme.colors.secondary, bg: theme.colors.secondary + '15' },
   };
 
   const config = configs[tier] || configs.free;

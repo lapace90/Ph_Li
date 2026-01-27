@@ -1,5 +1,6 @@
 // app/(screens)/settings.jsx
-import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
@@ -11,7 +12,7 @@ import Icon from '../../assets/icons/Icon';
 
 export default function Settings() {
   const router = useRouter();
-  const { signOut, profile } = useAuth();
+  const { signOut } = useAuth();
 
   const handleSignOut = () => {
     Alert.alert('Déconnexion', 'Voulez-vous vraiment vous déconnecter ?', [
@@ -21,48 +22,65 @@ export default function Settings() {
   };
 
   const MenuItem = ({ icon, label, onPress, danger }) => (
-    <Pressable style={commonStyles.listItem} onPress={onPress}>
-      <Icon name={icon} size={20} color={danger ? theme.colors.rose : theme.colors.textLight} />
-      <Text style={[commonStyles.listItemTitle, danger && { color: theme.colors.rose }]}>{label}</Text>
+    <Pressable style={[commonStyles.card, commonStyles.row, { padding: hp(2) }]} onPress={onPress}>
+      <View style={[styles.settingIcon, danger && { backgroundColor: theme.colors.rose + '15' }]}>
+        <Icon name={icon} size={22} color={danger ? theme.colors.rose : theme.colors.primary} />
+      </View>
+      <View style={[commonStyles.flex1, { marginLeft: wp(3) }]}>
+        <Text style={[styles.settingTitle, danger && { color: theme.colors.rose }]}>{label}</Text>
+      </View>
       <Icon name="chevronRight" size={18} color={theme.colors.textLight} />
     </Pressable>
   );
 
   return (
-    <ScreenWrapper>
-      <View style={commonStyles.header}>
-        <BackButton router={router} />
-        <Text style={commonStyles.headerTitle}>Paramètres</Text>
-        <View style={commonStyles.headerSpacer} />
-      </View>
+    <ScreenWrapper bg={theme.colors.background}>
+      <StatusBar style="dark" />
+      <View style={[commonStyles.flex1, { paddingHorizontal: wp(5), paddingTop: hp(2) }]}>
+        <View style={[commonStyles.rowBetween, { marginBottom: hp(3) }]}>
+          <BackButton router={router} />
+          <Text style={commonStyles.headerTitle}>Paramètres</Text>
+          <View style={{ width: 36 }} />
+        </View>
 
-      <ScrollView style={commonStyles.flex1} contentContainerStyle={commonStyles.scrollContent}>
-        <View style={commonStyles.section}>
-          <Text style={commonStyles.sectionTitleSmall}>Compte</Text>
-          <View style={commonStyles.card}>
+        <ScrollView style={commonStyles.flex1} showsVerticalScrollIndicator={false}>
+          <Text style={[commonStyles.sectionTitleSmall, { marginBottom: hp(1) }]}>Compte</Text>
+          <View style={{ gap: hp(1), marginBottom: hp(2.5) }}>
             <MenuItem icon="user" label="Mon profil" onPress={() => router.push('/profile')} />
             <MenuItem icon="bell" label="Notifications" onPress={() => router.push('/notificationSettings')} />
             <MenuItem icon="lock" label="Confidentialité" onPress={() => router.push('/privacySettings')} />
           </View>
-        </View>
 
-        <View style={commonStyles.section}>
-          <Text style={commonStyles.sectionTitleSmall}>Application</Text>
-          <View style={commonStyles.card}>
+          <Text style={[commonStyles.sectionTitleSmall, { marginBottom: hp(1) }]}>Application</Text>
+          <View style={{ gap: hp(1), marginBottom: hp(2.5) }}>
             <MenuItem icon="helpCircle" label="Aide & Support" onPress={() => router.push('/help')} />
             <MenuItem icon="fileText" label="CGU" onPress={() => router.push({ pathname: '/legalDocument', params: { type: 'terms' } })} />
             <MenuItem icon="shield" label="Politique de confidentialité" onPress={() => router.push({ pathname: '/legalDocument', params: { type: 'privacy' } })} />
           </View>
-        </View>
 
-        <View style={commonStyles.section}>
-          <View style={commonStyles.card}>
+          <View style={{ gap: hp(1), marginBottom: hp(2.5) }}>
             <MenuItem icon="logOut" label="Déconnexion" onPress={handleSignOut} danger />
           </View>
-        </View>
 
-        <Text style={[commonStyles.hint, { textAlign: 'center', marginTop: hp(2) }]}>Version 1.0.0</Text>
-      </ScrollView>
+          <Text style={[commonStyles.hint, { textAlign: 'center', marginTop: hp(1) }]}>Version 1.0.0</Text>
+        </ScrollView>
+      </View>
     </ScreenWrapper>
   );
 }
+
+const styles = StyleSheet.create({
+  settingIcon: {
+    width: wp(10),
+    height: wp(10),
+    borderRadius: wp(5),
+    backgroundColor: theme.colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  settingTitle: {
+    fontSize: hp(1.7),
+    color: theme.colors.text,
+    fontFamily: theme.fonts.medium,
+  },
+});

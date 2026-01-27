@@ -34,8 +34,8 @@ export default function MyMissions() {
 
   const filterMissions = (tab) => {
     switch (tab) {
-      case 'pending': return myMissions.filter(m => m.status === 'pending' || m.application_status === 'pending');
-      case 'active': return myMissions.filter(m => ['assigned', 'in_progress'].includes(m.status));
+      case 'pending': return myMissions.filter(m => ['pending', 'proposal_sent', 'animator_accepted'].includes(m.status) || m.application_status === 'pending');
+      case 'active': return myMissions.filter(m => ['confirmed', 'assigned', 'in_progress'].includes(m.status));
       case 'completed': return myMissions.filter(m => m.status === 'completed');
       default: return [];
     }
@@ -83,7 +83,7 @@ export default function MyMissions() {
         >
           {currentMissions.length > 0 ? (
             currentMissions.map(mission => (
-              <MissionListCard key={mission.id} mission={mission} laboratory={mission.client_profile} showStatus={activeTab !== 'pending'} onPress={() => router.push(`/missionDetail/${mission.id}`)} />
+              <MissionListCard key={mission.id} mission={mission} laboratory={mission.client_profile} showStatus onPress={() => router.push({ pathname: '/(screens)/missionDetail', params: { missionId: mission.id } })} />
             ))
           ) : (
             <EmptyState {...emptyConfig[activeTab]} />

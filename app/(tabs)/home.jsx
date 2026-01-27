@@ -1,5 +1,5 @@
 // app/(tabs)/home.jsx
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { View, Text, ScrollView, RefreshControl, Pressable, ActivityIndicator, FlatList, StyleSheet, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
@@ -8,9 +8,12 @@ import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePrivacy } from '../../hooks/usePrivacy';
 import { useDashboard } from '../../hooks/useDashboard';
+import { laboratoryPostService } from '../../services/laboratoryPostService';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import Icon from '../../assets/icons/Icon';
 import Logo from '../../assets/icons/Logo';
+import LaboCarousel from '../../components/home/LaboCarousel';
+import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 
 // ============================================
 // HELPERS
@@ -129,7 +132,7 @@ const CandidateCard = ({ data, onPress }) => {
       </Text>
       {offer && (
         <Text style={styles.offerTag} numberOfLines={1}>
-          → {offer.title}
+          {offer.title}
         </Text>
       )}
     </Pressable>
@@ -154,8 +157,9 @@ const ActivityItem = ({ activity, onPress }) => (
 
 export default function Home() {
   const router = useRouter();
-  const { session, profile } = useAuth();
+  const { session, user, profile } = useAuth();
   const { privacy } = usePrivacy(session?.user?.id);
+  const unreadCount = useUnreadNotificationCount();
   const { 
     loading, 
     stats, 
@@ -167,6 +171,22 @@ export default function Home() {
   } = useDashboard();
 
   const isSearchActive = privacy?.searchable_by_recruiters;
+  const isLaboratory = user?.user_type === 'laboratoire';
+  const isAnimator = user?.user_type === 'animateur';
+  const canCreateAlerts = isTitulaire || isLaboratory;
+  const canReceiveAlerts = !canCreateAlerts;
+
+  // Posts labos
+  const [laboPosts, setLaboPosts] = useState([]);
+  const fetchLaboPosts = useCallback(async () => {
+    try {
+      const data = await laboratoryPostService.getRecentPosts(6);
+      setLaboPosts(data);
+    } catch (err) {
+      console.error('Erreur posts labos:', err);
+    }
+  }, []);
+  useEffect(() => { fetchLaboPosts(); }, [fetchLaboPosts]);
 
   const handleOfferPress = (offer) => {
     if (isEtudiant) {
@@ -201,6 +221,13 @@ export default function Home() {
             </Pressable>
             <Pressable style={commonStyles.headerButton} onPress={() => router.push('/(screens)/notifications')}>
               <Icon name="bell" size={22} color={theme.colors.text} />
+              {unreadCount > 0 && (
+                <View style={commonStyles.notificationBadge}>
+                  <Text style={commonStyles.notificationBadgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           </View>
         </View>
@@ -281,6 +308,14 @@ export default function Home() {
           )}
         </View>
 
+        {/* Actualités labos */}
+        <LaboCarousel
+          title="Actualités labos"
+          posts={laboPosts}
+          emptyMessage="Aucune publication pour le moment"
+          onPostPress={(post) => router.push({ pathname: '/(screens)/postDetail', params: { postId: post.id } })}
+        />
+
         {/* Accès rapide */}
         <View style={commonStyles.homeSection}>
           <Text style={commonStyles.sectionTitle}>Accès rapide</Text>
@@ -331,8 +366,29 @@ export default function Home() {
             )}
           </View>
 
+          {/* Alertes urgentes */}
+          <Pressable
+            style={commonStyles.homePreviewCard}
+            onPress={() => router.push(canCreateAlerts ? '/(screens)/myAlerts' : '/(screens)/availableAlerts')}
+          >
+            <View style={[commonStyles.homePreviewIcon, { backgroundColor: theme.colors.warning + '15' }]}>
+              <Icon name="zap" size={20} color={theme.colors.warning} />
+            </View>
+            <View style={commonStyles.flex1}>
+              <Text style={commonStyles.homePreviewTitle}>
+                {canCreateAlerts ? 'Alertes urgentes' : 'Alertes urgentes'}
+              </Text>
+              <Text style={commonStyles.homePreviewSubtitle}>
+                {canCreateAlerts
+                  ? 'Trouvez un remplacement en urgence'
+                  : 'Remplacements urgents près de vous'}
+              </Text>
+            </View>
+            <Icon name="chevronRight" size={18} color={theme.colors.textLight} />
+          </Pressable>
+
           {/* Prévisualiser ma carte (candidats seulement) */}
-          {!isTitulaire && (
+          {!isTitulaire && !isLaboratory && (
             <Pressable style={commonStyles.homePreviewCard} onPress={() => router.push('/(screens)/previewMyCard')}>
               <View style={[commonStyles.homePreviewIcon, { backgroundColor: theme.colors.warning + '15' }]}>
                 <Icon name="eye" size={20} color={theme.colors.warning} />

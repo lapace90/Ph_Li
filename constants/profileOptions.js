@@ -250,60 +250,233 @@ export const PRODUCT_CATEGORIES = [
   { value: 'veterinaire', label: 'Vétérinaire' },
 ];
 
-// Tiers d'abonnement laboratoire
-export const SUBSCRIPTION_TIERS = [
+// =====================================================
+// ABONNEMENTS - Tiers par type d'utilisateur
+// =====================================================
+
+export const SUBSCRIPTION_TIERS_LABORATORY = [
   {
     value: 'free',
     label: 'Gratuit',
     price: 0,
     features: [
-      'Consulter les profils animateurs (sans contact)',
-      'Voir les pharmacies partenaires',
-      'Badge "Labo Vérifié" si SIRET validé',
+      '1 mission d\'animation',
+      '3 favoris',
+      '3 super likes / jour',
+      'Consulter les profils animateurs',
     ],
-    limits: { contacts: 0, missions: 0 },
+    limits: { missions: 1, contacts: 0, favorites: 3, superLikesPerDay: 3 },
   },
   {
     value: 'starter',
     label: 'Starter',
     price: 49,
     features: [
-      'Contacter 5 animateurs/mois',
-      'Publier 1 mission',
+      '3 missions d\'animation',
+      '3 mises en relation / mois',
+      '10 favoris',
+      '5 super likes / jour',
       'Ciblage par région',
     ],
-    limits: { contacts: 5, missions: 1 },
+    limits: { missions: 3, contacts: 3, favorites: 10, superLikesPerDay: 5 },
   },
   {
     value: 'pro',
     label: 'Pro',
     price: 149,
     features: [
-      'Contacts et missions illimités',
-      'Ciblage avancé (taille pharmacie, spécialités)',
-      'Analytics de campagne',
+      '15 missions d\'animation',
+      '10 mises en relation / mois',
+      '50 favoris',
+      '15 super likes / jour',
+      'Ciblage avancé',
       'Visibilité prioritaire',
-      'Badge "Labo Pro"',
     ],
-    limits: { contacts: Infinity, missions: Infinity },
+    limits: { missions: 15, contacts: 10, favorites: 50, superLikesPerDay: 15 },
   },
   {
-    value: 'enterprise',
-    label: 'Enterprise',
-    price: null, // Sur devis
+    value: 'business',
+    label: 'Business',
+    price: 299,
     features: [
-      'Tout Pro +',
-      'API intégration CRM/ERP',
-      'Multi-utilisateurs',
-      'Account manager dédié',
-      'Reporting custom',
+      'Missions illimitées',
+      'Mises en relation illimitées',
+      'Favoris illimités',
+      'Super likes illimités',
+      'Analytics de campagne',
+      'Badge "Labo Business"',
+      'Support prioritaire',
     ],
-    limits: { contacts: Infinity, missions: Infinity },
+    limits: { missions: Infinity, contacts: Infinity, favorites: Infinity, superLikesPerDay: Infinity },
   },
 ];
 
-export const getSubscriptionTier = (tierValue) => {
-  return SUBSCRIPTION_TIERS.find(t => t.value === tierValue) || SUBSCRIPTION_TIERS[0];
+export const SUBSCRIPTION_TIERS_TITULAIRE = [
+  {
+    value: 'free',
+    label: 'Gratuit',
+    price: 0,
+    features: [
+      '1 offre d\'emploi',
+      '1 offre de stage',
+      '1 alerte urgente / mois',
+      '3 super likes / jour',
+    ],
+    limits: { offers: 1, internships: 1, animatorMissions: 0, alertsPerMonth: 1, superLikesPerDay: 3 },
+  },
+  {
+    value: 'pro',
+    label: 'Pro',
+    price: 29,
+    features: [
+      '5 offres d\'emploi',
+      '3 offres de stage',
+      '2 missions animateur',
+      '5 alertes urgentes / mois',
+      '10 super likes / jour',
+      'Visibilité prioritaire',
+    ],
+    limits: { offers: 5, internships: 3, animatorMissions: 2, alertsPerMonth: 5, superLikesPerDay: 10 },
+  },
+  {
+    value: 'business',
+    label: 'Business',
+    price: 59,
+    features: [
+      'Offres illimitées',
+      'Stages illimités',
+      'Missions animateur illimitées',
+      'Alertes urgentes illimitées',
+      'Super likes illimités',
+      'Support prioritaire',
+    ],
+    limits: { offers: Infinity, internships: Infinity, animatorMissions: Infinity, alertsPerMonth: Infinity, superLikesPerDay: Infinity },
+  },
+];
+
+export const SUBSCRIPTION_TIERS_CANDIDAT = [
+  {
+    value: 'free',
+    label: 'Gratuit',
+    price: 0,
+    features: [
+      '1 CV actif',
+      '5 documents stockés',
+      '1 super like / jour',
+      'Recevoir des offres',
+    ],
+    limits: { cvCount: 1, storageCount: 5, superLikesPerDay: 1 },
+  },
+  {
+    value: 'premium',
+    label: 'Premium',
+    price: 19,
+    features: [
+      '3 CV actifs',
+      '5 documents stockés',
+      '5 super likes / jour',
+      'Visibilité prioritaire',
+      'Badge "Premium"',
+    ],
+    limits: { cvCount: 3, storageCount: 5, superLikesPerDay: 5 },
+  },
+];
+
+// Animateurs : mêmes options que candidats
+export const SUBSCRIPTION_TIERS_ANIMATEUR = SUBSCRIPTION_TIERS_CANDIDAT;
+
+export const SUBSCRIPTION_TIERS_ETUDIANT = [
+  {
+    value: 'free',
+    label: 'Gratuit',
+    price: 0,
+    features: [
+      '1 CV actif',
+      '1 super like / jour',
+      'Recevoir des offres de stage',
+    ],
+    limits: { cvCount: 1, storageCount: 0, superLikesPerDay: 1 },
+  },
+  {
+    value: 'premium',
+    label: 'Premium Étudiant',
+    price: 5,
+    features: [
+      '3 CV actifs',
+      '5 super likes / jour',
+      'Visibilité prioritaire',
+      'Badge "Étudiant Premium"',
+    ],
+    limits: { cvCount: 3, storageCount: 5, superLikesPerDay: 5 },
+  },
+];
+
+// =====================================================
+// ABONNEMENTS - Helpers
+// =====================================================
+
+const TIERS_BY_USER_TYPE = {
+  laboratoire: SUBSCRIPTION_TIERS_LABORATORY,
+  titulaire: SUBSCRIPTION_TIERS_TITULAIRE,
+  preparateur: SUBSCRIPTION_TIERS_CANDIDAT,
+  conseiller: SUBSCRIPTION_TIERS_CANDIDAT,
+  animateur: SUBSCRIPTION_TIERS_ANIMATEUR,
+  etudiant: SUBSCRIPTION_TIERS_ETUDIANT,
+};
+
+/** Retourne la liste des tiers disponibles pour un type d'utilisateur */
+export const getSubscriptionTiers = (userType) => {
+  return TIERS_BY_USER_TYPE[userType] || SUBSCRIPTION_TIERS_CANDIDAT;
+};
+
+/** Retourne les infos d'un tier spécifique pour un type d'utilisateur */
+export const getSubscriptionTier = (userType, tierValue) => {
+  const tiers = getSubscriptionTiers(userType);
+  return tiers.find(t => t.value === tierValue) || tiers[0];
+};
+
+/** Retourne les limites d'un tier pour un type d'utilisateur */
+export const getSubscriptionLimits = (userType, tierValue) => {
+  const tier = getSubscriptionTier(userType, tierValue);
+  return tier.limits;
+};
+
+/** Vérifie si une limite est atteinte (retourne true si OK, false si dépassée) */
+export const checkLimit = (userType, tierValue, limitKey, currentCount) => {
+  const limits = getSubscriptionLimits(userType, tierValue);
+  const max = limits[limitKey];
+  if (max === undefined || max === Infinity) return true;
+  return currentCount < max;
+};
+
+/** Vérifie si un utilisateur peut publier une mission/offre */
+export const canPublish = (userType, tierValue, currentPublished) => {
+  if (userType === 'laboratoire') {
+    return checkLimit(userType, tierValue, 'missions', currentPublished);
+  }
+  if (userType === 'titulaire') {
+    return checkLimit(userType, tierValue, 'offers', currentPublished);
+  }
+  return false;
+};
+
+/** Vérifie si un utilisateur peut envoyer une alerte urgente */
+export const canSendAlert = (userType, tierValue, alertsSentThisMonth) => {
+  if (userType !== 'titulaire') return true; // Labs utilisent missions, pas d'alertes limitées séparément
+  return checkLimit(userType, tierValue, 'alertsPerMonth', alertsSentThisMonth);
+};
+
+/** Vérifie si un utilisateur peut utiliser un super like aujourd'hui */
+export const canSuperLike = (userType, tierValue, superLikesToday) => {
+  return checkLimit(userType, tierValue, 'superLikesPerDay', superLikesToday);
+};
+
+/** Retourne le prochain tier disponible (pour upgrade) */
+export const getNextTier = (userType, currentTierValue) => {
+  const tiers = getSubscriptionTiers(userType);
+  const idx = tiers.findIndex(t => t.value === currentTierValue);
+  if (idx === -1 || idx >= tiers.length - 1) return null;
+  return tiers[idx + 1];
 };
 
 

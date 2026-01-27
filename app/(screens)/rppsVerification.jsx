@@ -59,7 +59,7 @@ export default function RppsVerification() {
 
       if (result.verified) {
         Alert.alert(
-          'Vérification réussie ✓',
+          'Vérification réussie',
           isTitulaire 
             ? 'Votre numéro RPPS a été vérifié. Vous pouvez maintenant publier des annonces.'
             : 'Votre numéro RPPS a été vérifié. Votre profil affiche maintenant le badge vérifié.',
@@ -109,7 +109,7 @@ export default function RppsVerification() {
           <View style={styles.successIcon}>
             <Icon name="checkCircle" size={60} color={theme.colors.success} />
           </View>
-          <Text style={styles.statusTitle}>RPPS Vérifié ✓</Text>
+          <Text style={styles.statusTitle}>RPPS Vérifié</Text>
           <Text style={styles.statusText}>
             Votre numéro RPPS a été vérifié avec succès.
           </Text>

@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, Switch } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Switch } from 'react-native';
 import { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -51,11 +51,11 @@ export default function NotificationSettings() {
   };
 
   const SettingRow = ({ icon, title, description, settingKey }) => (
-    <View style={[commonStyles.row, styles.settingRow]}>
+    <View style={[commonStyles.card, commonStyles.row, { padding: hp(2) }]}>
       <View style={styles.settingIcon}>
-        <Icon name={icon} size={20} color={theme.colors.primary} />
+        <Icon name={icon} size={22} color={theme.colors.primary} />
       </View>
-      <View style={commonStyles.flex1}>
+      <View style={[commonStyles.flex1, { marginLeft: wp(3), marginRight: wp(2) }]}>
         <Text style={styles.settingTitle}>{title}</Text>
         {description && <Text style={commonStyles.hint}>{description}</Text>}
       </View>
@@ -72,16 +72,16 @@ export default function NotificationSettings() {
   return (
     <ScreenWrapper bg={theme.colors.background}>
       <StatusBar style="dark" />
-      <View style={[commonStyles.flex1, commonStyles.scrollContent, { paddingTop: hp(2) }]}>
-        <View style={commonStyles.rowBetween}>
+      <View style={[commonStyles.flex1, { paddingHorizontal: wp(5), paddingTop: hp(2) }]}>
+        <View style={[commonStyles.rowBetween, { marginBottom: hp(3) }]}>
           <BackButton router={router} />
-          <Text style={styles.title}>Notifications</Text>
-          <View style={commonStyles.headerSpacer} />
+          <Text style={commonStyles.headerTitle}>Notifications</Text>
+          <View style={{ width: 36 }} />
         </View>
 
-        <View style={styles.section}>
-          <Text style={commonStyles.sectionTitleSmall}>Général</Text>
-          <View style={[commonStyles.card, { padding: 0, overflow: 'hidden' }]}>
+        <ScrollView style={commonStyles.flex1} showsVerticalScrollIndicator={false}>
+          <Text style={[commonStyles.sectionTitleSmall, { marginBottom: hp(1) }]}>Général</Text>
+          <View style={{ gap: hp(1), marginBottom: hp(2.5) }}>
             <SettingRow
               icon="bell"
               title="Notifications push"
@@ -89,79 +89,63 @@ export default function NotificationSettings() {
               settingKey="pushEnabled"
             />
           </View>
-        </View>
 
-        <View style={[styles.section, !settings.pushEnabled && styles.sectionDisabled]}>
-          <Text style={commonStyles.sectionTitleSmall}>Activité</Text>
-          <View style={[commonStyles.card, { padding: 0, overflow: 'hidden' }]}>
-            <SettingRow
-              icon="heart"
-              title="Nouveaux matchs"
-              description="Quand un employeur matche avec vous"
-              settingKey="newMatch"
-            />
-            <View style={commonStyles.dividerLight} />
-            <SettingRow
-              icon="messageCircle"
-              title="Messages"
-              description="Nouveaux messages reçus"
-              settingKey="newMessage"
-            />
-            <View style={commonStyles.dividerLight} />
-            <SettingRow
-              icon="briefcase"
-              title="Candidatures"
-              description="Mise à jour du statut de vos candidatures"
-              settingKey="applicationStatus"
-            />
+          <View style={[!settings.pushEnabled && styles.sectionDisabled]}>
+            <Text style={[commonStyles.sectionTitleSmall, { marginBottom: hp(1) }]}>Activité</Text>
+            <View style={{ gap: hp(1), marginBottom: hp(2.5) }}>
+              <SettingRow
+                icon="heart"
+                title="Nouveaux matchs"
+                description="Quand un employeur matche avec vous"
+                settingKey="newMatch"
+              />
+              <SettingRow
+                icon="messageCircle"
+                title="Messages"
+                description="Nouveaux messages reçus"
+                settingKey="newMessage"
+              />
+              <SettingRow
+                icon="briefcase"
+                title="Candidatures"
+                description="Mise à jour du statut de vos candidatures"
+                settingKey="applicationStatus"
+              />
+            </View>
           </View>
-        </View>
 
-        <View style={[styles.section, !settings.pushEnabled && styles.sectionDisabled]}>
-          <Text style={commonStyles.sectionTitleSmall}>Découverte</Text>
-          <View style={[commonStyles.card, { padding: 0, overflow: 'hidden' }]}>
-            <SettingRow
-              icon="mapPin"
-              title="Nouvelles offres"
-              description="Offres dans votre zone de recherche"
-              settingKey="newJobInArea"
-            />
-            <View style={commonStyles.dividerLight} />
-            <SettingRow
-              icon="mail"
-              title="Résumé hebdomadaire"
-              description="Email récapitulatif chaque semaine"
-              settingKey="weeklyDigest"
-            />
+          <View style={[!settings.pushEnabled && styles.sectionDisabled]}>
+            <Text style={[commonStyles.sectionTitleSmall, { marginBottom: hp(1) }]}>Découverte</Text>
+            <View style={{ gap: hp(1), marginBottom: hp(2.5) }}>
+              <SettingRow
+                icon="mapPin"
+                title="Nouvelles offres"
+                description="Offres dans votre zone de recherche"
+                settingKey="newJobInArea"
+              />
+              <SettingRow
+                icon="mail"
+                title="Résumé hebdomadaire"
+                description="Email récapitulatif chaque semaine"
+                settingKey="weeklyDigest"
+              />
+            </View>
           </View>
-        </View>
 
-        {!settings.pushEnabled && (
-          <Text style={[commonStyles.hint, commonStyles.textCenter]}>
-            Activez les notifications push pour personnaliser vos préférences
-          </Text>
-        )}
+          {!settings.pushEnabled && (
+            <Text style={[commonStyles.hint, commonStyles.textCenter]}>
+              Activez les notifications push pour personnaliser vos préférences
+            </Text>
+          )}
+        </ScrollView>
       </View>
     </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: hp(2.2),
-    fontFamily: theme.fonts.semiBold,
-    color: theme.colors.text,
-  },
-  section: {
-    marginTop: hp(3),
-    gap: hp(1),
-  },
   sectionDisabled: {
     opacity: 0.5,
-  },
-  settingRow: {
-    padding: hp(2),
-    gap: wp(3),
   },
   settingIcon: {
     width: wp(10),

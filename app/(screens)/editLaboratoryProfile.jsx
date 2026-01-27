@@ -348,7 +348,7 @@ export default function EditLaboratoryProfile() {
           <Text style={commonStyles.sectionTitle}>Abonnement</Text>
           <Pressable 
             style={styles.subscriptionCard} 
-            onPress={() => router.push('/subscription')}
+            onPress={() => router.push('/(screens)/subscription')}
           >
             <View style={[
               styles.subscriptionIcon, 

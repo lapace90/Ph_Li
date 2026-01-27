@@ -1,8 +1,9 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
-import { Text, TextInput } from 'react-native';
+import { View, Text, TextInput } from 'react-native';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import LoadingScreen from '../components/common/LoadingScreen';
+import NotificationToast from '../components/common/NotificationToast';
 import {
   useFonts,
   Montserrat_400Regular,
@@ -56,12 +57,15 @@ const MainLayout = () => {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="welcome" />
-      <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="(screens)" />
-    </Stack>
+    <View style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="welcome" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(screens)" />
+      </Stack>
+      {session && <NotificationToast />}
+    </View>
   );
 };
 

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { notificationService, NOTIFICATION_TYPES } from './notificationService';
 
 /**
  * Service de messagerie (basé sur les matchs)
@@ -159,6 +160,33 @@ export const messagingService = {
       .from('matches')
       .update({ updated_at: new Date().toISOString() })
       .eq('id', matchId);
+
+    // Notifier le destinataire
+    try {
+      const { data: match } = await supabase
+        .from('matches')
+        .select('candidate_id, job_offers(pharmacy_owner_id), internship_offers(pharmacy_owner_id)')
+        .eq('id', matchId)
+        .single();
+
+      if (match) {
+        const employerId = match.job_offers?.pharmacy_owner_id || match.internship_offers?.pharmacy_owner_id;
+        const recipientId = match.candidate_id === senderId ? employerId : match.candidate_id;
+
+        if (recipientId) {
+          const preview = content.length > 100 ? content.slice(0, 100) + '...' : content;
+          await notificationService.createNotification(
+            recipientId,
+            NOTIFICATION_TYPES.MESSAGE,
+            'Nouveau message',
+            preview,
+            { match_id: matchId, conversation_id: matchId }
+          );
+        }
+      }
+    } catch (err) {
+      console.error('Error creating message notification:', err);
+    }
 
     return data;
   },
