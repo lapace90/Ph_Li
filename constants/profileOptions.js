@@ -543,9 +543,9 @@ export const REVIEW_CRITERIA_ANIMATOR = [
 ];
 
 export const REVIEW_CRITERIA_CLIENT = [
-  { key: 'rating_brief_clarity', label: 'Clarté du brief', icon: 'file-text' },
+  { key: 'rating_brief_clarity', label: 'Clarté du brief', icon: 'fileText' },
   { key: 'rating_conditions', label: 'Conditions d\'accueil', icon: 'home' },
-  { key: 'rating_payment_respect', label: 'Respect des délais de paiement', icon: 'credit-card' },
+  { key: 'rating_payment_respect', label: 'Respect des délais de paiement', icon: 'creditCard' },
 ];
 
 

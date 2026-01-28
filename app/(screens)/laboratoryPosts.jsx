@@ -13,19 +13,13 @@ import ScreenWrapper from '../../components/common/ScreenWrapper';
 import BackButton from '../../components/common/BackButton';
 import Icon from '../../assets/icons/Icon';
 import { EmptyState } from '../../components/common/DashboardComponents';
+import { POST_TYPE_CONFIG } from '../../constants/postOptions';
 
 const TABS = [
   { key: 'published', label: 'Publiées' },
   { key: 'draft', label: 'Brouillons' },
   { key: 'sponsored', label: 'Sponsorisées' },
 ];
-
-const POST_TYPE_CONFIG = {
-  news: { label: 'News', icon: 'bell', color: theme.colors.primary },
-  formation: { label: 'Formation', icon: 'bookOpen', color: theme.colors.secondary },
-  event: { label: 'Événement', icon: 'calendar', color: theme.colors.warning },
-  video: { label: 'Vidéo', icon: 'play', color: theme.colors.rose },
-};
 
 export default function LaboratoryPosts() {
   const router = useRouter();
@@ -164,7 +158,7 @@ export default function LaboratoryPosts() {
             <View style={styles.badgeRow}>
               <View style={[styles.typeBadge, { backgroundColor: typeConfig.color + '15' }]}>
                 <Icon name={typeConfig.icon} size={10} color={typeConfig.color} />
-                <Text style={[styles.typeBadgeText, { color: typeConfig.color }]}>{typeConfig.label}</Text>
+                <Text style={[styles.typeBadgeText, { color: typeConfig.color }]}>{typeConfig.shortLabel}</Text>
               </View>
               {isDraft && (
                 <View style={[styles.typeBadge, { backgroundColor: theme.colors.gray + '30' }]}>

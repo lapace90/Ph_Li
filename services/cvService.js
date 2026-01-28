@@ -345,4 +345,41 @@ export const cvService = {
       })),
     };
   },
+
+  // ==========================================
+  // TRACKING VUES CV
+  // ==========================================
+
+  /**
+   * Enregistre une vue de CV
+   */
+  async recordCvView(cvId, cvOwnerId, viewerId) {
+    const { error } = await supabase
+      .from('cv_views')
+      .insert({
+        cv_id: cvId,
+        cv_owner_id: cvOwnerId,
+        viewer_id: viewerId,
+      });
+
+    if (error) console.warn('Erreur enregistrement vue CV:', error);
+  },
+
+  /**
+   * Compte les vues de CV d'un utilisateur (30 derniers jours)
+   */
+  async getCvViewsCount(userId) {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { count, error } = await supabase
+      .from('cv_views')
+      .select('*', { count: 'exact', head: true })
+      .eq('cv_owner_id', userId)
+      .gte('viewed_at', thirtyDaysAgo);
+
+    if (error) {
+      console.warn('Erreur comptage vues CV:', error);
+      return 0;
+    }
+    return count || 0;
+  },
 };

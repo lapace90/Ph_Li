@@ -18,6 +18,7 @@ import SingleSelect from '../../components/common/SingleSelect';
 import MultiSelect from '../../components/common/MultiSelect';
 import ImagePickerBox from '../../components/common/ImagePickerBox';
 import Icon from '../../assets/icons/Icon';
+import { POST_TYPE_CONFIG } from '../../constants/postOptions';
 
 const POST_TYPES = [
   { value: 'news', label: 'Actualité' },
@@ -33,13 +34,6 @@ const TARGET_USER_TYPES = [
   { value: 'titulaire', label: 'Titulaires' },
   { value: 'animateur', label: 'Animateurs' },
 ];
-
-const POST_TYPE_CONFIG = {
-  news: { label: 'Actualité', icon: 'bell', color: theme.colors.primary },
-  formation: { label: 'Formation', icon: 'bookOpen', color: theme.colors.secondary },
-  event: { label: 'Événement', icon: 'calendar', color: theme.colors.warning },
-  video: { label: 'Vidéo', icon: 'play', color: theme.colors.rose },
-};
 
 export default function CreatePost() {
   const router = useRouter();

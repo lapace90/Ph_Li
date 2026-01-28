@@ -32,9 +32,20 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env.production
+.env.staging
+.env.development
 
 # typescript
 *.tsbuildinfo
+
+# EAS
+.eas/
+
+# Credentials (build signing, Firebase, etc.)
+credentials.json
+google-services.json
+GoogleService-Info.plist
 
 # generated native folders
 /ios
@@ -42,4 +53,5 @@ yarn-error.*
 scripts/seedDemoData.js
 scripts/seedOffersOnly.js
 scripts/seedAnimatorsLabs.js
-supabase/migrations/20260127_laboratory_content.sql
+supabase/migrations/
+.claude/settings.local.json

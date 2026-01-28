@@ -4,14 +4,12 @@ import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
+import { POST_TYPE_CONFIG } from '../../constants/postOptions';
 import Icon from '../../assets/icons/Icon';
 
-const POST_TYPE_CONFIG = {
-  news: { label: 'News', icon: 'bell', color: theme.colors.primary },
-  formation: { label: 'Formation', icon: 'bookOpen', color: theme.colors.secondary },
-  event: { label: 'Event', icon: 'calendar', color: theme.colors.warning },
-  video: { label: 'Vidéo', icon: 'play', color: theme.colors.rose },
-};
+// ============================================
+// CARTE COMPACTE (pour toi, mes publications)
+// ============================================
 
 const PostCard = ({ post, onPress }) => {
   const typeConfig = POST_TYPE_CONFIG[post.type] || POST_TYPE_CONFIG.news;
@@ -31,7 +29,7 @@ const PostCard = ({ post, onPress }) => {
       {/* Badge type */}
       <View style={[styles.typeBadge, { backgroundColor: typeConfig.color + '15' }]}>
         <Icon name={typeConfig.icon} size={10} color={typeConfig.color} />
-        <Text style={[styles.typeBadgeText, { color: typeConfig.color }]}>{typeConfig.label}</Text>
+        <Text style={[styles.typeBadgeText, { color: typeConfig.color }]}>{typeConfig.shortLabel}</Text>
       </View>
 
       {/* Contenu */}
@@ -55,7 +53,79 @@ const PostCard = ({ post, onPress }) => {
   );
 };
 
-export default function LaboCarousel({ title, posts, onPostPress, emptyMessage }) {
+// ============================================
+// CARTE FEATURED (à la une, sponsorisé)
+// ============================================
+
+const FeaturedCard = ({ post, onPress }) => {
+  const typeConfig = POST_TYPE_CONFIG[post.type] || POST_TYPE_CONFIG.news;
+  const labName = post.laboratory?.brand_name || post.laboratory?.company_name || '';
+  const isVerified = post.laboratory?.siret_verified;
+
+  return (
+    <Pressable style={featuredStyles.card} onPress={() => onPress?.(post)}>
+      {/* Image grande */}
+      {post.image_url ? (
+        <Image source={{ uri: post.image_url }} style={featuredStyles.image} contentFit="cover" />
+      ) : (
+        <View style={[featuredStyles.image, featuredStyles.imagePlaceholder]}>
+          <Icon name={typeConfig.icon} size={40} color={typeConfig.color} />
+        </View>
+      )}
+
+      {/* Overlay sombre en bas */}
+      <View style={featuredStyles.gradient} />
+
+      {/* Badges en haut */}
+      <View style={featuredStyles.badgeRow}>
+        <View style={[featuredStyles.typeBadge, { backgroundColor: typeConfig.color }]}>
+          <Icon name={typeConfig.icon} size={12} color="#fff" />
+          <Text style={featuredStyles.typeBadgeText}>{typeConfig.shortLabel}</Text>
+        </View>
+        {post.is_sponsored && (
+          <View style={featuredStyles.sponsorBadge}>
+            <Icon name="zap" size={10} color={theme.colors.warning} />
+            <Text style={featuredStyles.sponsorBadgeText}>Sponsorise</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Contenu en bas sur le gradient */}
+      <View style={featuredStyles.overlay}>
+        {/* Labo */}
+        <View style={featuredStyles.labRow}>
+          {post.laboratory?.logo_url ? (
+            <Image source={{ uri: post.laboratory.logo_url }} style={featuredStyles.labLogo} />
+          ) : (
+            <View style={[featuredStyles.labLogo, featuredStyles.labLogoPlaceholder]}>
+              <Icon name="briefcase" size={12} color="#fff" />
+            </View>
+          )}
+          <Text style={featuredStyles.labName} numberOfLines={1}>{labName}</Text>
+          {isVerified && (
+            <Icon name="checkCircle" size={14} color={theme.colors.success} />
+          )}
+        </View>
+
+        {/* Titre */}
+        <Text style={featuredStyles.title} numberOfLines={2}>{post.title}</Text>
+
+        {/* Sous-titre (contenu tronque) */}
+        {post.content ? (
+          <Text style={featuredStyles.subtitle} numberOfLines={1}>{post.content}</Text>
+        ) : null}
+      </View>
+    </Pressable>
+  );
+};
+
+// ============================================
+// COMPOSANT PRINCIPAL
+// ============================================
+
+export default function LaboCarousel({ title, posts, onPostPress, emptyMessage, variant = 'compact' }) {
+  const isFeatured = variant === 'featured';
+
   if (!posts || posts.length === 0) {
     if (!emptyMessage) return null;
     return (
@@ -78,14 +148,22 @@ export default function LaboCarousel({ title, posts, onPostPress, emptyMessage }
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
-        ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+        snapToInterval={isFeatured ? FEATURED_CARD_WIDTH + 14 : undefined}
+        decelerationRate={isFeatured ? 'fast' : undefined}
+        ItemSeparatorComponent={() => <View style={{ width: isFeatured ? 14 : 12 }} />}
         renderItem={({ item }) => (
-          <PostCard post={item} onPress={onPostPress} />
+          isFeatured
+            ? <FeaturedCard post={item} onPress={onPostPress} />
+            : <PostCard post={item} onPress={onPostPress} />
         )}
       />
     </View>
   );
 }
+
+// ============================================
+// STYLES COMPACT
+// ============================================
 
 const CARD_WIDTH = 150;
 const CARD_IMAGE_HEIGHT = 100;
@@ -182,5 +260,115 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: hp(1.3),
     color: theme.colors.textLight,
+  },
+});
+
+// ============================================
+// STYLES FEATURED
+// ============================================
+
+const FEATURED_CARD_WIDTH = wp(75);
+const FEATURED_IMAGE_HEIGHT = hp(22);
+
+const featuredStyles = StyleSheet.create({
+  card: {
+    width: FEATURED_CARD_WIDTH,
+    borderRadius: theme.radius.xl,
+    overflow: 'hidden',
+    backgroundColor: theme.colors.card,
+  },
+  image: {
+    width: FEATURED_CARD_WIDTH,
+    height: FEATURED_IMAGE_HEIGHT,
+  },
+  imagePlaceholder: {
+    backgroundColor: theme.colors.backgroundDark,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: FEATURED_IMAGE_HEIGHT * 0.55,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  badgeRow: {
+    position: 'absolute',
+    top: wp(3),
+    left: wp(3),
+    right: wp(3),
+    flexDirection: 'row',
+    gap: wp(2),
+  },
+  typeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: wp(2.5),
+    paddingVertical: hp(0.4),
+    borderRadius: theme.radius.md,
+  },
+  typeBadgeText: {
+    fontSize: hp(1.2),
+    fontFamily: theme.fonts.semiBold,
+    color: '#fff',
+  },
+  sponsorBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: wp(2),
+    paddingVertical: hp(0.4),
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.warning + '20',
+  },
+  sponsorBadgeText: {
+    fontSize: hp(1.1),
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.warning,
+  },
+  overlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: wp(4),
+    gap: hp(0.5),
+  },
+  labRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(2),
+  },
+  labLogo: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  labLogoPlaceholder: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  labName: {
+    flex: 1,
+    fontSize: hp(1.4),
+    fontFamily: theme.fonts.semiBold,
+    color: '#fff',
+  },
+  title: {
+    fontSize: hp(1.8),
+    fontFamily: theme.fonts.bold,
+    color: '#fff',
+    lineHeight: hp(2.4),
+  },
+  subtitle: {
+    fontSize: hp(1.3),
+    fontFamily: theme.fonts.regular,
+    color: 'rgba(255,255,255,0.7)',
   },
 });

@@ -1,5 +1,3 @@
-// app/(tabs)/home.jsx
-import { useState, useCallback, useEffect } from 'react';
 import { View, Text, ScrollView, RefreshControl, Pressable, ActivityIndicator, FlatList, StyleSheet, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
@@ -8,12 +6,12 @@ import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePrivacy } from '../../hooks/usePrivacy';
 import { useDashboard } from '../../hooks/useDashboard';
-import { laboratoryPostService } from '../../services/laboratoryPostService';
+import { useLaboPosts } from '../../hooks/useLaboPosts';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import Icon from '../../assets/icons/Icon';
-import Logo from '../../assets/icons/Logo';
+import HomeHeader from '../../components/home/HomeHeader';
 import LaboCarousel from '../../components/home/LaboCarousel';
-import { useUnreadNotificationCount } from '../../hooks/useNotifications';
+import { EmptyState } from '../../components/common/DashboardComponents';
 
 // ============================================
 // HELPERS
@@ -38,35 +36,35 @@ const getContractTypeLabel = (type) => {
 // SOUS-COMPOSANTS
 // ============================================
 
-const StatsCard = ({ stats, isTitulaire, isSearchActive }) => (
-  <View style={commonStyles.homeStatsCard}>
-    <View style={commonStyles.homeStatItem}>
-      <Text style={commonStyles.homeStatValue}>{isTitulaire ? stats?.publishedOffers || 0 : stats?.applications || 0}</Text>
+const StatsCard = ({ stats, isTitulaire }) => (
+  <View style={commonStyles.homeStatsRow}>
+    <View style={commonStyles.homeStatCard}>
+      <View style={commonStyles.homeStatTopRow}>
+        <View style={[commonStyles.homeStatIcon, { backgroundColor: theme.colors.primary + '15' }]}>
+          <Icon name="briefcase" size={16} color={theme.colors.primary} />
+        </View>
+        <Text style={commonStyles.homeStatValue}>{isTitulaire ? stats?.publishedOffers || 0 : stats?.applications || 0}</Text>
+      </View>
       <Text style={commonStyles.homeStatLabel}>{isTitulaire ? 'Annonces' : 'Candidatures'}</Text>
     </View>
-    <View style={commonStyles.homeStatDivider} />
-    <View style={commonStyles.homeStatItem}>
-      <Text style={commonStyles.homeStatValue}>{stats?.matches || 0}</Text>
+    <View style={commonStyles.homeStatCard}>
+      <View style={commonStyles.homeStatTopRow}>
+        <View style={[commonStyles.homeStatIcon, { backgroundColor: theme.colors.rose + '15' }]}>
+          <Icon name="heart" size={16} color={theme.colors.rose} />
+        </View>
+        <Text style={commonStyles.homeStatValue}>{stats?.matches || 0}</Text>
+      </View>
       <Text style={commonStyles.homeStatLabel}>Matchs</Text>
     </View>
-    <View style={commonStyles.homeStatDivider} />
-    <View style={commonStyles.homeStatItem}>
-      <Text style={commonStyles.homeStatValue}>{stats?.views || 0}</Text>
+    <View style={commonStyles.homeStatCard}>
+      <View style={commonStyles.homeStatTopRow}>
+        <View style={[commonStyles.homeStatIcon, { backgroundColor: theme.colors.secondary + '15' }]}>
+          <Icon name="eye" size={16} color={theme.colors.secondary} />
+        </View>
+        <Text style={commonStyles.homeStatValue}>{stats?.views || 0}</Text>
+      </View>
       <Text style={commonStyles.homeStatLabel}>Vues</Text>
     </View>
-    <View style={commonStyles.homeStatDivider} />
-    <View style={commonStyles.homeStatItemRow}>
-      <View style={[commonStyles.homeStatusDot, isSearchActive && commonStyles.homeStatusDotActive]} />
-      <Text style={commonStyles.homeStatLabel}>{isSearchActive ? 'Visible' : 'Masqué'}</Text>
-    </View>
-  </View>
-);
-
-const EmptyState = ({ icon, title, subtitle }) => (
-  <View style={commonStyles.homeEmptyState}>
-    <Icon name={icon} size={32} color={theme.colors.gray} />
-    <Text style={commonStyles.homeEmptyTitle}>{title}</Text>
-    {subtitle && <Text style={commonStyles.homeEmptySubtitle}>{subtitle}</Text>}
   </View>
 );
 
@@ -159,8 +157,7 @@ export default function Home() {
   const router = useRouter();
   const { session, user, profile } = useAuth();
   const { privacy } = usePrivacy(session?.user?.id);
-  const unreadCount = useUnreadNotificationCount();
-  const { 
+  const {
     loading, 
     stats, 
     recommendedOffers, 
@@ -172,21 +169,10 @@ export default function Home() {
 
   const isSearchActive = privacy?.searchable_by_recruiters;
   const isLaboratory = user?.user_type === 'laboratoire';
-  const isAnimator = user?.user_type === 'animateur';
   const canCreateAlerts = isTitulaire || isLaboratory;
-  const canReceiveAlerts = !canCreateAlerts;
 
   // Posts labos
-  const [laboPosts, setLaboPosts] = useState([]);
-  const fetchLaboPosts = useCallback(async () => {
-    try {
-      const data = await laboratoryPostService.getRecentPosts(6);
-      setLaboPosts(data);
-    } catch (err) {
-      console.error('Erreur posts labos:', err);
-    }
-  }, []);
-  useEffect(() => { fetchLaboPosts(); }, [fetchLaboPosts]);
+  const { forYouPosts, featuredPosts } = useLaboPosts();
 
   const handleOfferPress = (offer) => {
     if (isEtudiant) {
@@ -212,31 +198,17 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} colors={[theme.colors.primary]} />}
       >
-        {/* Header */}
-        <View style={commonStyles.homeHeader}>
-          <Logo size={hp(5)} />
-          <View style={commonStyles.homeHeaderButtons}>
-            <Pressable style={commonStyles.headerButton} onPress={() => router.push('/(tabs)/messages')}>
-              <Icon name="messageCircle" size={22} color={theme.colors.text} />
-            </Pressable>
-            <Pressable style={commonStyles.headerButton} onPress={() => router.push('/(screens)/notifications')}>
-              <Icon name="bell" size={22} color={theme.colors.text} />
-              {unreadCount > 0 && (
-                <View style={commonStyles.notificationBadge}>
-                  <Text style={commonStyles.notificationBadgeText}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </Pressable>
-          </View>
-        </View>
+        <HomeHeader />
 
         {/* Salutation */}
         <View style={commonStyles.homeGreetingSection}>
-          <Text style={commonStyles.homeGreeting}>Bonjour {profile?.first_name} !</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: wp(2) }}>
+            <Text style={[commonStyles.homeGreeting, { marginBottom: 0 }]}>Bonjour {profile?.first_name} !</Text>
+            <View style={[commonStyles.homeStatusDot, isSearchActive && commonStyles.homeStatusDotActive]} />
+            <Text style={[commonStyles.homeStatLabel, { marginTop: 0 }]}>{isSearchActive ? 'Visible' : 'Masqué'}</Text>
+          </View>
           {isTitulaire && (
-            <Pressable style={commonStyles.homeStatusRow} onPress={() => router.push('/(screens)/recruiterDashboard')}>
+            <Pressable style={[commonStyles.homeStatusRow, { marginTop: hp(0.5) }]} onPress={() => router.push('/(screens)/recruiterDashboard')}>
               <Icon name="briefcase" size={14} color={theme.colors.primary} />
               <Text style={[commonStyles.hint, { color: theme.colors.primary }]}>Gérer mes annonces</Text>
               <Icon name="chevronRight" size={14} color={theme.colors.primary} />
@@ -245,45 +217,52 @@ export default function Home() {
         </View>
 
         {/* Stats */}
-        <StatsCard stats={stats} isTitulaire={isTitulaire} isSearchActive={isSearchActive} />
+        <StatsCard stats={stats} isTitulaire={isTitulaire} />
 
-        {/* Offres recommandées / Candidats récents */}
-        <View style={commonStyles.homeSection}>
-          <View style={commonStyles.rowBetween}>
-            <Text style={commonStyles.sectionTitle}>{isTitulaire ? 'Candidats récents' : 'Offres pour vous'}</Text>
-            <Pressable style={commonStyles.row} onPress={() => router.push(isTitulaire ? '/(screens)/matches' : '/(tabs)/search')}>
-              <Text style={commonStyles.homeSeeAllText}>Voir tout</Text>
-              <Icon name="chevronRight" size={16} color={theme.colors.primary} />
-            </Pressable>
-          </View>
-          
-          {loading ? (
-            <View style={commonStyles.loadingContainer}>
-              <ActivityIndicator size="small" color={theme.colors.primary} />
+        {/* A la une */}
+        <LaboCarousel
+          title="A la une"
+          posts={featuredPosts}
+          emptyMessage="Aucune publication pour le moment"
+          variant="featured"
+          onPostPress={(post) => router.push({ pathname: '/(screens)/postDetail', params: { postId: post.id } })}
+        />
+
+        {/* Candidats récents (titulaire uniquement) */}
+        {isTitulaire && (
+          <View style={commonStyles.homeSection}>
+            <View style={commonStyles.rowBetween}>
+              <Text style={commonStyles.sectionTitle}>Candidats récents</Text>
+              <Pressable style={commonStyles.row} onPress={() => router.push('/(screens)/matches')}>
+                <Text style={commonStyles.homeSeeAllText}>Voir tout</Text>
+                <Icon name="chevronRight" size={16} color={theme.colors.primary} />
+              </Pressable>
             </View>
-          ) : recommendedOffers?.length > 0 ? (
-            <FlatList
-              data={recommendedOffers}
-              keyExtractor={(item) => item.id}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingTop: hp(1.5), gap: wp(3) }}
-              renderItem={({ item }) => (
-                isTitulaire ? (
+
+            {loading ? (
+              <View style={commonStyles.loadingContainer}>
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              </View>
+            ) : recommendedOffers?.length > 0 ? (
+              <FlatList
+                data={recommendedOffers}
+                keyExtractor={(item) => item.id}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingTop: hp(1.5), gap: wp(3) }}
+                renderItem={({ item }) => (
                   <CandidateCard data={item} onPress={() => handleCandidatePress(item)} />
-                ) : (
-                  <JobCard job={item} isInternship={isEtudiant} onPress={() => handleOfferPress(item)} />
-                )
-              )}
-            />
-          ) : (
-            <EmptyState 
-              icon={isTitulaire ? 'users' : 'briefcase'}
-              title={isTitulaire ? 'Aucun candidat récent' : 'Aucune offre trouvée'}
-              subtitle={isTitulaire ? 'Les candidats qui matchent avec vos offres apparaîtront ici' : 'Swipez sur des offres pour commencer !'}
-            />
-          )}
-        </View>
+                )}
+              />
+            ) : (
+              <EmptyState
+                icon="users"
+                title="Aucun candidat récent"
+                subtitle="Les candidats qui matchent avec vos offres apparaîtront ici"
+              />
+            )}
+          </View>
+        )}
 
         {/* Activité récente */}
         <View style={commonStyles.homeSection}>
@@ -308,11 +287,11 @@ export default function Home() {
           )}
         </View>
 
-        {/* Actualités labos */}
+        {/* Pour toi (labos suivis) */}
         <LaboCarousel
-          title="Actualités labos"
-          posts={laboPosts}
-          emptyMessage="Aucune publication pour le moment"
+          title="Pour toi"
+          posts={forYouPosts}
+          emptyMessage="Suivez des labos pour voir leurs publications ici"
           onPostPress={(post) => router.push({ pathname: '/(screens)/postDetail', params: { postId: post.id } })}
         />
 
@@ -366,26 +345,22 @@ export default function Home() {
             )}
           </View>
 
-          {/* Alertes urgentes */}
-          <Pressable
-            style={commonStyles.homePreviewCard}
-            onPress={() => router.push(canCreateAlerts ? '/(screens)/myAlerts' : '/(screens)/availableAlerts')}
-          >
-            <View style={[commonStyles.homePreviewIcon, { backgroundColor: theme.colors.warning + '15' }]}>
-              <Icon name="zap" size={20} color={theme.colors.warning} />
-            </View>
-            <View style={commonStyles.flex1}>
-              <Text style={commonStyles.homePreviewTitle}>
-                {canCreateAlerts ? 'Alertes urgentes' : 'Alertes urgentes'}
-              </Text>
-              <Text style={commonStyles.homePreviewSubtitle}>
-                {canCreateAlerts
-                  ? 'Trouvez un remplacement en urgence'
-                  : 'Remplacements urgents près de vous'}
-              </Text>
-            </View>
-            <Icon name="chevronRight" size={18} color={theme.colors.textLight} />
-          </Pressable>
+          {/* Alertes urgentes (titulaire & labo uniquement) */}
+          {canCreateAlerts && (
+            <Pressable
+              style={commonStyles.homePreviewCard}
+              onPress={() => router.push('/(screens)/myAlerts')}
+            >
+              <View style={[commonStyles.homePreviewIcon, { backgroundColor: theme.colors.warning + '15' }]}>
+                <Icon name="zap" size={20} color={theme.colors.warning} />
+              </View>
+              <View style={commonStyles.flex1}>
+                <Text style={commonStyles.homePreviewTitle}>Alertes urgentes</Text>
+                <Text style={commonStyles.homePreviewSubtitle}>Trouvez un remplacement en urgence</Text>
+              </View>
+              <Icon name="chevronRight" size={18} color={theme.colors.textLight} />
+            </Pressable>
+          )}
 
           {/* Prévisualiser ma carte (candidats seulement) */}
           {!isTitulaire && !isLaboratory && (

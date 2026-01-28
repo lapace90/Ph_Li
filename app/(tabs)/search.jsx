@@ -9,6 +9,7 @@ import { theme } from '../../constants/theme';
 import { commonStyles } from '../../constants/styles';
 import { hp, wp } from '../../helpers/common';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 import { ALL_REGIONS, getRegionByDepartment } from '../../constants/francePaths';
 import { LISTING_TYPE_FILTERS, getListingTypeLabel } from '../../constants/jobOptions';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
@@ -18,13 +19,18 @@ import ListingCard from '../../components/marketplace/ListingCard';
 
 export default function Search() {
   const router = useRouter();
-  
+  const { user } = useAuth();
+  const isTitulaire = user?.user_type === 'titulaire';
+
+  // Vue carte ou liste
+  const [viewMode, setViewMode] = useState('map');
+
   // Filtre type de listing (vente, location, association, ou tout)
   const [listingType, setListingType] = useState(null);
-  
+
   // Région sélectionnée sur la carte
   const [selectedRegion, setSelectedRegion] = useState(null);
-  
+
   // Données
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -156,30 +162,60 @@ export default function Search() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Marketplace</Text>
-        {(listingType || selectedRegion) && (
-          <Pressable style={styles.resetButton} onPress={handleReset}>
-            <Icon name="x" size={16} color={theme.colors.textLight} />
-            <Text style={styles.resetText}>Réinitialiser</Text>
-          </Pressable>
-        )}
+        <View style={styles.headerActions}>
+          {(listingType || selectedRegion) && (
+            <Pressable style={styles.resetButton} onPress={handleReset}>
+              <Icon name="x" size={16} color={theme.colors.textLight} />
+              <Text style={styles.resetText}>Reset</Text>
+            </Pressable>
+          )}
+          {/* Toggle carte / liste */}
+          <View style={styles.viewToggle}>
+            <Pressable
+              style={[styles.viewToggleBtn, viewMode === 'map' && styles.viewToggleBtnActive]}
+              onPress={() => setViewMode('map')}
+            >
+              <Icon name="mapPin" size={16} color={viewMode === 'map' ? 'white' : theme.colors.textLight} />
+            </Pressable>
+            <Pressable
+              style={[styles.viewToggleBtn, viewMode === 'list' && styles.viewToggleBtnActive]}
+              onPress={() => { setViewMode('list'); setSelectedRegion(null); }}
+            >
+              <Icon name="menu" size={16} color={viewMode === 'list' ? 'white' : theme.colors.textLight} />
+            </Pressable>
+          </View>
+          {isTitulaire && (
+            <Pressable
+              style={styles.addButton}
+              onPress={() => router.push('/(screens)/listingCreate')}
+            >
+              <Icon name="plus" size={20} color="white" />
+            </Pressable>
+          )}
+        </View>
       </View>
 
       {/* Filtres par type */}
-      <View style={styles.filtersContainer}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filtersScroll}
+        contentContainerStyle={styles.filtersContainer}
+      >
         {LISTING_TYPE_FILTERS.map((type) => {
           const isActive = listingType === type.value;
           const count = getTypeCount(type.value);
-          
+
           return (
             <Pressable
               key={type.value ?? 'all'}
               style={[styles.filterChip, isActive && styles.filterChipActive]}
               onPress={() => setListingType(type.value)}
             >
-              <Icon 
-                name={type.icon} 
-                size={16} 
-                color={isActive ? 'white' : theme.colors.textLight} 
+              <Icon
+                name={type.icon}
+                size={16}
+                color={isActive ? 'white' : theme.colors.textLight}
               />
               <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
                 {type.label}
@@ -192,7 +228,7 @@ export default function Search() {
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
       {/* Stats */}
       <View style={styles.statsBar}>
@@ -222,22 +258,24 @@ export default function Search() {
           />
         }
       >
-        {/* Carte de France */}
-        <View style={styles.mapSection}>
-          <Text style={styles.sectionTitle}>Sélectionnez une région</Text>
-          {loading ? (
-            <View style={styles.mapLoading}>
-              <ActivityIndicator size="large" color={theme.colors.primary} />
-            </View>
-          ) : (
-            <FranceMap
-              jobCounts={countsByRegion}
-              selectedRegion={selectedRegion}
-              onRegionPress={handleRegionPress}
-              showDomTom={true}
-            />
-          )}
-        </View>
+        {/* Carte de France (mode carte uniquement) */}
+        {viewMode === 'map' && (
+          <View style={styles.mapSection}>
+            <Text style={styles.sectionTitle}>Sélectionnez une région</Text>
+            {loading ? (
+              <View style={styles.mapLoading}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+              </View>
+            ) : (
+              <FranceMap
+                jobCounts={countsByRegion}
+                selectedRegion={selectedRegion}
+                onRegionPress={handleRegionPress}
+                showDomTom={true}
+              />
+            )}
+          </View>
+        )}
 
         {/* Liste des annonces */}
         <View style={styles.listSection}>
@@ -297,6 +335,11 @@ const styles = StyleSheet.create({
     fontWeight: theme.fonts.bold,
     color: theme.colors.textDark,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(2),
+  },
   resetButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -305,23 +348,46 @@ const styles = StyleSheet.create({
     paddingVertical: hp(0.5),
   },
   resetText: {
-    fontSize: hp(1.6),
+    fontSize: hp(1.4),
     color: theme.colors.textLight,
   },
-  filtersContainer: {
+  viewToggle: {
     flexDirection: 'row',
+    backgroundColor: theme.colors.gray,
+    borderRadius: theme.radius.md,
+    padding: 2,
+  },
+  viewToggleBtn: {
+    paddingHorizontal: wp(2.5),
+    paddingVertical: hp(0.6),
+    borderRadius: theme.radius.md - 2,
+  },
+  viewToggleBtnActive: {
+    backgroundColor: theme.colors.primary,
+  },
+  addButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filtersScroll: {
+    flexGrow: 0,
+  },
+  filtersContainer: {
     paddingHorizontal: wp(4),
     paddingBottom: hp(1.5),
     gap: wp(2),
   },
   filterChip: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: wp(1),
     paddingVertical: hp(1),
-    paddingHorizontal: wp(2),
+    paddingHorizontal: wp(3),
     backgroundColor: 'white',
     borderRadius: theme.radius.lg,
     borderWidth: 1,

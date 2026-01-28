@@ -1,6 +1,7 @@
 import { useRef, useMemo, useState, useEffect } from 'react';
 import { StyleSheet, Text, View, Animated, PanResponder, Dimensions, Modal, ScrollView, Pressable } from 'react-native';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
 import { commonStyles } from '../../constants/styles';
 import { getRoleLabelShort } from '../../helpers/roleLabel';
@@ -11,6 +12,9 @@ import SiretBadge from '../common/SiretBadge';
 import { getContractTypeLabel, getContractColor, getPositionTypeLabel } from '../../constants/jobOptions';
 import { getAnimationSpecialtyLabel } from '../../constants/profileOptions';
 import { formatDistanceToNow } from '../../helpers/dateUtils';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
+import { cvService } from '../../services/cvService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
@@ -67,8 +71,33 @@ const SwipeCard = ({
   isFirst = false,
   index = 0,
 }) => {
+  const router = useRouter();
+  const { session } = useAuth();
   const position = useRef(new Animated.ValueXY()).current;
   const [showDetail, setShowDetail] = useState(false);
+  const [cvLoading, setCvLoading] = useState(false);
+
+  const handleCvPress = async () => {
+    if (cvLoading) return;
+    setCvLoading(true);
+    try {
+      const { data: cv } = await supabase
+        .from('cvs')
+        .select('id')
+        .eq('user_id', card.id)
+        .eq('is_default', true)
+        .maybeSingle();
+
+      if (cv) {
+        cvService.recordCvView(cv.id, card.id, session?.user?.id);
+        router.push({ pathname: '/(screens)/cvView', params: { cvId: cv.id } });
+      }
+    } catch (err) {
+      console.warn('Erreur chargement CV:', err);
+    } finally {
+      setCvLoading(false);
+    }
+  };
   
   // Animation pour les cartes qui avancent dans la pile
   const scaleAnim = useRef(new Animated.Value(isFirst ? 1 : 1 - index * 0.05)).current;
@@ -377,6 +406,17 @@ const SwipeCard = ({
             <Text style={[commonStyles.hint, { marginTop: hp(1) }]} numberOfLines={3}>
               {card.bio}
             </Text>
+          )}
+
+          {/* Bouton Voir CV */}
+          {card.show_cv_on_card && (
+            <Pressable style={styles.cvButton} onPress={handleCvPress} disabled={cvLoading}>
+              <Icon name="fileText" size={16} color={theme.colors.primary} />
+              <Text style={styles.cvButtonText}>
+                {cvLoading ? 'Chargement...' : 'Voir le CV'}
+              </Text>
+              <Icon name="chevronRight" size={14} color={theme.colors.primary} />
+            </Pressable>
           )}
         </View>
       </>
@@ -893,6 +933,23 @@ const styles = StyleSheet.create({
   candidateContent: {
     flex: 1,
     padding: wp(4),
+  },
+  cvButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: wp(1.5),
+    marginTop: hp(1.5),
+    paddingVertical: hp(1),
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.primary + '08',
+  },
+  cvButtonText: {
+    fontSize: hp(1.4),
+    color: theme.colors.primary,
+    fontWeight: '600',
   },
 
   // Animateur

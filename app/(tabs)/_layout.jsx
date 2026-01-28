@@ -62,14 +62,14 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* SEARCH - candidats/titulaires seulement */}
+      {/* MARKETPLACE (carte + liste) - candidats/titulaires seulement */}
       <Tabs.Screen
         name="search"
         options={{
           href: isAnimator || isLaboratory ? null : '/(tabs)/search',
-          title: 'Recherche',
+          title: 'Pharmacies',
           tabBarIcon: ({ color, size }) => (
-            <Icon name="search" size={size} color={color} />
+            <Icon name="building" size={size} color={color} />
           ),
         }}
       />
@@ -97,15 +97,11 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* MARKETPLACE - candidats/titulaires seulement */}
+      {/* MARKETPLACE - masqué (fusionné dans search) */}
       <Tabs.Screen
         name="marketplace"
         options={{
-          href: isAnimator || isLaboratory ? null : '/(tabs)/marketplace',
-          title: 'Pharmacies',
-          tabBarIcon: ({ color, size }) => (
-            <Icon name="building" size={size} color={color} />
-          ),
+          href: null,
         }}
       />
 

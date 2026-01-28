@@ -66,6 +66,46 @@ export default function MissionDetail() {
     );
   }
 
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const handleStartMission = async () => {
+    setActionLoading(true);
+    try {
+      await missionService.start(mission.id);
+      await loadMission();
+      Alert.alert('Mission demarree', 'La mission est maintenant en cours.');
+    } catch (err) {
+      Alert.alert('Erreur', 'Impossible de demarrer la mission.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCompleteMission = async () => {
+    Alert.alert(
+      'Terminer la mission ?',
+      'Cette action est irreversible. Les deux parties pourront laisser un avis.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Terminer',
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              await missionService.complete(mission.id);
+              await loadMission();
+              Alert.alert('Mission terminee', 'Vous pouvez maintenant laisser un avis.');
+            } catch (err) {
+              Alert.alert('Erreur', 'Impossible de terminer la mission.');
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (!mission) return null;
 
   const animator = mission.animator;
@@ -218,13 +258,13 @@ export default function MissionDetail() {
         )}
 
         {/* Actions contextuelles */}
-        {renderActions(mission, isAnimator, userId, router)}
+        {renderActions(mission, isAnimator, userId, router, { onStart: handleStartMission, onComplete: handleCompleteMission, actionLoading })}
       </ScrollView>
     </ScreenWrapper>
   );
 }
 
-function renderActions(mission, isAnimator, userId, router) {
+function renderActions(mission, isAnimator, userId, router, { onStart, onComplete, actionLoading } = {}) {
   // Animateur : proposition recue → repondre
   if (isAnimator && mission.status === 'proposal_sent' && mission.animator_id === userId) {
     return (
@@ -265,6 +305,68 @@ function renderActions(mission, isAnimator, userId, router) {
         <Text style={styles.waitingText}>En attente de la confirmation du client</Text>
       </View>
     );
+  }
+
+  // Mission confirmee ou assignee → Demarrer (labo uniquement)
+  if (['confirmed', 'assigned'].includes(mission.status) && !isAnimator && mission.client_id === userId) {
+    return (
+      <Button
+        title="Demarrer la mission"
+        onPress={onStart}
+        loading={actionLoading}
+        buttonStyle={styles.actionButton}
+      />
+    );
+  }
+
+  // Mission confirmee ou assignee → Animateur voit un bandeau
+  if (['confirmed', 'assigned'].includes(mission.status) && isAnimator && mission.animator_id === userId) {
+    return (
+      <View style={styles.waitingBanner}>
+        <Icon name="checkCircle" size={18} color={theme.colors.success} />
+        <Text style={styles.waitingText}>Mission confirmee - en attente du demarrage</Text>
+      </View>
+    );
+  }
+
+  // Mission en cours → Terminer (labo uniquement)
+  if (mission.status === 'in_progress' && !isAnimator && mission.client_id === userId) {
+    return (
+      <Button
+        title="Terminer la mission"
+        onPress={onComplete}
+        loading={actionLoading}
+        buttonStyle={[styles.actionButton, { backgroundColor: theme.colors.success }]}
+      />
+    );
+  }
+
+  // Mission en cours → Animateur voit un bandeau
+  if (mission.status === 'in_progress' && isAnimator && mission.animator_id === userId) {
+    return (
+      <View style={styles.waitingBanner}>
+        <Icon name="play" size={18} color={theme.colors.primary} />
+        <Text style={styles.waitingText}>Mission en cours</Text>
+      </View>
+    );
+  }
+
+  // Mission terminee → Laisser un avis
+  if (mission.status === 'completed') {
+    const isParticipant = (isAnimator && mission.animator_id === userId) ||
+                           (!isAnimator && mission.client_id === userId);
+    if (isParticipant) {
+      return (
+        <Button
+          title="Laisser un avis"
+          onPress={() => router.push({
+            pathname: '/(screens)/missionReview',
+            params: { missionId: mission.id }
+          })}
+          buttonStyle={styles.actionButton}
+        />
+      );
+    }
   }
 
   return null;

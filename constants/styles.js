@@ -1265,26 +1265,32 @@ export const commonStyles = StyleSheet.create({
         gap: wp(1.5),
     },
 
-    // Stats Card (barre horizontale)
-    homeStatsCard: {
+    // Stats Cards (cartes individuelles)
+    homeStatsRow: {
         flexDirection: 'row',
-        backgroundColor: theme.colors.card,
+        gap: wp(3),
         marginHorizontal: wp(5),
         marginBottom: hp(3),
-        borderRadius: theme.radius.xl,
-        padding: hp(2),
-        alignItems: 'center',
     },
-    homeStatItem: {
+    homeStatCard: {
         flex: 1,
+        backgroundColor: theme.colors.card,
+        borderRadius: theme.radius.lg,
+        padding: wp(3),
         alignItems: 'center',
+        gap: hp(0.5),
     },
-    homeStatItemRow: {
-        flex: 1,
+    homeStatTopRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: wp(2),
+    },
+    homeStatIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         justifyContent: 'center',
-        gap: wp(1.5),
+        alignItems: 'center',
     },
     homeStatValue: {
         fontSize: hp(2.2),
@@ -1292,14 +1298,9 @@ export const commonStyles = StyleSheet.create({
         color: theme.colors.text,
     },
     homeStatLabel: {
-        fontSize: hp(1.3),
+        fontSize: hp(1.2),
         color: theme.colors.textLight,
-        marginTop: hp(0.3),
-    },
-    homeStatDivider: {
-        width: 1,
-        height: hp(4),
-        backgroundColor: theme.colors.border,
+        textAlign: 'center',
     },
     homeStatusDot: {
         width: 8,

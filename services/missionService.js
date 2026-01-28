@@ -366,6 +366,23 @@ export const missionService = {
       .single();
 
     if (error) throw error;
+
+    // Notifier les deux parties de laisser un avis
+    if (data.animator_id && data.client_id) {
+      const title = 'Mission terminee';
+      const body = `La mission "${data.title}" est terminee. Laissez un avis !`;
+      const notifData = { missionId, screen: 'missionReview' };
+
+      await Promise.all([
+        notificationService.createNotification(
+          data.animator_id, 'mission_review_reminder', title, body, notifData
+        ),
+        notificationService.createNotification(
+          data.client_id, 'mission_review_reminder', title, body, notifData
+        ),
+      ]).catch(err => console.warn('Erreur notif avis:', err));
+    }
+
     return data;
   },
 

@@ -1,5 +1,5 @@
 // app/(tabs)/homeLaboratory.jsx
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, ScrollView, RefreshControl, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
@@ -8,48 +8,47 @@ import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { useClientMissions } from '../../hooks/useMissions';
 import { useAnimatorMatches } from '../../hooks/useAnimatorMatching';
-import { favoritesService } from '../../services/favoritesService';
-import { laboratoryPostService } from '../../services/laboratoryPostService';
+import { useLaboPosts } from '../../hooks/useLaboPosts';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import Icon from '../../assets/icons/Icon';
-import Logo from '../../assets/icons/Logo';
+import HomeHeader from '../../components/home/HomeHeader';
 import LaboCarousel from '../../components/home/LaboCarousel';
 import { MissionListCard } from '../../components/missions/MissionCard';
-import { useUnreadNotificationCount } from '../../hooks/useNotifications';
+import { EmptyState } from '../../components/common/DashboardComponents';
 
 // ============================================
 // SOUS-COMPOSANTS
 // ============================================
 
 const StatsCard = ({ stats }) => (
-  <View style={commonStyles.homeStatsCard}>
-    <View style={commonStyles.homeStatItem}>
-      <Text style={commonStyles.homeStatValue}>{stats.activeMissions}</Text>
+  <View style={commonStyles.homeStatsRow}>
+    <View style={commonStyles.homeStatCard}>
+      <View style={commonStyles.homeStatTopRow}>
+        <View style={[commonStyles.homeStatIcon, { backgroundColor: theme.colors.primary + '15' }]}>
+          <Icon name="briefcase" size={16} color={theme.colors.primary} />
+        </View>
+        <Text style={commonStyles.homeStatValue}>{stats.activeMissions}</Text>
+      </View>
       <Text style={commonStyles.homeStatLabel}>Missions</Text>
     </View>
-    <View style={commonStyles.homeStatDivider} />
-    <View style={commonStyles.homeStatItem}>
-      <Text style={commonStyles.homeStatValue}>{stats.totalMatches}</Text>
+    <View style={commonStyles.homeStatCard}>
+      <View style={commonStyles.homeStatTopRow}>
+        <View style={[commonStyles.homeStatIcon, { backgroundColor: theme.colors.rose + '15' }]}>
+          <Icon name="heart" size={16} color={theme.colors.rose} />
+        </View>
+        <Text style={commonStyles.homeStatValue}>{stats.totalMatches}</Text>
+      </View>
       <Text style={commonStyles.homeStatLabel}>Matchs</Text>
     </View>
-    <View style={commonStyles.homeStatDivider} />
-    <View style={commonStyles.homeStatItem}>
-      <Text style={commonStyles.homeStatValue}>{stats.pendingApplications}</Text>
+    <View style={commonStyles.homeStatCard}>
+      <View style={commonStyles.homeStatTopRow}>
+        <View style={[commonStyles.homeStatIcon, { backgroundColor: theme.colors.secondary + '15' }]}>
+          <Icon name="users" size={16} color={theme.colors.secondary} />
+        </View>
+        <Text style={commonStyles.homeStatValue}>{stats.pendingApplications}</Text>
+      </View>
       <Text style={commonStyles.homeStatLabel}>Candidatures</Text>
     </View>
-    <View style={commonStyles.homeStatDivider} />
-    <View style={commonStyles.homeStatItemRow}>
-      <View style={[commonStyles.homeStatusDot, stats.isVerified && commonStyles.homeStatusDotActive]} />
-      <Text style={commonStyles.homeStatLabel}>{stats.isVerified ? 'Vérifié' : 'Non vérifié'}</Text>
-    </View>
-  </View>
-);
-
-const EmptyState = ({ icon, title, subtitle }) => (
-  <View style={commonStyles.homeEmptyState}>
-    <Icon name={icon} size={32} color={theme.colors.gray} />
-    <Text style={commonStyles.homeEmptyTitle}>{title}</Text>
-    {subtitle && <Text style={commonStyles.homeEmptySubtitle}>{subtitle}</Text>}
   </View>
 );
 
@@ -60,39 +59,13 @@ const EmptyState = ({ icon, title, subtitle }) => (
 export default function HomeLaboratory() {
   const router = useRouter();
   const { session, profile, laboratoryProfile, refreshLaboratoryProfile } = useAuth();
-  const unreadCount = useUnreadNotificationCount();
   const [refreshing, setRefreshing] = useState(false);
 
   const { missions, loading: loadingMissions, refresh: refreshMissions } = useClientMissions(session?.user?.id);
   const { matches, loading: loadingMatches, refresh: refreshMatches } = useAnimatorMatches();
-  const [favQuota, setFavQuota] = useState(null);
-
-  const loadFavQuota = useCallback(async () => {
-    if (!session?.user?.id) return;
-    try {
-      const quota = await favoritesService.canAddFavorite(session.user.id);
-      setFavQuota(quota);
-    } catch (err) {
-      console.error('Error loading fav quota:', err);
-    }
-  }, [session?.user?.id]);
-
-  useEffect(() => {
-    loadFavQuota();
-  }, [loadFavQuota]);
 
   // Posts labos
-  const [laboPosts, setLaboPosts] = useState([]);
-  const fetchLaboPosts = useCallback(async () => {
-    if (!laboratoryProfile?.id) return;
-    try {
-      const data = await laboratoryPostService.getPostsByLab(laboratoryProfile.id, { isPublished: true, limit: 6 });
-      setLaboPosts(data);
-    } catch (err) {
-      console.error('Erreur posts labos:', err);
-    }
-  }, [laboratoryProfile?.id]);
-  useEffect(() => { fetchLaboPosts(); }, [fetchLaboPosts]);
+  const { laboPosts, featuredPosts, fetchLaboPosts } = useLaboPosts({ mode: 'lab' });
 
   const activeMissions = missions?.filter(m => m.status === 'open') || [];
   const inProgressMissions = missions?.filter(m => ['assigned', 'in_progress'].includes(m.status)) || [];
@@ -104,14 +77,15 @@ export default function HomeLaboratory() {
     activeMissions: activeMissions.length,
     totalMatches: matches?.length || 0,
     pendingApplications,
-    isVerified: laboratoryProfile?.verified,
   };
+
+  const isVerified = laboratoryProfile?.siret_verified || !!laboratoryProfile?.siret;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refreshMissions?.(), refreshMatches?.(), refreshLaboratoryProfile?.(), loadFavQuota(), fetchLaboPosts()]);
+    await Promise.all([refreshMissions?.(), refreshMatches?.(), refreshLaboratoryProfile?.(), fetchLaboPosts()]);
     setRefreshing(false);
-  }, [refreshMissions, refreshMatches, refreshLaboratoryProfile, loadFavQuota, fetchLaboPosts]);
+  }, [refreshMissions, refreshMatches, refreshLaboratoryProfile, fetchLaboPosts]);
 
   const loading = loadingMissions || loadingMatches;
 
@@ -123,31 +97,18 @@ export default function HomeLaboratory() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />}
       >
-        {/* Header */}
-        <View style={commonStyles.homeHeader}>
-          <Logo size={hp(5)} />
-          <View style={commonStyles.homeHeaderButtons}>
-            <Pressable style={commonStyles.headerButton} onPress={() => router.push('/(tabs)/messages')}>
-              <Icon name="messageCircle" size={22} color={theme.colors.text} />
-            </Pressable>
-            <Pressable style={commonStyles.headerButton} onPress={() => router.push('/(screens)/notifications')}>
-              <Icon name="bell" size={22} color={theme.colors.text} />
-              {unreadCount > 0 && (
-                <View style={commonStyles.notificationBadge}>
-                  <Text style={commonStyles.notificationBadgeText}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </Pressable>
-          </View>
-        </View>
+        <HomeHeader />
 
         {/* Salutation */}
         <View style={commonStyles.homeGreetingSection}>
-          <Text style={commonStyles.homeGreeting}>
-            {laboratoryProfile?.brand_name || laboratoryProfile?.company_name || `Bonjour ${profile?.first_name}`} !
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: wp(2), marginBottom: hp(0.5) }}>
+            <Text style={[commonStyles.homeGreeting, { marginBottom: 0, flexShrink: 1 }]} numberOfLines={1}>
+              {laboratoryProfile?.brand_name || laboratoryProfile?.company_name || `Bonjour ${profile?.first_name}`} !
+            </Text>
+            {isVerified && (
+              <Icon name="checkCircle" size={18} color={theme.colors.success} />
+            )}
+          </View>
           <Pressable style={commonStyles.homeStatusRow} onPress={() => router.push('/(screens)/editLaboratoryProfile')}>
             <Icon name="settings" size={14} color={theme.colors.primary} />
             <Text style={[commonStyles.hint, { color: theme.colors.primary }]}>Gérer mon profil</Text>
@@ -158,34 +119,14 @@ export default function HomeLaboratory() {
         {/* Stats */}
         <StatsCard stats={stats} />
 
-        {/* Compteur favoris */}
-        {favQuota && favQuota.limit !== Infinity && (
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: wp(2),
-              paddingVertical: hp(0.8),
-              paddingHorizontal: wp(4),
-              backgroundColor: theme.colors.card,
-              borderRadius: theme.radius.lg,
-              marginTop: hp(1),
-              borderWidth: 1,
-              borderColor: theme.colors.border,
-            }}
-          >
-            <Icon name="star" size={16} color={theme.colors.primary} />
-            <Text style={{ fontSize: hp(1.4), color: theme.colors.text, fontWeight: '600' }}>
-              Favoris : {favQuota.current}/{favQuota.limit}
-            </Text>
-            {favQuota.current >= favQuota.limit && (
-              <View style={{ backgroundColor: theme.colors.rose + '15', paddingHorizontal: wp(2), paddingVertical: hp(0.2), borderRadius: theme.radius.sm }}>
-                <Text style={{ fontSize: hp(1.1), color: theme.colors.rose, fontWeight: '600' }}>Plein</Text>
-              </View>
-            )}
-          </View>
-        )}
+        {/* A la une */}
+        <LaboCarousel
+          title="A la une"
+          posts={featuredPosts}
+          emptyMessage="Aucune publication pour le moment"
+          variant="featured"
+          onPostPress={(post) => router.push({ pathname: '/(screens)/postDetail', params: { postId: post.id } })}
+        />
 
         {/* Missions en cours */}
         <View style={commonStyles.homeSection}>
@@ -268,7 +209,7 @@ export default function HomeLaboratory() {
               <View style={[commonStyles.homeQuickActionIcon, { backgroundColor: theme.colors.secondary + '15' }]}>
                 <Icon name="fileText" size={20} color={theme.colors.secondary} />
               </View>
-              <Text style={commonStyles.homeQuickActionText}>Publications</Text>
+              <Text style={commonStyles.homeQuickActionText}>Mes Posts</Text>
             </Pressable>
             <Pressable style={commonStyles.homeQuickAction} onPress={() => router.push('/(screens)/animatorMatches')}>
               <View style={[commonStyles.homeQuickActionIcon, { backgroundColor: theme.colors.warning + '15' }]}>

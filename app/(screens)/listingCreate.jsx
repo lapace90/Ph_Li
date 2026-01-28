@@ -232,7 +232,7 @@ export default function ListingCreate() {
       Alert.alert(
         publishAsActive ? 'Annonce publiée !' : 'Brouillon enregistré',
         publishAsActive ? 'Votre annonce est maintenant visible.' : 'Vous pourrez la publier plus tard.',
-        [{ text: 'OK', onPress: () => router.replace('/(tabs)/marketplace') }]
+        [{ text: 'OK', onPress: () => router.replace('/(tabs)/search') }]
       );
     } catch (error) {
       Alert.alert('Erreur', error.message || 'Impossible de publier');

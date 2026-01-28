@@ -1,52 +1,51 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, ScrollView, RefreshControl, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
-import { hp, wp } from '../../helpers/common';
 import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAnimatorMissions } from '../../hooks/useMissions';
-import { laboratoryPostService } from '../../services/laboratoryPostService';
+import { useLaboPosts } from '../../hooks/useLaboPosts';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import Icon from '../../assets/icons/Icon';
-import Logo from '../../assets/icons/Logo';
+import HomeHeader from '../../components/home/HomeHeader';
 import LaboCarousel from '../../components/home/LaboCarousel';
 import { MissionListCard } from '../../components/missions/MissionCard';
-import { useUnreadNotificationCount } from '../../hooks/useNotifications';
+import { EmptyState } from '../../components/common/DashboardComponents';
 
 // ============================================
 // SOUS-COMPOSANTS
 // ============================================
 
-const StatsCard = ({ stats, isAvailable }) => (
-  <View style={commonStyles.homeStatsCard}>
-    <View style={commonStyles.homeStatItem}>
-      <Text style={commonStyles.homeStatValue}>{stats.missionsCompleted}</Text>
+const StatsCard = ({ stats }) => (
+  <View style={commonStyles.homeStatsRow}>
+    <View style={commonStyles.homeStatCard}>
+      <View style={commonStyles.homeStatTopRow}>
+        <View style={[commonStyles.homeStatIcon, { backgroundColor: theme.colors.primary + '15' }]}>
+          <Icon name="briefcase" size={16} color={theme.colors.primary} />
+        </View>
+        <Text style={commonStyles.homeStatValue}>{stats.missionsCompleted}</Text>
+      </View>
       <Text style={commonStyles.homeStatLabel}>Missions</Text>
     </View>
-    <View style={commonStyles.homeStatDivider} />
-    <View style={commonStyles.homeStatItem}>
-      <Text style={commonStyles.homeStatValue}>{stats.averageRating || '-'}</Text>
+    <View style={commonStyles.homeStatCard}>
+      <View style={commonStyles.homeStatTopRow}>
+        <View style={[commonStyles.homeStatIcon, { backgroundColor: theme.colors.warning + '15' }]}>
+          <Icon name="star" size={16} color={theme.colors.warning} />
+        </View>
+        <Text style={commonStyles.homeStatValue}>{stats.averageRating || '-'}</Text>
+      </View>
       <Text style={commonStyles.homeStatLabel}>Note</Text>
     </View>
-    <View style={commonStyles.homeStatDivider} />
-    <View style={commonStyles.homeStatItem}>
-      <Text style={commonStyles.homeStatValue}>{stats.pendingApplications}</Text>
+    <View style={commonStyles.homeStatCard}>
+      <View style={commonStyles.homeStatTopRow}>
+        <View style={[commonStyles.homeStatIcon, { backgroundColor: theme.colors.secondary + '15' }]}>
+          <Icon name="clock" size={16} color={theme.colors.secondary} />
+        </View>
+        <Text style={commonStyles.homeStatValue}>{stats.pendingApplications}</Text>
+      </View>
       <Text style={commonStyles.homeStatLabel}>En attente</Text>
     </View>
-    <View style={commonStyles.homeStatDivider} />
-    <View style={commonStyles.homeStatItemRow}>
-      <View style={[commonStyles.homeStatusDot, isAvailable && commonStyles.homeStatusDotActive]} />
-      <Text style={commonStyles.homeStatLabel}>{isAvailable ? 'Visible' : 'Masqué'}</Text>
-    </View>
-  </View>
-);
-
-const EmptyState = ({ icon, title, subtitle }) => (
-  <View style={commonStyles.homeEmptyState}>
-    <Icon name={icon} size={32} color={theme.colors.gray} />
-    <Text style={commonStyles.homeEmptyTitle}>{title}</Text>
-    {subtitle && <Text style={commonStyles.homeEmptySubtitle}>{subtitle}</Text>}
   </View>
 );
 
@@ -57,7 +56,6 @@ const EmptyState = ({ icon, title, subtitle }) => (
 export default function HomeAnimator() {
   const router = useRouter();
   const { session, profile, animatorProfile, refreshAnimatorProfile } = useAuth();
-  const unreadCount = useUnreadNotificationCount();
   const [refreshing, setRefreshing] = useState(false);
 
   const { myMissions, availableMissions, loading, refresh: refreshMissions } = useAnimatorMissions(session?.user?.id);
@@ -74,16 +72,7 @@ export default function HomeAnimator() {
   const isAvailable = animatorProfile?.available_now;
 
   // Posts labos
-  const [laboPosts, setLaboPosts] = useState([]);
-  const fetchLaboPosts = useCallback(async () => {
-    try {
-      const data = await laboratoryPostService.getRecentPosts(6);
-      setLaboPosts(data);
-    } catch (err) {
-      console.error('Erreur posts labos:', err);
-    }
-  }, []);
-  useEffect(() => { fetchLaboPosts(); }, [fetchLaboPosts]);
+  const { forYouPosts, featuredPosts, fetchLaboPosts } = useLaboPosts();
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -99,25 +88,7 @@ export default function HomeAnimator() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />}
       >
-        {/* Header */}
-        <View style={commonStyles.homeHeader}>
-          <Logo size={hp(5)} />
-          <View style={commonStyles.homeHeaderButtons}>
-            <Pressable style={commonStyles.headerButton} onPress={() => router.push('/(tabs)/messages')}>
-              <Icon name="messageCircle" size={22} color={theme.colors.text} />
-            </Pressable>
-            <Pressable style={commonStyles.headerButton} onPress={() => router.push('/(screens)/notifications')}>
-              <Icon name="bell" size={22} color={theme.colors.text} />
-              {unreadCount > 0 && (
-                <View style={commonStyles.notificationBadge}>
-                  <Text style={commonStyles.notificationBadgeText}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </Pressable>
-          </View>
-        </View>
+        <HomeHeader />
 
         {/* Salutation */}
         <View style={commonStyles.homeGreetingSection}>
@@ -132,7 +103,16 @@ export default function HomeAnimator() {
         </View>
 
         {/* Stats */}
-        <StatsCard stats={stats} isAvailable={isAvailable} />
+        <StatsCard stats={stats} />
+
+        {/* A la une */}
+        <LaboCarousel
+          title="A la une"
+          posts={featuredPosts}
+          emptyMessage="Aucune publication pour le moment"
+          variant="featured"
+          onPostPress={(post) => router.push({ pathname: '/(screens)/postDetail', params: { postId: post.id } })}
+        />
 
         {/* Missions en cours */}
         <View style={commonStyles.homeSection}>
@@ -186,11 +166,11 @@ export default function HomeAnimator() {
           )}
         </View>
 
-        {/* Actualités labos */}
+        {/* Pour toi (labos suivis) */}
         <LaboCarousel
-          title="Actualités labos"
-          posts={laboPosts}
-          emptyMessage="Aucune publication pour le moment"
+          title="Pour toi"
+          posts={forYouPosts}
+          emptyMessage="Suivez des labos pour voir leurs publications ici"
           onPostPress={(post) => router.push({ pathname: '/(screens)/postDetail', params: { postId: post.id } })}
         />
 

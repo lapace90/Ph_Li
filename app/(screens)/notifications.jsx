@@ -68,6 +68,26 @@ export default function Notifications() {
       case NOTIFICATION_TYPES.PROFILE_VIEWED:
         router.push('/(tabs)/profile');
         break;
+      case NOTIFICATION_TYPES.MISSION_PROPOSAL:
+      case NOTIFICATION_TYPES.PROPOSAL_ACCEPTED:
+      case NOTIFICATION_TYPES.PROPOSAL_DECLINED:
+      case NOTIFICATION_TYPES.MISSION_CONFIRMED:
+      case NOTIFICATION_TYPES.NEW_REVIEW:
+        if (data.missionId) {
+          router.push({
+            pathname: '/(screens)/missionDetail',
+            params: { missionId: data.missionId },
+          });
+        }
+        break;
+      case NOTIFICATION_TYPES.MISSION_REVIEW_REMINDER:
+        if (data.missionId) {
+          router.push({
+            pathname: '/(screens)/missionReview',
+            params: { missionId: data.missionId },
+          });
+        }
+        break;
       default:
         break;
     }

@@ -28,6 +28,7 @@ export default function EditProfile() {
     const [loading, setLoading] = useState(false);
     const [avatarLoading, setAvatarLoading] = useState(false);
     const [avatarUri, setAvatarUri] = useState(profile?.photo_url || null);
+
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
@@ -72,6 +73,7 @@ export default function EditProfile() {
             };
             setFormData(initial);
             setInitialData(initial);
+
         }
     }, [profile]);
 
@@ -354,6 +356,7 @@ export default function EditProfile() {
                             />
                         </View>
                     )}
+
                 </ScrollView>
 
                 {/* Footer fixe */}

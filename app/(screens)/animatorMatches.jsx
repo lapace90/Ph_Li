@@ -1,6 +1,6 @@
 // Liste des matches animateurs/labos
 import { useState, useCallback } from 'react';
-import { View, Text, FlatList, RefreshControl, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, RefreshControl, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
@@ -8,25 +8,26 @@ import { hp, wp } from '../../helpers/common';
 import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAnimatorMatches } from '../../hooks/useAnimatorMatching';
+import { useFavQuota } from '../../hooks/useFavQuota';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import BackButton from '../../components/common/BackButton';
+import FavQuotaBanner from '../../components/common/FavQuotaBanner';
 import Icon from '../../assets/icons/Icon';
 import { EmptyState } from '../../components/common/DashboardComponents';
 import { formatDistanceToNow } from '../../helpers/dateUtils';
 
 export default function AnimatorMatches() {
   const router = useRouter();
-  const { profile } = useAuth();
+  const { isAnimator } = useAuth();
   const { matches, loading, stats, refresh } = useAnimatorMatches();
+  const { favQuota, loadFavQuota } = useFavQuota();
   const [refreshing, setRefreshing] = useState(false);
-
-  const isAnimator = profile?.role === 'animator';
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refresh();
+    await Promise.all([refresh(), loadFavQuota()]);
     setRefreshing(false);
-  }, [refresh]);
+  }, [refresh, loadFavQuota]);
 
   const renderMatch = ({ item }) => {
     const otherParty = isAnimator 
@@ -141,6 +142,8 @@ export default function AnimatorMatches() {
         <View style={commonStyles.headerSpacer} />
       </View>
 
+      <FavQuotaBanner favQuota={favQuota} />
+
       <FlatList
         data={matches}
         keyExtractor={(item) => item.id}
@@ -154,7 +157,7 @@ export default function AnimatorMatches() {
   );
 }
 
-const styles = {
+const styles = StyleSheet.create({
   avatar: { width: 50, height: 50, borderRadius: 25 },
   statValue: { fontSize: hp(2.2), fontFamily: theme.fonts.bold, color: theme.colors.text },
   statDivider: { width: 1, height: hp(4), backgroundColor: theme.colors.border },
@@ -167,4 +170,4 @@ const styles = {
     justifyContent: 'center',
     alignItems: 'center',
   },
-};
+});

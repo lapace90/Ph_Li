@@ -19,6 +19,7 @@ const iconMap = {
   chevronRight: { lib: 'feather', name: 'chevron-right' },
   chevronDown: { lib: 'feather', name: 'chevron-down' },
   chevronUp: { lib: 'feather', name: 'chevron-up' },
+  menu: { lib: 'feather', name: 'menu' },
 
   // Actions
   check: { lib: 'feather', name: 'check' },
@@ -36,6 +37,7 @@ const iconMap = {
   checkCircle: { lib: 'feather', name: 'check-circle' },
 
   // Alertes urgentes
+  alertTriangle: { lib: 'feather', name: 'alert-triangle' },
   'alert-triangle': { lib: 'feather', name: 'alert-triangle' },
   zap: { lib: 'feather', name: 'zap' },
 

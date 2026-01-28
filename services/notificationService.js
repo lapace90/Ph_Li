@@ -165,6 +165,13 @@ export const NOTIFICATION_TYPES = {
   PROFILE_VIEWED: 'profile_viewed',
   OFFER_EXPIRED: 'offer_expired',
   SYSTEM: 'system',
+  // Missions
+  MISSION_PROPOSAL: 'mission_proposal',
+  PROPOSAL_ACCEPTED: 'proposal_accepted',
+  PROPOSAL_DECLINED: 'proposal_declined',
+  MISSION_CONFIRMED: 'mission_confirmed',
+  MISSION_REVIEW_REMINDER: 'mission_review_reminder',
+  NEW_REVIEW: 'new_review',
 };
 
 // Icônes par type
@@ -188,6 +195,16 @@ export const getNotificationIcon = (type) => {
       return 'user';
     case NOTIFICATION_TYPES.OFFER_EXPIRED:
       return 'clock';
+    case NOTIFICATION_TYPES.MISSION_PROPOSAL:
+    case NOTIFICATION_TYPES.MISSION_CONFIRMED:
+      return 'briefcase';
+    case NOTIFICATION_TYPES.PROPOSAL_ACCEPTED:
+      return 'checkCircle';
+    case NOTIFICATION_TYPES.PROPOSAL_DECLINED:
+      return 'x';
+    case NOTIFICATION_TYPES.MISSION_REVIEW_REMINDER:
+    case NOTIFICATION_TYPES.NEW_REVIEW:
+      return 'star';
     default:
       return 'bell';
   }
@@ -203,6 +220,12 @@ const NOTIFICATION_SETTINGS_MAP = {
   [NOTIFICATION_TYPES.APPLICATION_ACCEPTED]: 'applicationStatus',
   [NOTIFICATION_TYPES.APPLICATION_REJECTED]: 'applicationStatus',
   [NOTIFICATION_TYPES.OFFER_EXPIRED]: 'newJobInArea',
+  [NOTIFICATION_TYPES.MISSION_PROPOSAL]: 'missionUpdates',
+  [NOTIFICATION_TYPES.PROPOSAL_ACCEPTED]: 'missionUpdates',
+  [NOTIFICATION_TYPES.PROPOSAL_DECLINED]: 'missionUpdates',
+  [NOTIFICATION_TYPES.MISSION_CONFIRMED]: 'missionUpdates',
+  [NOTIFICATION_TYPES.MISSION_REVIEW_REMINDER]: 'missionUpdates',
+  [NOTIFICATION_TYPES.NEW_REVIEW]: 'missionUpdates',
 };
 
 /**

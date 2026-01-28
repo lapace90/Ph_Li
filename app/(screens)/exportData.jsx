@@ -2,7 +2,7 @@ import { Alert, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { hp, wp } from '../../helpers/common';
 import { theme } from '../../constants/theme';

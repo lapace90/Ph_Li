@@ -220,7 +220,7 @@ export default function ListingEdit() {
         onPress: async () => {
           try {
             await pharmacyListingService.delete(id);
-            router.replace('/(tabs)/marketplace');
+            router.replace('/(tabs)/search');
           } catch (error) {
             Alert.alert('Erreur', 'Impossible de supprimer');
           }

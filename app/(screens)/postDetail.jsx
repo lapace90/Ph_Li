@@ -1,7 +1,7 @@
 // Détail d'une publication laboratoire
 
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, Pressable, Modal, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { hp, wp } from '../../helpers/common';
@@ -13,13 +13,8 @@ import ScreenWrapper from '../../components/common/ScreenWrapper';
 import BackButton from '../../components/common/BackButton';
 import Icon from '../../assets/icons/Icon';
 import FollowButton from '../../components/laboratories/FollowButton';
-
-const POST_TYPE_CONFIG = {
-  news: { label: 'Actualité', icon: 'bell', color: theme.colors.primary },
-  formation: { label: 'Formation', icon: 'bookOpen', color: theme.colors.secondary },
-  event: { label: 'Événement', icon: 'calendar', color: theme.colors.warning },
-  video: { label: 'Vidéo', icon: 'play', color: theme.colors.rose },
-};
+import { POST_TYPE_CONFIG } from '../../constants/postOptions';
+import { formatDate } from '../../helpers/dateUtils';
 
 export default function PostDetail() {
   const router = useRouter();
@@ -28,6 +23,7 @@ export default function PostDetail() {
 
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [imageFullscreen, setImageFullscreen] = useState(false);
 
   const loadPost = useCallback(async () => {
     try {
@@ -82,7 +78,6 @@ export default function PostDetail() {
   const typeConfig = POST_TYPE_CONFIG[post.type] || POST_TYPE_CONFIG.news;
   const lab = post.laboratory;
   const labName = lab?.brand_name || lab?.company_name || 'Laboratoire';
-  const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : null;
 
   return (
     <ScreenWrapper bg={theme.colors.background}>
@@ -99,7 +94,9 @@ export default function PostDetail() {
       >
         {/* Image */}
         {post.image_url ? (
-          <Image source={{ uri: post.image_url }} style={styles.heroImage} contentFit="cover" />
+          <Pressable onPress={() => setImageFullscreen(true)}>
+            <Image source={{ uri: post.image_url }} style={styles.heroImage} contentFit="cover" />
+          </Pressable>
         ) : (
           <View style={[styles.heroImage, styles.heroPlaceholder]}>
             <Icon name={typeConfig.icon} size={40} color={typeConfig.color} />
@@ -193,6 +190,18 @@ export default function PostDetail() {
           </View>
         )}
       </ScrollView>
+
+      {/* Fullscreen image viewer */}
+      {post.image_url && (
+        <Modal visible={imageFullscreen} transparent animationType="fade" onRequestClose={() => setImageFullscreen(false)}>
+          <Pressable style={styles.fullscreenOverlay} onPress={() => setImageFullscreen(false)}>
+            <Image source={{ uri: post.image_url }} style={styles.fullscreenImage} contentFit="contain" />
+            <Pressable style={styles.fullscreenClose} onPress={() => setImageFullscreen(false)}>
+              <Icon name="x" size={24} color="#fff" />
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
     </ScreenWrapper>
   );
 }
@@ -318,5 +327,26 @@ const styles = StyleSheet.create({
     fontSize: hp(1.5),
     color: theme.colors.text,
     flex: 1,
+  },
+  fullscreenOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenImage: {
+    width: '100%',
+    height: '100%',
+  },
+  fullscreenClose: {
+    position: 'absolute',
+    top: hp(6),
+    right: wp(5),
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

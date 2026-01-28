@@ -131,6 +131,26 @@ export const daysBetween = (startDate, endDate) => {
 };
 
 /**
+ * Formate un horodatage pour les conversations (aujourd'hui: heure, hier, cette semaine: jour, sinon date courte)
+ */
+export const formatConversationTime = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  } else if (diffDays === 1) {
+    return 'Hier';
+  } else if (diffDays < 7) {
+    return date.toLocaleDateString('fr-FR', { weekday: 'short' });
+  } else {
+    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  }
+};
+
+/**
  * Retourne "aujourd'hui", "demain" ou la date formatée
  */
 export const formatRelativeDate = (date) => {

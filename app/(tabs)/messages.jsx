@@ -7,20 +7,24 @@ import { commonStyles } from '../../constants/styles';
 import { hp, wp } from '../../helpers/common';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConversations } from '../../hooks/useMessaging';
+import { useFavQuota } from '../../hooks/useFavQuota';
+import { formatConversationTime } from '../../helpers/dateUtils';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
+import FavQuotaBanner from '../../components/common/FavQuotaBanner';
 import Icon from '../../assets/icons/Icon';
 
 export default function Messages() {
   const router = useRouter();
   const { user } = useAuth();
   const { conversations, loading, unreadTotal, refresh } = useConversations();
+  const { favQuota, loadFavQuota } = useFavQuota();
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refresh();
+    await Promise.all([refresh(), loadFavQuota()]);
     setRefreshing(false);
-  }, [refresh]);
+  }, [refresh, loadFavQuota]);
 
   const handleConversationPress = useCallback((conversation) => {
     router.push({
@@ -28,23 +32,6 @@ export default function Messages() {
       params: { matchId: conversation.id }
     });
   }, [router]);
-
-  const formatTime = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) {
-      return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    } else if (diffDays === 1) {
-      return 'Hier';
-    } else if (diffDays < 7) {
-      return date.toLocaleDateString('fr-FR', { weekday: 'short' });
-    } else {
-      return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-    }
-  };
 
   const renderConversation = ({ item }) => {
     const hasUnread = item.unreadCount > 0;
@@ -78,7 +65,7 @@ export default function Messages() {
               }
             </Text>
             <Text style={styles.time}>
-              {formatTime(lastMessage?.created_at || item.updated_at)}
+              {formatConversationTime(lastMessage?.created_at || item.updated_at)}
             </Text>
           </View>
           
@@ -187,6 +174,8 @@ export default function Messages() {
           </View>
         )}
       </View>
+
+      <FavQuotaBanner favQuota={favQuota} />
 
       {/* Liste des conversations */}
       <FlatList

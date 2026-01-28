@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { cvService } from '../services/cvService';
 
 export function useDashboard() {
   const { user, profile } = useAuth();
@@ -13,7 +14,8 @@ export function useDashboard() {
   const [stats, setStats] = useState({
     matches: 0,
     applications: 0,
-    profileViews: 0,
+    publishedOffers: 0,
+    views: 0,
   });
   const [recommendedOffers, setRecommendedOffers] = useState([]);
   const [activities, setActivities] = useState([]);
@@ -28,22 +30,28 @@ export function useDashboard() {
   // ==========================================
 
   const loadCandidatStats = async () => {
-    const { count: matchCount } = await supabase
-      .from('matches')
-      .select('*', { count: 'exact', head: true })
-      .eq('candidate_id', userId)
-      .eq('status', 'matched');
-
-    const { count: applicationCount } = await supabase
-      .from('matches')
-      .select('*', { count: 'exact', head: true })
-      .eq('candidate_id', userId)
-      .in('status', ['pending', 'matched']);
+    const [
+      { count: matchCount },
+      { count: applicationCount },
+      cvViews,
+    ] = await Promise.all([
+      supabase
+        .from('matches')
+        .select('*', { count: 'exact', head: true })
+        .eq('candidate_id', userId)
+        .eq('status', 'matched'),
+      supabase
+        .from('matches')
+        .select('*', { count: 'exact', head: true })
+        .eq('candidate_id', userId)
+        .in('status', ['pending', 'matched']),
+      cvService.getCvViewsCount(userId),
+    ]);
 
     setStats({
       matches: matchCount || 0,
       applications: applicationCount || 0,
-      profileViews: 0,
+      views: cvViews,
     });
   };
 
@@ -114,8 +122,8 @@ export function useDashboard() {
 
     setStats({
       matches: matchCount,
-      applications: pendingCount,
-      profileViews: (activeJobsCount || 0) + (activeInternshipsCount || 0),
+      publishedOffers: (activeJobsCount || 0) + (activeInternshipsCount || 0),
+      views: 0,
     });
   };
 
