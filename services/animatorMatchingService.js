@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { subscriptionService } from './subscriptionService';
 import { matchingService } from './matchingService';
+import { blockService } from './blockService';
 
 /**
  * Service de matching pour Animateurs ↔ Laboratoires
@@ -206,6 +207,14 @@ export const animatorMatchingService = {
 
     const excludeIds = swipedIds?.map(s => s.target_id) || [];
 
+    // Récupérer les utilisateurs bloqués
+    let blockedUserIds = [];
+    try {
+      blockedUserIds = await blockService.getBlockedUserIdsSimple(animatorId);
+    } catch (e) {
+      console.warn('Could not fetch blocked users:', e);
+    }
+
     // Profil animateur pour filtres
     const { data: animatorProfile } = await supabase
       .from('animator_profiles')
@@ -221,6 +230,11 @@ export const animatorMatchingService = {
 
     if (excludeIds.length > 0) {
       query = query.not('id', 'in', `(${excludeIds.join(',')})`);
+    }
+
+    // Exclure les missions des utilisateurs bloqués
+    if (blockedUserIds.length > 0) {
+      query = query.not('client_id', 'in', `(${blockedUserIds.join(',')})`);
     }
 
     if (animatorProfile?.mobility_zones?.length > 0 && !filters.ignoreLocation) {
@@ -270,6 +284,14 @@ export const animatorMatchingService = {
       .eq('target_type', 'animator');
 
     const excludeIds = swipedIds?.map(s => s.target_id) || [];
+
+    // Ajouter les utilisateurs bloqués aux exclusions
+    try {
+      const blockedUserIds = await blockService.getBlockedUserIdsSimple(laboratoryId);
+      excludeIds.push(...blockedUserIds);
+    } catch (e) {
+      console.warn('Could not fetch blocked users:', e);
+    }
 
     const { data: mission } = await supabase
       .from('animation_missions')

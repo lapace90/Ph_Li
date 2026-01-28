@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { userService } from '../services/userService';
 import { profileService } from '../services/profileService';
 import { privacyService } from '../services/privacyService';
+import { logService } from '../services/logService';
 
 const AuthContext = createContext();
 
@@ -259,18 +260,36 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   };
 
-  const signUp = async (email, password) => {
+  const signUp = async (email, password, userType = null) => {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return { data: null, error };
+
+    // Log inscription
+    if (data?.user) {
+      logService.auth.signup(data.user.id, email, userType || 'unknown');
+    }
+
     return { data, error: null };
   };
 
   const signIn = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    // Log connexion
+    if (data?.user) {
+      logService.auth.login(data.user.id, email);
+    } else if (error) {
+      logService.auth.loginFailed(email, error.message);
+    }
+
     return { data, error };
   };
 
   const signOut = async () => {
+    // Log déconnexion avant de perdre les infos user
+    if (session?.user) {
+      logService.auth.logout(session.user.id, session.user.email);
+    }
     await supabase.auth.signOut();
     clearUserData();
   };

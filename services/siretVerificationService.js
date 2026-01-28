@@ -1,29 +1,40 @@
 import { supabase } from '../lib/supabase';
+import { logService } from './logService';
 
 // ============================================
 // CONFIGURATION
 // ============================================
 
 // Mode démo pour les présentations (pas d'appel API réel)
-const DEMO_MODE = false;
+const DEMO_MODE = true;
 
 // Données de test pour le mode démo
 const DEMO_SIRET_DATA = {
   // Animateurs
   '12345678901234': {
-    name: 'DURAND Marie',
-    activity: 'Animation commerciale freelance',
+    name: 'DERMACARE LABORATORIES SAS',
+    activity: 'Fabrication de produits cosmétiques',
     active: true,
   },
   '23456789012345': {
-    name: 'MARTIN Sophie',
+    name: 'MARTIN Sophie - Auto-entrepreneur',
     activity: 'Animation commerciale freelance',
     active: true,
   },
-  // Laboratoires
+  // Laboratoires du seeder
+  '11122233344455': {
+    name: 'ORTHOMED LABORATORIES',
+    activity: 'Fabrication de dispositifs médicaux',
+    active: true,
+  },
+  '55566677788899': {
+    name: 'AROMASANTÉ SAS',
+    activity: 'Fabrication d\'huiles essentielles et aromathérapie',
+    active: true,
+  },
   '98765432109876': {
-    name: 'LABORATOIRE DERMO FRANCE',
-    activity: 'Fabrication de produits pharmaceutiques',
+    name: 'NUTRIVIE LABORATOIRES',
+    activity: 'Fabrication de compléments alimentaires',
     active: true,
   },
 };
@@ -190,6 +201,13 @@ export const siretVerificationService = {
     if (error) {
       console.error('Erreur enregistrement:', error);
       return { verified: false, message: 'Erreur lors de l\'enregistrement' };
+    }
+
+    // Log le résultat de la vérification
+    if (result.verified) {
+      logService.verification.siretVerified(userId, siretNumber.replace(/\s/g, ''), result.data?.name);
+    } else {
+      logService.verification.siretRejected(userId, siretNumber.replace(/\s/g, ''), result.message);
     }
 
     return result;

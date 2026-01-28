@@ -1,35 +1,42 @@
 import { Alert, StyleSheet, Text, View } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { hp, wp } from '../../helpers/common';
-import { theme } from '../../constants/theme';
-import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
-import { logService } from '../../services/logService';
-import ScreenWrapper from '../../components/common/ScreenWrapper';
-import BackButton from '../../components/common/BackButton';
-import Input from '../../components/common/Input';
-import Button from '../../components/common/Button';
-import Icon from '../../assets/icons/Icon';
+import { hp, wp } from '../helpers/common';
+import { theme } from '../constants/theme';
+import { supabase } from '../lib/supabase';
+import { logService } from '../services/logService';
+import ScreenWrapper from '../components/common/ScreenWrapper';
+import Input from '../components/common/Input';
+import Button from '../components/common/Button';
+import Icon from '../assets/icons/Icon';
 
-export default function ChangePassword() {
+export default function ResetPassword() {
   const router = useRouter();
-  const { session } = useAuth();
-
   const [loading, setLoading] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+
+  useEffect(() => {
+    // Récupérer l'email de l'utilisateur connecté via le lien de récupération
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) {
+        setUserEmail(user.email);
+      }
+    };
+    getUser();
+  }, []);
 
   const handleSubmit = async () => {
-    if (!currentPassword || !newPassword || !confirmPassword) {
+    if (!newPassword || !confirmPassword) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs');
       return;
     }
 
     if (newPassword.length < 6) {
-      Alert.alert('Erreur', 'Le nouveau mot de passe doit contenir au moins 6 caractères');
+      Alert.alert('Erreur', 'Le mot de passe doit contenir au moins 6 caractères');
       return;
     }
 
@@ -39,31 +46,32 @@ export default function ChangePassword() {
     }
 
     setLoading(true);
+
     try {
-      // Vérifier le mot de passe actuel
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: session.user.email,
-        password: currentPassword,
+      const { data: { user }, error } = await supabase.auth.updateUser({
+        password: newPassword,
       });
-
-      if (signInError) {
-        Alert.alert('Erreur', 'Mot de passe actuel incorrect');
-        setLoading(false);
-        return;
-      }
-
-      // Mettre à jour le mot de passe
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
 
       if (error) throw error;
 
       // Log le changement de mot de passe
-      logService.auth.passwordChanged(session.user.id, session.user.email);
+      if (user) {
+        logService.auth.passwordChanged(user.id, user.email);
+      }
 
       Alert.alert(
         'Mot de passe mis à jour',
-        'Votre mot de passe a été changé avec succès.',
-        [{ text: 'OK', onPress: () => router.back() }]
+        'Votre nouveau mot de passe a été enregistré. Vous pouvez maintenant vous connecter.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Déconnecter l'utilisateur pour qu'il se reconnecte avec son nouveau mdp
+              supabase.auth.signOut();
+              router.replace('/(auth)/login');
+            },
+          },
+        ]
       );
     } catch (error) {
       Alert.alert('Erreur', error.message);
@@ -77,22 +85,18 @@ export default function ChangePassword() {
       <StatusBar style="dark" />
       <View style={styles.container}>
         <View style={styles.header}>
-          <BackButton router={router} />
-          <Text style={styles.title}>Mot de passe</Text>
-          <View style={{ width: 36 }} />
+          <View style={styles.iconContainer}>
+            <Icon name="lock" size={48} color={theme.colors.primary} />
+          </View>
+          <Text style={styles.title}>Nouveau mot de passe</Text>
+          <Text style={styles.subtitle}>
+            {userEmail
+              ? `Définissez un nouveau mot de passe pour ${userEmail}`
+              : 'Définissez votre nouveau mot de passe'}
+          </Text>
         </View>
 
         <View style={styles.form}>
-          <Input
-            icon={<Icon name="lock" size={22} color={theme.colors.textLight} />}
-            placeholder="Mot de passe actuel"
-            secureTextEntry
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-          />
-
-          <View style={styles.divider} />
-
           <Input
             icon={<Icon name="lock" size={22} color={theme.colors.textLight} />}
             placeholder="Nouveau mot de passe"
@@ -103,7 +107,7 @@ export default function ChangePassword() {
 
           <Input
             icon={<Icon name="lock" size={22} color={theme.colors.textLight} />}
-            placeholder="Confirmer le nouveau mot de passe"
+            placeholder="Confirmer le mot de passe"
             secureTextEntry
             value={confirmPassword}
             onChangeText={setConfirmPassword}
@@ -115,13 +119,13 @@ export default function ChangePassword() {
             <Requirement met={/[A-Z]/.test(newPassword)} text="Une lettre majuscule" />
             <Requirement met={/[0-9]/.test(newPassword)} text="Un chiffre" />
           </View>
-        </View>
 
-        <Button
-          title="Changer le mot de passe"
-          loading={loading}
-          onPress={handleSubmit}
-        />
+          <Button
+            title="Enregistrer"
+            loading={loading}
+            onPress={handleSubmit}
+          />
+        </View>
       </View>
     </ScreenWrapper>
   );
@@ -129,10 +133,10 @@ export default function ChangePassword() {
 
 const Requirement = ({ met, text }) => (
   <View style={styles.requirement}>
-    <Icon 
-      name={met ? 'check' : 'x'} 
-      size={14} 
-      color={met ? theme.colors.success : theme.colors.textLight} 
+    <Icon
+      name={met ? 'check' : 'x'}
+      size={14}
+      color={met ? theme.colors.success : theme.colors.textLight}
     />
     <Text style={[styles.requirementText, met && styles.requirementMet]}>
       {text}
@@ -144,26 +148,36 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: wp(5),
-    paddingTop: hp(2),
-    paddingBottom: hp(4),
+    paddingTop: hp(8),
   },
   header: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: hp(3),
+    gap: hp(1.5),
+    marginBottom: hp(4),
+  },
+  iconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: theme.colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: hp(1),
   },
   title: {
-    fontSize: hp(2.2),
-    fontFamily: theme.fonts.semiBold,
+    fontSize: hp(2.8),
     color: theme.colors.text,
+    fontFamily: theme.fonts.bold,
+  },
+  subtitle: {
+    fontSize: hp(1.8),
+    color: theme.colors.textLight,
+    textAlign: 'center',
+    lineHeight: hp(2.6),
+    paddingHorizontal: wp(5),
   },
   form: {
-    flex: 1,
     gap: hp(2),
-  },
-  divider: {
-    height: hp(1),
   },
   requirements: {
     backgroundColor: theme.colors.card,

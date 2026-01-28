@@ -49,12 +49,13 @@ export default function Settings() {
             <MenuItem icon="user" label="Mon profil" onPress={() => router.push('/profile')} />
             <MenuItem icon="bell" label="Notifications" onPress={() => router.push('/notificationSettings')} />
             <MenuItem icon="lock" label="Confidentialité" onPress={() => router.push('/privacySettings')} />
+            <MenuItem icon="slash" label="Utilisateurs bloqués" onPress={() => router.push('/blockedUsers')} />
           </View>
 
           <Text style={[commonStyles.sectionTitleSmall, { marginBottom: hp(1) }]}>Application</Text>
           <View style={{ gap: hp(1), marginBottom: hp(2.5) }}>
             <MenuItem icon="helpCircle" label="Aide & Support" onPress={() => router.push('/help')} />
-            <MenuItem icon="fileText" label="CGU" onPress={() => router.push({ pathname: '/legalDocument', params: { type: 'terms' } })} />
+            <MenuItem icon="fileText" label="CGU" onPress={() => router.push({ pathname: '/legalDocument', params: { type: 'cgu' } })} />
             <MenuItem icon="shield" label="Politique de confidentialité" onPress={() => router.push({ pathname: '/legalDocument', params: { type: 'privacy' } })} />
           </View>
 

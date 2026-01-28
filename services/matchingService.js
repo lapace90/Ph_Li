@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { notificationService, NOTIFICATION_TYPES } from './notificationService';
 import { subscriptionService } from './subscriptionService';
+import { blockService } from './blockService';
 
 /**
  * Service de matching - Gestion des swipes et matchs
@@ -242,6 +243,7 @@ export const matchingService = {
    * Récupère les offres d'emploi que le candidat n'a pas encore swipées
    */
   async getSwipeableJobOffers(userId, filters = {}) {
+    // Récupérer les IDs déjà swipés
     const { data: swipedIds } = await supabase
       .from('swipes')
       .select('target_id')
@@ -250,6 +252,14 @@ export const matchingService = {
 
     const excludeIds = swipedIds?.map(s => s.target_id) || [];
 
+    // Récupérer les utilisateurs bloqués pour filtrer leurs offres
+    let blockedUserIds = [];
+    try {
+      blockedUserIds = await blockService.getBlockedUserIdsSimple(userId);
+    } catch (e) {
+      console.warn('Could not fetch blocked users:', e);
+    }
+
     let query = supabase
       .from('job_offers')
       .select('*')
@@ -257,6 +267,11 @@ export const matchingService = {
 
     if (excludeIds.length > 0) {
       query = query.not('id', 'in', `(${excludeIds.join(',')})`);
+    }
+
+    // Exclure les offres des utilisateurs bloqués
+    if (blockedUserIds.length > 0) {
+      query = query.not('pharmacy_owner_id', 'in', `(${blockedUserIds.join(',')})`);
     }
 
     if (filters.contract_type) {
@@ -290,6 +305,14 @@ export const matchingService = {
 
     const excludeIds = swipedIds?.map(s => s.target_id) || [];
 
+    // Récupérer les utilisateurs bloqués
+    let blockedUserIds = [];
+    try {
+      blockedUserIds = await blockService.getBlockedUserIdsSimple(userId);
+    } catch (e) {
+      console.warn('Could not fetch blocked users:', e);
+    }
+
     let query = supabase
       .from('internship_offers')
       .select('*')
@@ -297,6 +320,11 @@ export const matchingService = {
 
     if (excludeIds.length > 0) {
       query = query.not('id', 'in', `(${excludeIds.join(',')})`);
+    }
+
+    // Exclure les offres des utilisateurs bloqués
+    if (blockedUserIds.length > 0) {
+      query = query.not('pharmacy_owner_id', 'in', `(${blockedUserIds.join(',')})`);
     }
 
     if (filters.type) {
@@ -327,6 +355,14 @@ export const matchingService = {
 
     const excludeIds = swipedIds?.map(s => s.target_id) || [];
     excludeIds.push(employerId);
+
+    // Ajouter les utilisateurs bloqués aux exclusions
+    try {
+      const blockedUserIds = await blockService.getBlockedUserIdsSimple(employerId);
+      excludeIds.push(...blockedUserIds);
+    } catch (e) {
+      console.warn('Could not fetch blocked users:', e);
+    }
 
     // Récupérer les profils
     let query = supabase

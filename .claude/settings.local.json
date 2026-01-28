@@ -3,7 +3,10 @@
     "allow": [
       "Bash(find:*)",
       "Bash(findstr:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(wc:*)",
+      "Bash(node -e \"\nimport ''dotenv/config'';\nimport { createClient } from ''@supabase/supabase-js'';\n\nconst supabase = createClient\\(\n  process.env.EXPO_PUBLIC_SUPABASE_URL,\n  process.env.SUPABASE_SERVICE_ROLE_KEY,\n  { auth: { autoRefreshToken: false, persistSession: false } }\n\\);\n\n// Récupérer le profile d''un labo\nconst { data: lab } = await supabase\n  .from\\(''laboratory_profiles''\\)\n  .select\\(''id''\\)\n  .limit\\(1\\)\n  .single\\(\\);\n\nif \\(lab\\) {\n  const { data: profile } = await supabase\n    .from\\(''profiles''\\)\n    .select\\(''*''\\)\n    .eq\\(''id'', lab.id\\)\n    .single\\(\\);\n    \n  console.log\\(''Colonnes profiles \\(labo\\):''\\);\n  if \\(profile\\) {\n    Object.keys\\(profile\\).forEach\\(k => console.log\\(''  -'', k, '':'', JSON.stringify\\(profile[k]\\)\\)\\);\n  }\n}\n\")",
+      "Bash(node scripts/repairUserData.js:*)"
     ]
   }
 }

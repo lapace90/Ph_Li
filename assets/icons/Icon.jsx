@@ -140,6 +140,16 @@ const iconMap = {
   award: { lib: 'feather', name: 'award' },
   maximize: { lib: 'feather', name: 'maximize' },
 
+  // Report & Block
+  flag: { lib: 'feather', name: 'flag' },
+  'flag-filled': { lib: 'material', name: 'flag' },
+  slash: { lib: 'feather', name: 'slash' },
+  userX: { lib: 'feather', name: 'user-x' },
+  'user-x': { lib: 'feather', name: 'user-x' },
+  block: { lib: 'material', name: 'block' },
+  moreVertical: { lib: 'feather', name: 'more-vertical' },
+  moreHorizontal: { lib: 'feather', name: 'more-horizontal' },
+
   // Material Icons (when not available in Feather)
   school: { lib: 'material', name: 'school' },
   class: { lib: 'material', name: 'class' },

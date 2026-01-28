@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { logService } from './logService';
 
 // ============================================
 // CONFIGURATION
@@ -154,10 +155,17 @@ export const rppsService = {
       console.error('Erreur enregistrement:', error);
       return { verified: false, message: 'Erreur lors de l\'enregistrement' };
     }
-    
+
+    // Log le résultat de la vérification
+    if (result.verified) {
+      logService.verification.rppsVerified(userId, rppsNumber);
+    } else {
+      logService.verification.rppsRejected(userId, rppsNumber, result.message);
+    }
+
     return result;
   },
-  
+
   async getVerificationStatus(userId) {
     const { data, error } = await supabase
       .from('verification_documents')

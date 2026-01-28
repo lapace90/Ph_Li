@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { notificationService, NOTIFICATION_TYPES } from './notificationService';
+import { blockService } from './blockService';
 
 /**
  * Service de messagerie (basé sur les matchs)
@@ -59,27 +60,40 @@ export const messagingService = {
     const profileMap = {};
     profiles?.forEach(p => profileMap[p.id] = p);
 
-    // Construire les conversations
-    return userMatches.map(match => {
-      const matchMessages = messages?.filter(m => m.match_id === match.id) || [];
-      const lastMessage = matchMessages[0];
-      const unreadCount = matchMessages.filter(m => 
-        m.sender_id !== userId && !m.read
-      ).length;
+    // Récupérer les utilisateurs bloqués pour les filtrer
+    let blockedUserIds = new Set();
+    try {
+      const blocked = await blockService.getBlockedUserIdsSimple(userId);
+      blockedUserIds = new Set(blocked);
+    } catch (e) {
+      console.warn('Could not fetch blocked users:', e);
+    }
 
-      const employerId = match.job_offers?.pharmacy_owner_id || match.internship_offers?.pharmacy_owner_id;
-      const otherId = match.candidate_id === userId ? employerId : match.candidate_id;
-      const otherUser = profileMap[otherId];
+    // Construire les conversations (en filtrant les bloqués)
+    return userMatches
+      .map(match => {
+        const matchMessages = messages?.filter(m => m.match_id === match.id) || [];
+        const lastMessage = matchMessages[0];
+        const unreadCount = matchMessages.filter(m =>
+          m.sender_id !== userId && !m.read
+        ).length;
 
-      return {
-        id: match.id,
-        match,
-        otherUser,
-        lastMessage,
-        unreadCount,
-        updated_at: lastMessage?.created_at || match.updated_at,
-      };
-    }).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+        const employerId = match.job_offers?.pharmacy_owner_id || match.internship_offers?.pharmacy_owner_id;
+        const otherId = match.candidate_id === userId ? employerId : match.candidate_id;
+        const otherUser = profileMap[otherId];
+
+        return {
+          id: match.id,
+          match,
+          otherUser,
+          otherId,
+          lastMessage,
+          unreadCount,
+          updated_at: lastMessage?.created_at || match.updated_at,
+        };
+      })
+      .filter(conv => !blockedUserIds.has(conv.otherId)) // Exclure les bloqués
+      .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
   },
 
   /**
@@ -141,6 +155,15 @@ export const messagingService = {
    * Envoie un message
    */
   async sendMessage(matchId, senderId, content, attachments = null) {
+    // Vérifier que l'autre utilisateur n'est pas bloqué
+    const conversation = await this.getConversationByMatchId(matchId, senderId);
+    if (conversation?.otherId) {
+      const blocked = await blockService.areUsersBlocked(senderId, conversation.otherId);
+      if (blocked) {
+        throw new Error('Vous ne pouvez pas envoyer de message à cet utilisateur');
+      }
+    }
+
     const { data, error } = await supabase
       .from('messages')
       .insert({

@@ -67,6 +67,13 @@ const Login = () => {
             onChangeText={(value) => (passwordRef.current = value)}
           />
 
+          <Pressable
+            onPress={() => router.push('/(auth)/forgotPassword')}
+            style={styles.forgotPassword}
+          >
+            <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
+          </Pressable>
+
           <Button
             title="Se connecter"
             loading={loading}
@@ -122,6 +129,15 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: hp(2),
+  },
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    marginTop: -hp(1),
+  },
+  forgotPasswordText: {
+    fontSize: hp(1.6),
+    color: theme.colors.primary,
+    fontFamily: theme.fonts.medium,
   },
   footer: {
     flexDirection: 'row',

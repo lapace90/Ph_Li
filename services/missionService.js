@@ -3,6 +3,7 @@
 import { supabase } from '../lib/supabase';
 import { subscriptionService } from './subscriptionService';
 import { notificationService } from './notificationService';
+import { logService } from './logService';
 
 export const missionService = {
   // ==========================================
@@ -78,6 +79,10 @@ export const missionService = {
       .single();
 
     if (error) throw error;
+
+    // Log la création
+    logService.mission.created(clientId, data.id, data.title, data.mission_type);
+
     return data;
   },
 
@@ -121,7 +126,12 @@ export const missionService = {
    * Publie une mission (draft → open)
    */
   async publish(missionId) {
-    return this.update(missionId, { status: 'open' });
+    const data = await this.update(missionId, { status: 'open' });
+
+    // Log la publication
+    logService.mission.published(data.client_id, missionId, data.title);
+
+    return data;
   },
 
   // ==========================================
@@ -304,6 +314,9 @@ export const missionService = {
       ),
     ]);
 
+    // Log la confirmation
+    logService.mission.confirmed(payerId, missionId, animatorId, data.title);
+
     return { mission: data, fee: feeStatus };
   },
 
@@ -383,6 +396,9 @@ export const missionService = {
       ]).catch(err => console.warn('Erreur notif avis:', err));
     }
 
+    // Log la completion
+    logService.mission.completed(data.client_id, missionId, data.title);
+
     return data;
   },
 
@@ -409,6 +425,9 @@ export const missionService = {
         .delete()
         .eq('mission_id', missionId);
     }
+
+    // Log l'annulation
+    logService.mission.cancelled(data.client_id, missionId, data.title, reason);
 
     return data;
   },
