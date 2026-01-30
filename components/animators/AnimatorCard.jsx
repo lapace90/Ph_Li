@@ -6,6 +6,7 @@ import { commonStyles } from '../../constants/styles';
 import Icon from '../../assets/icons/Icon';
 import SiretBadge from '../common/SiretBadge';
 import { getAnimationSpecialtyLabel } from '../../constants/profileOptions';
+import { AnimatorStats } from '../common/ProfileStats';
 
 /**
  * Carte animateur pour le swipe (côté labo)
@@ -192,12 +193,12 @@ export const AnimatorDetailModal = ({ visible, animator, isFavorite, onClose, on
             )}
           </View>
 
-          {/* Stats */}
-          <View style={styles.statsRow}>
-            <StatItem icon="briefcase" value={animator.missions_completed || 0} label="Missions" />
-            <StatItem icon="star" value={animator.average_rating?.toFixed(1) || '-'} label="Note" />
-            <StatItem icon="calendar" value={animator.experience_years || '-'} label="Ans exp." />
-          </View>
+          {/* Stats avec favoris */}
+          <AnimatorStats
+            userId={animator.id}
+            missionsCount={animator.missions_completed || 0}
+            averageRating={animator.average_rating || null}
+          />
 
           {/* Tarif */}
           <View style={commonStyles.section}>

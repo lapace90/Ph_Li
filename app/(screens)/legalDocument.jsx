@@ -108,7 +108,7 @@ const LEGAL_CONTENT = {
       },
       {
         title: "12. Contact DPO",
-        content: "Pour toute question relative à vos données personnelles ou pour exercer vos droits, contactez notre Délégué à la Protection des Données :\n\nEmail : dpo@pharmalink.fr\nAdresse : [Adresse de l'entreprise]\n\nVous pouvez également introduire une réclamation auprès de la CNIL (www.cnil.fr)."
+        content: "Pour toute question relative à vos données personnelles ou pour exercer vos droits, contactez notre Délégué à la Protection des Données :\n\nEmail : contact@pharmalink.pro\nAdresse : [Adresse de l'entreprise]\n\nVous pouvez également introduire une réclamation auprès de la CNIL (www.cnil.fr)."
       },
     ]
   }

@@ -6,8 +6,9 @@ import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
 import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
-import { useSwipeScreen } from '../../hooks/useMatching';
+import { useSwipeScreen, useSwipeCandidates } from '../../hooks/useMatching';
 import { useSwipeMissions, useSwipeAnimators } from '../../hooks/useAnimatorMatching';
+import { useJobOffers } from '../../hooks/useJobOffers';
 import { useClientMissions } from '../../hooks/useMissions';
 import { useFavoriteIds, useFavorites } from '../../hooks/useFavorites';
 import { FAVORITE_TYPES } from '../../services/favoritesService';
@@ -21,7 +22,7 @@ import { AnimatorDetailModal } from '../../components/animators/AnimatorCard';
 
 export default function Matching() {
   const router = useRouter();
-  const { session, isAnimator, isLaboratory, isCandidate } = useAuth();
+  const { session, isAnimator, isLaboratory, isCandidate, isTitulaire } = useAuth();
 
   // Animateur → Swipe missions directement dans l'onglet
   if (isAnimator) {
@@ -33,7 +34,12 @@ export default function Matching() {
     return <LaboratoryMatching router={router} userId={session?.user?.id} />;
   }
 
-  // Candidat / Titulaire → Comportement existant
+  // Titulaire → Sélection offre puis swipe candidats
+  if (isTitulaire) {
+    return <TitulaireMatching router={router} userId={session?.user?.id} />;
+  }
+
+  // Candidat (preparateur, conseiller, etudiant) → Swipe offres
   return <ClassicMatching isCandidate={isCandidate} router={router} />;
 }
 
@@ -76,9 +82,10 @@ function ClassicMatching({ isCandidate, router }) {
     );
   };
 
-  const handleMatchMessage = (matchId) => {
+  const handleMatchMessage = () => {
+    if (!lastMatch) return;
     clearLastMatch();
-    router.push({ pathname: '/(screens)/conversation', params: { matchId } });
+    router.push({ pathname: '/(screens)/conversation', params: { matchId: lastMatch.id } });
   };
 
   return (
@@ -382,6 +389,169 @@ function LaboratorySwipeView({ router, userId, missionId, onBack }) {
         isFavorite={selectedAnimator && isAnimatorFav(selectedAnimator.id)}
         onClose={() => setSelectedAnimator(null)}
         onToggleFavorite={() => selectedAnimator && toggleAnimatorFav(selectedAnimator.id)}
+      />
+    </ScreenWrapper>
+  );
+}
+
+// ============================================
+// TITULAIRE → Sélection offre puis swipe candidats
+// ============================================
+function TitulaireMatching({ router, userId }) {
+  const { offers, loading: offersLoading } = useJobOffers(userId);
+  const activeOffers = offers?.filter(o => o.status === 'active') || [];
+  const [selectedOfferId, setSelectedOfferId] = useState(null);
+
+  // Si une offre est sélectionnée → swipe candidats
+  if (selectedOfferId) {
+    return (
+      <TitulaireSwipeView
+        router={router}
+        userId={userId}
+        jobOfferId={selectedOfferId}
+        onBack={() => setSelectedOfferId(null)}
+      />
+    );
+  }
+
+  // Sinon → sélection d'offre
+  return (
+    <ScreenWrapper>
+      <View style={[commonStyles.headerNoBorder, commonStyles.rowBetween]}>
+        <Text style={commonStyles.headerTitleLarge}>Recruter</Text>
+        <View style={commonStyles.rowGapSmall}>
+          <Pressable style={commonStyles.headerButton} onPress={() => router.push('/(tabs)/messages')}>
+            <Icon name="messageCircle" size={22} color={theme.colors.text} />
+          </Pressable>
+          <Pressable style={commonStyles.headerButton} onPress={() => router.push('/(screens)/matches')}>
+            <Icon name="heart" size={22} color={theme.colors.primary} />
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={commonStyles.contentPadded}>
+        <Text style={commonStyles.sectionTitle}>Sélectionnez une offre</Text>
+        <Text style={commonStyles.hint}>Pour trouver des candidats correspondants</Text>
+
+        {offersLoading ? (
+          <View style={commonStyles.loadingContainer}>
+            <Text style={commonStyles.loadingText}>Chargement...</Text>
+          </View>
+        ) : activeOffers.length > 0 ? (
+          <View style={labStyles.missionsList}>
+            {activeOffers.map(offer => (
+              <Pressable
+                key={offer.id}
+                style={labStyles.missionCard}
+                onPress={() => setSelectedOfferId(offer.id)}
+              >
+                <View style={labStyles.missionIcon}>
+                  <Icon name="briefcase" size={20} color={theme.colors.primary} />
+                </View>
+                <View style={commonStyles.flex1}>
+                  <Text style={labStyles.missionTitle} numberOfLines={1}>{offer.title}</Text>
+                  <View style={labStyles.missionMeta}>
+                    {offer.city && (
+                      <View style={labStyles.missionMetaItem}>
+                        <Icon name="mapPin" size={12} color={theme.colors.textLight} />
+                        <Text style={labStyles.missionMetaText}>{offer.city}</Text>
+                      </View>
+                    )}
+                    {offer.contract_type && (
+                      <View style={labStyles.missionMetaItem}>
+                        <Icon name="fileText" size={12} color={theme.colors.textLight} />
+                        <Text style={labStyles.missionMetaText}>{offer.contract_type}</Text>
+                      </View>
+                    )}
+                    {offer.salary_range && (
+                      <View style={labStyles.missionMetaItem}>
+                        <Icon name="dollarSign" size={12} color={theme.colors.primary} />
+                        <Text style={[labStyles.missionMetaText, { color: theme.colors.primary, fontFamily: theme.fonts.semiBold }]}>{offer.salary_range}</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+                <View style={labStyles.missionArrow}>
+                  <Icon name="chevronRight" size={18} color={theme.colors.primary} />
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        ) : (
+          <EmptyState
+            icon="briefcase"
+            title="Aucune offre active"
+            subtitle="Créez une offre d'emploi pour trouver des candidats"
+            action={() => router.push('/(screens)/jobOfferCreate')}
+            actionLabel="Créer une offre"
+          />
+        )}
+      </View>
+    </ScreenWrapper>
+  );
+}
+
+// ============================================
+// TITULAIRE → Vue swipe candidats
+// ============================================
+function TitulaireSwipeView({ router, userId, jobOfferId, onBack }) {
+  const { candidates, jobOffer, loading, lastMatch, swipeRight, swipeLeft, superLike, clearLastMatch, refresh, superLikesRemaining, superLikeQuota } = useSwipeCandidates(jobOfferId);
+  const { isFavorite: isCandidateFav } = useFavoriteIds(userId, FAVORITE_TYPES.CANDIDATE);
+  const { toggleFavorite: toggleCandidateFav } = useFavorites(userId, FAVORITE_TYPES.CANDIDATE);
+
+  const handleSwipeLeft = async (card) => await swipeLeft(card.id);
+  const handleSwipeRight = async (card) => await swipeRight(card.id);
+  const handleSwipeUp = async (card) => await superLike(card.id);
+
+  const handleSuperLikeBlocked = () => {
+    Alert.alert(
+      'Super Likes épuisés',
+      'Vous avez utilisé tous vos Super Likes du jour. Passez Pro pour en obtenir davantage !',
+      [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Voir les offres', onPress: () => router.push('/(screens)/subscriptionPlans') },
+      ]
+    );
+  };
+
+  const handleMatchMessage = () => {
+    if (!lastMatch) return;
+    clearLastMatch();
+    router.push({ pathname: '/(screens)/conversation', params: { matchId: lastMatch.id } });
+  };
+
+  return (
+    <ScreenWrapper>
+      <MatchModal visible={!!lastMatch} match={lastMatch} onMessage={handleMatchMessage} onContinue={clearLastMatch} userType="titulaire" />
+
+      <View style={[commonStyles.headerNoBorder, commonStyles.rowBetween]}>
+        <Pressable style={commonStyles.headerButton} onPress={onBack}>
+          <Icon name="arrowLeft" size={24} color={theme.colors.text} />
+        </Pressable>
+        <View style={{ alignItems: 'center', flex: 1 }}>
+          <Text style={commonStyles.headerTitle}>Candidats</Text>
+        </View>
+        <View style={commonStyles.rowGapSmall}>
+          <Pressable style={commonStyles.headerButton} onPress={() => router.push('/(tabs)/messages')}>
+            <Icon name="messageCircle" size={22} color={theme.colors.text} />
+          </Pressable>
+          <Pressable style={commonStyles.headerButton} onPress={() => router.push('/(screens)/matches')}>
+            <Icon name="heart" size={22} color={theme.colors.primary} />
+          </Pressable>
+        </View>
+      </View>
+
+      <SwipeStack
+        cards={candidates}
+        type="candidate"
+        loading={loading}
+        onSwipeLeft={handleSwipeLeft}
+        onSwipeRight={handleSwipeRight}
+        onSwipeUp={handleSwipeUp}
+        onRefresh={refresh}
+        superLikesRemaining={superLikesRemaining}
+        superLikeQuota={superLikeQuota}
+        onSuperLikeBlocked={handleSuperLikeBlocked}
       />
     </ScreenWrapper>
   );

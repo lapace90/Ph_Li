@@ -382,4 +382,108 @@ export const cvService = {
     }
     return count || 0;
   },
+
+  // ==========================================
+  // PARTAGE CV DANS CONVERSATION
+  // ==========================================
+
+  /**
+   * Partage le CV dans un match (mode non-anonyme pour le destinataire)
+   * @param {string} matchId - ID du match
+   * @param {string} userId - ID du candidat
+   * @param {string} cvId - ID du CV à partager (optionnel, sinon CV par défaut)
+   */
+  async shareInMatch(matchId, userId, cvId = null) {
+    const { data, error } = await supabase.rpc('share_cv_in_match', {
+      p_match_id: matchId,
+      p_user_id: userId,
+      p_cv_id: cvId,
+    });
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Révoque le partage du CV dans un match
+   * @param {string} matchId - ID du match
+   * @param {string} userId - ID du candidat
+   */
+  async unshareInMatch(matchId, userId) {
+    const { data, error } = await supabase.rpc('unshare_cv_in_match', {
+      p_match_id: matchId,
+      p_user_id: userId,
+    });
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Vérifie si le CV est partagé dans un match
+   * @param {string} matchId - ID du match
+   */
+  async isSharedInMatch(matchId) {
+    const { data, error } = await supabase
+      .from('matches')
+      .select('cv_shared, shared_cv_id, cv_shared_at')
+      .eq('id', matchId)
+      .single();
+
+    if (error) throw error;
+    return {
+      isShared: data?.cv_shared || false,
+      cvId: data?.shared_cv_id,
+      sharedAt: data?.cv_shared_at,
+    };
+  },
+
+  /**
+   * Récupère le CV partagé pour un employeur (mode complet)
+   * @param {string} matchId - ID du match
+   * @param {string} viewerId - ID de l'employeur qui consulte
+   */
+  async getSharedCvForEmployer(matchId, viewerId) {
+    // Vérifier que le CV est partagé
+    const { data: match, error: matchError } = await supabase
+      .from('matches')
+      .select(`
+        cv_shared,
+        shared_cv_id,
+        candidate_id,
+        job_offers (pharmacy_owner_id),
+        internship_offers (pharmacy_owner_id)
+      `)
+      .eq('id', matchId)
+      .single();
+
+    if (matchError) throw matchError;
+
+    // Vérifier que le viewer est l'employeur
+    const employerId = match.job_offers?.pharmacy_owner_id || match.internship_offers?.pharmacy_owner_id;
+    if (employerId !== viewerId) {
+      throw new Error('Non autorisé');
+    }
+
+    if (!match.cv_shared) {
+      return null;
+    }
+
+    // Récupérer le CV (complet ou par défaut)
+    let cv;
+    if (match.shared_cv_id) {
+      cv = await this.getById(match.shared_cv_id);
+    } else {
+      cv = await this.getDefault(match.candidate_id);
+    }
+
+    if (!cv) return null;
+
+    // Retourner le CV en mode complet (non anonymisé)
+    return {
+      ...cv,
+      _viewMode: 'full',
+      _canSeePdf: true,
+    };
+  },
 };

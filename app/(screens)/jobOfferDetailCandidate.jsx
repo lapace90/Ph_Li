@@ -19,7 +19,10 @@ import ScreenWrapper from '../../components/common/ScreenWrapper';
 import Icon from '../../assets/icons/Icon';
 import Button from '../../components/common/Button';
 import ApplyModal from '../../components/application/ApplyModal';
+import { BookmarkFavoriteButton } from '../../components/common/FavoriteButton';
+import { favoritesService, FAVORITE_TYPES } from '../../services/favoritesService';
 import { notificationService, NOTIFICATION_TYPES } from '../../services/notificationService';
+import { formatPublishedAgo } from '../../helpers/dateUtils';
 
 export default function JobOfferDetailCandidate() {
   const router = useRouter();
@@ -31,13 +34,47 @@ export default function JobOfferDetailCandidate() {
   const [applying, setApplying] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
   const [showApplyModal, setShowApplyModal] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     if (id) {
       loadOffer();
       checkIfApplied();
+      checkIfFavorite();
     }
   }, [id]);
+
+  const checkIfFavorite = async () => {
+    if (!session?.user?.id || !id) return;
+    try {
+      const isFav = await favoritesService.isFavorite(
+        session.user.id,
+        FAVORITE_TYPES.JOB_OFFER,
+        id
+      );
+      setIsFavorite(isFav);
+    } catch (error) {
+      console.error('Error checking favorite:', error);
+    }
+  };
+
+  const handleToggleFavorite = async () => {
+    if (!session?.user?.id) {
+      Alert.alert('Connexion requise', 'Vous devez être connecté pour sauvegarder une offre.');
+      return;
+    }
+    try {
+      const result = await favoritesService.toggle(
+        session.user.id,
+        FAVORITE_TYPES.JOB_OFFER,
+        id
+      );
+      setIsFavorite(result.added);
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      Alert.alert('Erreur', error.message || 'Impossible de modifier les favoris');
+    }
+  };
 
   const loadOffer = async () => {
     try {
@@ -142,7 +179,11 @@ export default function JobOfferDetailCandidate() {
           <Icon name="arrowLeft" size={24} color={theme.colors.text} />
         </Pressable>
         <Text style={commonStyles.headerTitle}>Détail de l'offre</Text>
-        <View style={commonStyles.headerButton} />
+        <BookmarkFavoriteButton
+          isFavorite={isFavorite}
+          onToggle={handleToggleFavorite}
+          size="medium"
+        />
       </View>
 
       <ScrollView 
@@ -215,11 +256,7 @@ export default function JobOfferDetailCandidate() {
         <View style={styles.metaInfo}>
           <Icon name="clock" size={14} color={theme.colors.textLight} />
           <Text style={styles.metaText}>
-            Publiée le {new Date(offer.created_at).toLocaleDateString('fr-FR', { 
-              day: 'numeric', 
-              month: 'long', 
-              year: 'numeric' 
-            })}
+            {formatPublishedAgo(offer.created_at)}
           </Text>
         </View>
       </ScrollView>

@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View, Pressable, Modal, Animated } from 'react-native';
 import { Image } from 'expo-image';
 import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
 import Icon from '../../assets/icons/Icon';
+import { supabase } from '../../lib/supabase';
 
 const MatchModal = ({
   visible,
@@ -11,6 +12,7 @@ const MatchModal = ({
   onClose,
   onMessage,
   onContinue,
+  userType = 'candidate', // 'candidate' | 'titulaire' | 'animator' | 'laboratory'
 }) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const heartScale = useRef(new Animated.Value(0)).current;
@@ -53,10 +55,77 @@ const MatchModal = ({
     }
   }, [visible]);
 
+  const [candidateProfile, setCandidateProfile] = useState(null);
+
+  // Charger le profil du candidat si on est titulaire
+  useEffect(() => {
+    if (visible && userType === 'titulaire' && match?.candidate_id) {
+      supabase
+        .from('profiles')
+        .select('id, first_name, last_name, photo_url, current_city, experience_years')
+        .eq('id', match.candidate_id)
+        .single()
+        .then(({ data }) => setCandidateProfile(data));
+    }
+  }, [visible, userType, match?.candidate_id]);
+
   if (!match) return null;
 
+  const isTitulaire = userType === 'titulaire';
+  const isLaboratory = userType === 'laboratory';
+  const isAnimator = userType === 'animator';
+
+  // Données à afficher selon le type d'utilisateur
   const offer = match.job_offers || match.internship_offers;
   const pharmacyProfile = offer?.profiles;
+
+  // Pour animator_matches (labo/animateur)
+  const animatorData = match.animator?.profile || match.animator;
+  const missionData = match.mission;
+  const laboratoryData = match.laboratory;
+
+  // Déterminer le contenu à afficher
+  let displayProfile, displayTitle, displaySubtitle, displayIcon, displayDetails, matchMessage;
+
+  if (isTitulaire) {
+    // Titulaire voit le candidat
+    displayProfile = candidateProfile;
+    displayTitle = candidateProfile ? `${candidateProfile.first_name} ${candidateProfile.last_name?.[0] || ''}.` : 'Candidat';
+    displaySubtitle = candidateProfile?.current_city || '';
+    displayIcon = 'user';
+    displayDetails = candidateProfile?.experience_years != null
+      ? { icon: 'award', text: `${candidateProfile.experience_years} an${candidateProfile.experience_years > 1 ? 's' : ''} d'exp.` }
+      : null;
+    matchMessage = 'Vous pouvez maintenant échanger avec ce candidat !';
+  } else if (isLaboratory) {
+    // Labo voit l'animateur
+    displayProfile = animatorData;
+    displayTitle = animatorData ? `${animatorData.first_name} ${animatorData.last_name?.[0] || ''}.` : 'Animateur';
+    displaySubtitle = missionData?.title || '';
+    displayIcon = 'star';
+    displayDetails = match.animator?.average_rating
+      ? { icon: 'star', text: `${match.animator.average_rating.toFixed(1)} ★` }
+      : null;
+    matchMessage = 'Vous pouvez maintenant échanger avec cet animateur !';
+  } else if (isAnimator) {
+    // Animateur voit la mission/labo
+    displayProfile = laboratoryData;
+    displayTitle = missionData?.title || 'Mission';
+    displaySubtitle = laboratoryData?.company_name || laboratoryData?.brand_name || '';
+    displayIcon = 'briefcase';
+    displayDetails = missionData?.daily_rate_max
+      ? { icon: 'dollarSign', text: `${missionData.daily_rate_max}€/jour` }
+      : null;
+    matchMessage = 'Vous pouvez maintenant échanger avec ce laboratoire !';
+  } else {
+    // Candidat voit l'offre
+    displayProfile = pharmacyProfile;
+    displayTitle = offer?.title || 'Offre';
+    displaySubtitle = pharmacyProfile ? `${pharmacyProfile.first_name} ${pharmacyProfile.last_name?.[0]}.` : offer?.city;
+    displayIcon = 'briefcase';
+    displayDetails = offer?.contract_type ? { icon: 'briefcase', text: offer.contract_type } : null;
+    matchMessage = 'Vous pouvez maintenant échanger avec cet employeur !';
+  }
 
   return (
     <Modal
@@ -77,46 +146,41 @@ const MatchModal = ({
           {/* Titre */}
           <Text style={styles.title}>C'est un Match ! 🎉</Text>
           <Text style={styles.subtitle}>
-            Vous avez matché avec cette offre
+            {isTitulaire || isLaboratory
+              ? (isLaboratory ? 'Vous avez matché avec cet animateur' : 'Vous avez matché avec ce candidat')
+              : (isAnimator ? 'Vous avez matché avec cette mission' : 'Vous avez matché avec cette offre')}
           </Text>
 
-          {/* Info de l'offre */}
+          {/* Info du match */}
           <View style={styles.offerCard}>
             <View style={styles.offerHeader}>
-              {pharmacyProfile?.photo_url ? (
-                <Image 
-                  source={{ uri: pharmacyProfile.photo_url }} 
-                  style={styles.avatar} 
+              {(displayProfile?.photo_url || displayProfile?.logo_url) ? (
+                <Image
+                  source={{ uri: displayProfile.photo_url || displayProfile.logo_url }}
+                  style={styles.avatar}
                 />
               ) : (
                 <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                  <Icon name="briefcase" size={24} color={theme.colors.primary} />
+                  <Icon name={displayIcon} size={24} color={theme.colors.primary} />
                 </View>
               )}
               <View style={styles.offerInfo}>
                 <Text style={styles.offerTitle} numberOfLines={1}>
-                  {offer?.title || 'Offre'}
+                  {displayTitle}
                 </Text>
-                <Text style={styles.offerSubtitle}>
-                  {pharmacyProfile 
-                    ? `${pharmacyProfile.first_name} ${pharmacyProfile.last_name?.[0]}.`
-                    : offer?.city
-                  }
-                </Text>
+                {displaySubtitle ? (
+                  <Text style={styles.offerSubtitle}>{displaySubtitle}</Text>
+                ) : null}
               </View>
             </View>
-            <View style={styles.offerDetails}>
-              <View style={styles.detailItem}>
-                <Icon name="mapPin" size={14} color={theme.colors.textLight} />
-                <Text style={styles.detailText}>{offer?.city}</Text>
-              </View>
-              {offer?.contract_type && (
+            {displayDetails && (
+              <View style={styles.offerDetails}>
                 <View style={styles.detailItem}>
-                  <Icon name="briefcase" size={14} color={theme.colors.textLight} />
-                  <Text style={styles.detailText}>{offer.contract_type}</Text>
+                  <Icon name={displayDetails.icon} size={14} color={theme.colors.textLight} />
+                  <Text style={styles.detailText}>{displayDetails.text}</Text>
                 </View>
-              )}
-            </View>
+              </View>
+            )}
           </View>
 
           {/* Score */}
@@ -129,7 +193,7 @@ const MatchModal = ({
 
           {/* Message */}
           <Text style={styles.message}>
-            Vous pouvez maintenant échanger avec cet employeur !
+            {matchMessage}
           </Text>
 
           {/* Actions */}

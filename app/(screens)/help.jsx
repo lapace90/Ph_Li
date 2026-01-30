@@ -45,7 +45,7 @@ const FAQ_ITEMS = [
   },
 ];
 
-const SUPPORT_EMAIL = 'support@pharmalink.fr';
+const SUPPORT_EMAIL = 'contact@pharmalink.pro';
 
 export default function Help() {
   const router = useRouter();

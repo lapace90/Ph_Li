@@ -18,60 +18,143 @@ import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
 import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
-import { useMessages } from '../../hooks/useMessaging';
-import { messagingService } from '../../services/messagingService';
+import { supabase } from '../../lib/supabase';
 import { blockService } from '../../services/blockService';
 import { reportService, REPORT_REASON_LABELS, REPORT_CONTENT_TYPES } from '../../services/reportService';
 import { favoritesService, FAVORITE_TYPES } from '../../services/favoritesService';
-import { cvService } from '../../services/cvService';
 import { formatConversationTime } from '../../helpers/dateUtils';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import BackButton from '../../components/common/BackButton';
 import Icon from '../../assets/icons/Icon';
 
-export default function Conversation() {
+export default function AnimatorConversation() {
   const router = useRouter();
   const { matchId } = useLocalSearchParams();
-  const { user, isTitulaire, isCandidate } = useAuth();
+  const { user, isAnimator } = useAuth();
   const flatListRef = useRef(null);
 
   const [conversationInfo, setConversationInfo] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [loadingInfo, setLoadingInfo] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(true);
+  const [sending, setSending] = useState(false);
   const [inputText, setInputText] = useState('');
   const [showOptions, setShowOptions] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [showOfferBanner, setShowOfferBanner] = useState(true);
-  const [showOfferModal, setShowOfferModal] = useState(false);
-  const [cvShared, setCvShared] = useState(false);
-  const [cvLoading, setCvLoading] = useState(false);
+  const [showMissionBanner, setShowMissionBanner] = useState(true);
 
-  const { messages, loading, sending, hasMore, sendMessage, loadMore } = useMessages(matchId);
-
-  // Charger les infos de la conversation
+  // Charger les infos du match animateur
   useEffect(() => {
     const loadConversationInfo = async () => {
       if (!matchId || !user?.id) return;
 
       try {
-        const info = await messagingService.getConversationByMatchId(matchId, user.id);
-        setConversationInfo(info);
+        const { data: match, error } = await supabase
+          .from('animator_matches')
+          .select(`
+            *,
+            mission:animation_missions(*),
+            animator:animator_profiles(*, profile:profiles(*)),
+            laboratory:laboratory_profiles(*)
+          `)
+          .eq('id', matchId)
+          .single();
 
-        // Charger le statut de partage CV si candidat
-        if (isCandidate) {
-          const cvStatus = await cvService.isSharedInMatch(matchId);
-          setCvShared(cvStatus.isShared);
+        if (error) throw error;
+
+        // Déterminer l'autre utilisateur
+        let otherUser;
+        if (isAnimator) {
+          otherUser = {
+            id: match.laboratory?.id,
+            name: match.laboratory?.company_name || match.laboratory?.brand_name || 'Laboratoire',
+            photo_url: match.laboratory?.logo_url,
+          };
+        } else {
+          otherUser = {
+            id: match.animator?.id,
+            name: match.animator?.profile
+              ? `${match.animator.profile.first_name} ${match.animator.profile.last_name?.[0] || ''}.`
+              : 'Animateur',
+            photo_url: match.animator?.profile?.photo_url,
+          };
         }
+
+        setConversationInfo({ match, otherUser, mission: match.mission });
       } catch (err) {
-        console.error('Error loading conversation info:', err);
+        console.error('Error loading animator conversation info:', err);
       } finally {
         setLoadingInfo(false);
       }
     };
 
     loadConversationInfo();
-  }, [matchId, user?.id, isCandidate]);
+  }, [matchId, user?.id, isAnimator]);
 
-  // Scroll vers le bas quand de nouveaux messages arrivent
+  // Charger les messages
+  useEffect(() => {
+    const loadMessages = async () => {
+      if (!matchId) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('animator_messages')
+          .select('*')
+          .eq('match_id', matchId)
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+        setMessages(data || []);
+      } catch (err) {
+        console.error('Error loading animator messages:', err);
+      } finally {
+        setLoadingMessages(false);
+      }
+    };
+
+    loadMessages();
+  }, [matchId]);
+
+  // Subscription temps réel
+  useEffect(() => {
+    if (!matchId) return;
+
+    const subscription = supabase
+      .channel(`animator_messages:${matchId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'animator_messages',
+          filter: `match_id=eq.${matchId}`,
+        },
+        (payload) => {
+          setMessages(prev => {
+            if (prev.find(m => m.id === payload.new.id)) return prev;
+            return [...prev, payload.new];
+          });
+        }
+      )
+      .subscribe();
+
+    return () => subscription.unsubscribe();
+  }, [matchId]);
+
+  // Marquer comme lu
+  useEffect(() => {
+    if (!matchId || !user?.id || messages.length === 0) return;
+
+    supabase
+      .from('animator_messages')
+      .update({ read: true })
+      .eq('match_id', matchId)
+      .neq('sender_id', user.id)
+      .eq('read', false)
+      .then(() => {});
+  }, [matchId, user?.id, messages.length]);
+
+  // Scroll vers le bas
   useEffect(() => {
     if (messages.length > 0 && flatListRef.current) {
       setTimeout(() => {
@@ -81,18 +164,42 @@ export default function Conversation() {
   }, [messages.length]);
 
   const handleSend = useCallback(async () => {
-    if (!inputText.trim() || sending) return;
+    if (!inputText.trim() || sending || !matchId || !user?.id) return;
 
     const text = inputText;
     setInputText('');
+    setSending(true);
 
     try {
-      await sendMessage(text);
+      const { data, error } = await supabase
+        .from('animator_messages')
+        .insert({
+          match_id: matchId,
+          sender_id: user.id,
+          content: text.trim(),
+          read: false,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setMessages(prev => {
+        if (prev.find(m => m.id === data.id)) return prev;
+        return [...prev, data];
+      });
+
+      await supabase
+        .from('animator_matches')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', matchId);
     } catch (err) {
-      console.error('Error sending message:', err);
+      console.error('Error sending animator message:', err);
       setInputText(text);
+    } finally {
+      setSending(false);
     }
-  }, [inputText, sending, sendMessage]);
+  }, [inputText, sending, matchId, user?.id]);
 
   const handleBlock = async () => {
     const otherId = conversationInfo?.otherUser?.id;
@@ -144,117 +251,27 @@ export default function Conversation() {
     if (!otherId) return;
 
     try {
-      // Déterminer le type de favori selon le contexte
-      const favoriteType = isTitulaire ? FAVORITE_TYPES.CANDIDATE : FAVORITE_TYPES.JOB_OFFER;
-      const targetId = isTitulaire ? otherId : (conversationInfo?.match?.job_offer_id || conversationInfo?.match?.internship_offer_id);
-
-      if (!targetId) {
-        Alert.alert('Erreur', 'Impossible d\'ajouter aux favoris');
-        return;
-      }
-
-      await favoritesService.add(user.id, favoriteType, targetId);
-      Alert.alert('Ajouté aux favoris', isTitulaire ? 'Ce candidat a été ajouté à vos favoris.' : 'Cette offre a été ajoutée à vos favoris.');
+      const favoriteType = isAnimator ? FAVORITE_TYPES.LABORATORY : FAVORITE_TYPES.ANIMATOR;
+      await favoritesService.add(user.id, favoriteType, otherId);
+      Alert.alert('Ajouté aux favoris', isAnimator ? 'Ce laboratoire a été ajouté à vos favoris.' : 'Cet animateur a été ajouté à vos favoris.');
       setShowOptions(false);
     } catch (err) {
-      if (err.message?.includes('déjà')) {
-        Alert.alert('Déjà en favoris', 'Cet élément est déjà dans vos favoris.');
+      if (err.message?.includes('déjà') || err.message?.includes('Limite')) {
+        Alert.alert('Information', err.message);
       } else {
         Alert.alert('Erreur', err.message || 'Impossible d\'ajouter aux favoris');
       }
     }
   };
 
-  const navigateToOffer = () => {
-    const offer = conversationInfo?.match?.job_offers || conversationInfo?.match?.internship_offers;
-    if (!offer) return;
+  const navigateToMission = () => {
+    const mission = conversationInfo?.mission;
+    if (!mission) return;
 
-    const isJobOffer = !!conversationInfo?.match?.job_offer_id;
     router.push({
-      pathname: isJobOffer ? '/(screens)/jobOfferDetail' : '/(screens)/internshipOfferDetail',
-      params: { id: offer.id },
+      pathname: '/(screens)/missionDetail',
+      params: { id: mission.id },
     });
-  };
-
-  const handleShareCv = async () => {
-    if (!matchId || !user?.id) return;
-
-    Alert.alert(
-      'Partager votre CV',
-      'L\'employeur pourra voir votre CV complet (nom, expériences détaillées, etc.). Voulez-vous continuer ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Partager',
-          onPress: async () => {
-            setCvLoading(true);
-            try {
-              await cvService.shareInMatch(matchId, user.id);
-              setCvShared(true);
-              setShowOptions(false);
-              Alert.alert('CV partagé', 'Votre CV est maintenant visible par l\'employeur.');
-            } catch (err) {
-              Alert.alert('Erreur', err.message || 'Impossible de partager le CV');
-            } finally {
-              setCvLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleUnshareCv = async () => {
-    if (!matchId || !user?.id) return;
-
-    Alert.alert(
-      'Révoquer le partage',
-      'L\'employeur ne pourra plus voir votre CV complet. Voulez-vous continuer ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Révoquer',
-          style: 'destructive',
-          onPress: async () => {
-            setCvLoading(true);
-            try {
-              await cvService.unshareInMatch(matchId, user.id);
-              setCvShared(false);
-              setShowOptions(false);
-              Alert.alert('Partage révoqué', 'Votre CV n\'est plus visible par l\'employeur.');
-            } catch (err) {
-              Alert.alert('Erreur', err.message || 'Impossible de révoquer le partage');
-            } finally {
-              setCvLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleViewOffer = () => {
-    setShowOptions(false);
-    navigateToOffer();
-  };
-
-  const handleViewCandidateCv = () => {
-    setShowOptions(false);
-
-    // Si le CV est partagé, ouvrir en mode partagé (complet)
-    if (conversationInfo?.match?.cv_shared) {
-      router.push({
-        pathname: '/(screens)/cvView',
-        params: { matchId, viewMode: 'shared' },
-      });
-    } else {
-      // CV non partagé - informer l'employeur
-      Alert.alert(
-        'CV non partagé',
-        'Le candidat n\'a pas encore partagé son CV complet. Vous pouvez lui demander de le faire via la conversation.',
-        [{ text: 'OK' }]
-      );
-    }
   };
 
   const renderMessage = ({ item, index }) => {
@@ -291,7 +308,7 @@ export default function Conversation() {
   };
 
   const otherUser = conversationInfo?.otherUser;
-  const offer = conversationInfo?.match?.job_offers || conversationInfo?.match?.internship_offers;
+  const mission = conversationInfo?.mission;
 
   if (loadingInfo) {
     return (
@@ -319,19 +336,16 @@ export default function Conversation() {
               <Image source={{ uri: otherUser.photo_url }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                <Icon name="user" size={20} color={theme.colors.gray} />
+                <Icon name={isAnimator ? 'briefcase' : 'user'} size={20} color={theme.colors.gray} />
               </View>
             )}
             <View style={styles.headerText}>
               <Text style={styles.userName} numberOfLines={1}>
-                {otherUser
-                  ? `${otherUser.first_name} ${otherUser.last_name?.[0] || ''}.`
-                  : 'Utilisateur'
-                }
+                {otherUser?.name || 'Utilisateur'}
               </Text>
-              {offer && (
-                <Text style={styles.offerTitle} numberOfLines={1}>
-                  {offer.title}
+              {mission && (
+                <Text style={styles.missionTitle} numberOfLines={1}>
+                  {mission.title}
                 </Text>
               )}
             </View>
@@ -343,46 +357,19 @@ export default function Conversation() {
           </Pressable>
         </View>
 
-        {/* Offer reminder banner */}
-        {showOfferBanner && offer && (
-          <Pressable style={styles.offerBanner} onPress={() => setShowOfferModal(true)}>
-            <View style={styles.offerBannerIcon}>
+        {/* Mission reminder banner */}
+        {showMissionBanner && mission && (
+          <Pressable style={styles.missionBanner} onPress={navigateToMission}>
+            <View style={styles.missionBannerIcon}>
               <Icon name="briefcase" size={16} color={theme.colors.primary} />
             </View>
-            <View style={styles.offerBannerContent}>
-              <Text style={styles.offerBannerLabel}>Match depuis l'offre</Text>
-              <Text style={styles.offerBannerTitle} numberOfLines={1}>{offer.title}</Text>
+            <View style={styles.missionBannerContent}>
+              <Text style={styles.missionBannerLabel}>Match depuis la mission</Text>
+              <Text style={styles.missionBannerTitle} numberOfLines={1}>{mission.title}</Text>
             </View>
-            <Pressable style={styles.offerBannerClose} onPress={() => setShowOfferBanner(false)}>
+            <Pressable style={styles.missionBannerClose} onPress={() => setShowMissionBanner(false)}>
               <Icon name="x" size={16} color={theme.colors.textLight} />
             </Pressable>
-          </Pressable>
-        )}
-
-        {/* CV shared banner for candidates */}
-        {isCandidate && cvShared && (
-          <View style={styles.cvSharedBanner}>
-            <Icon name="checkCircle" size={16} color={theme.colors.success || '#22c55e'} />
-            <Text style={styles.cvSharedText}>
-              Votre CV complet est visible par l'employeur
-            </Text>
-          </View>
-        )}
-
-        {/* CV available banner for employers (titulaires) */}
-        {isTitulaire && conversationInfo?.match?.cv_shared && (
-          <Pressable
-            style={styles.cvAvailableBanner}
-            onPress={() => router.push({
-              pathname: '/(screens)/cvView',
-              params: { matchId, viewMode: 'shared' },
-            })}
-          >
-            <Icon name="fileText" size={16} color={theme.colors.primary} />
-            <Text style={styles.cvAvailableText}>
-              Le candidat a partagé son CV complet
-            </Text>
-            <Icon name="chevronRight" size={16} color={theme.colors.primary} />
           </Pressable>
         )}
 
@@ -394,18 +381,8 @@ export default function Conversation() {
           renderItem={renderMessage}
           contentContainerStyle={styles.messagesContainer}
           showsVerticalScrollIndicator={false}
-          inverted={false}
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.1}
-          ListHeaderComponent={
-            hasMore ? (
-              <Pressable style={styles.loadMoreButton} onPress={loadMore}>
-                <Text style={styles.loadMoreText}>Charger plus</Text>
-              </Pressable>
-            ) : null
-          }
           ListEmptyComponent={
-            loading ? (
+            loadingMessages ? (
               <View style={styles.emptyContainer}>
                 <ActivityIndicator size="small" color={theme.colors.primary} />
               </View>
@@ -454,49 +431,6 @@ export default function Conversation() {
       <Modal visible={showOptions} transparent animationType="fade" onRequestClose={() => setShowOptions(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setShowOptions(false)}>
           <View style={styles.optionsModal}>
-            {/* Option voir l'offre pour candidats */}
-            {isCandidate && offer && (
-              <>
-                <Pressable style={styles.optionItem} onPress={handleViewOffer}>
-                  <Icon name="briefcase" size={20} color={theme.colors.primary} />
-                  <Text style={styles.optionText}>Voir l'offre</Text>
-                </Pressable>
-                <View style={styles.optionDivider} />
-              </>
-            )}
-
-            {/* Option partage CV pour candidats */}
-            {isCandidate && (
-              <>
-                <Pressable
-                  style={styles.optionItem}
-                  onPress={cvShared ? handleUnshareCv : handleShareCv}
-                  disabled={cvLoading}
-                >
-                  <Icon
-                    name={cvShared ? 'eyeOff' : 'fileText'}
-                    size={20}
-                    color={cvShared ? theme.colors.rose : theme.colors.primary}
-                  />
-                  <Text style={[styles.optionText, cvShared && { color: theme.colors.rose }]}>
-                    {cvLoading ? 'Chargement...' : cvShared ? 'Masquer mon CV' : 'Montrer mon CV complet'}
-                  </Text>
-                </Pressable>
-                <View style={styles.optionDivider} />
-              </>
-            )}
-
-            {/* Option voir CV du candidat pour titulaires */}
-            {isTitulaire && (
-              <>
-                <Pressable style={styles.optionItem} onPress={handleViewCandidateCv}>
-                  <Icon name="fileText" size={20} color={theme.colors.primary} />
-                  <Text style={styles.optionText}>Voir le CV du candidat</Text>
-                </Pressable>
-                <View style={styles.optionDivider} />
-              </>
-            )}
-
             <Pressable style={styles.optionItem} onPress={handleAddFavorite}>
               <Icon name="heart" size={20} color={theme.colors.primary} />
               <Text style={styles.optionText}>Ajouter aux favoris</Text>
@@ -539,52 +473,6 @@ export default function Conversation() {
           </View>
         </View>
       </Modal>
-
-      {/* Offer Preview Modal */}
-      <Modal visible={showOfferModal} transparent animationType="slide" onRequestClose={() => setShowOfferModal(false)}>
-        <View style={styles.reportModalOverlay}>
-          <View style={styles.offerModal}>
-            <View style={styles.reportHeader}>
-              <Text style={styles.reportTitle}>Offre d'emploi</Text>
-              <Pressable onPress={() => setShowOfferModal(false)}>
-                <Icon name="x" size={24} color={theme.colors.text} />
-              </Pressable>
-            </View>
-
-            {offer && (
-              <View style={styles.offerModalContent}>
-                <View style={styles.offerModalIcon}>
-                  <Icon name="briefcase" size={32} color={theme.colors.primary} />
-                </View>
-
-                <Text style={styles.offerModalTitle}>{offer.title}</Text>
-
-                {offer.city && (
-                  <View style={styles.offerModalRow}>
-                    <Icon name="mapPin" size={16} color={theme.colors.textLight} />
-                    <Text style={styles.offerModalCity}>{offer.city}</Text>
-                  </View>
-                )}
-
-                <Text style={styles.offerModalHint}>
-                  Vous avez matché avec cette offre
-                </Text>
-
-                <Pressable
-                  style={styles.offerModalButton}
-                  onPress={() => {
-                    setShowOfferModal(false);
-                    navigateToOffer();
-                  }}
-                >
-                  <Text style={styles.offerModalButtonText}>Voir l'offre complète</Text>
-                  <Icon name="arrowRight" size={18} color="white" />
-                </Pressable>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
     </ScreenWrapper>
   );
 }
@@ -624,7 +512,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.text,
   },
-  offerTitle: {
+  missionTitle: {
     fontSize: hp(1.4),
     color: theme.colors.primary,
   },
@@ -634,8 +522,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // Offer banner
-  offerBanner: {
+  // Mission banner
+  missionBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.primary + '10',
@@ -643,7 +531,7 @@ const styles = StyleSheet.create({
     paddingVertical: hp(1),
     gap: wp(2.5),
   },
-  offerBannerIcon: {
+  missionBannerIcon: {
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -651,50 +539,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  offerBannerContent: {
+  missionBannerContent: {
     flex: 1,
   },
-  offerBannerLabel: {
+  missionBannerLabel: {
     fontSize: hp(1.2),
     color: theme.colors.textLight,
   },
-  offerBannerTitle: {
+  missionBannerTitle: {
     fontSize: hp(1.5),
     fontWeight: '600',
     color: theme.colors.primary,
   },
-  offerBannerClose: {
+  missionBannerClose: {
     padding: wp(1),
-  },
-  // CV shared banner (for candidates)
-  cvSharedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#dcfce7',
-    paddingHorizontal: wp(4),
-    paddingVertical: hp(0.8),
-    gap: wp(2),
-  },
-  cvSharedText: {
-    fontSize: hp(1.3),
-    color: '#166534',
-    fontWeight: '500',
-  },
-  // CV available banner (for employers)
-  cvAvailableBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.primary + '15',
-    paddingHorizontal: wp(4),
-    paddingVertical: hp(1),
-    gap: wp(2),
-  },
-  cvAvailableText: {
-    flex: 1,
-    fontSize: hp(1.4),
-    color: theme.colors.primary,
-    fontWeight: '500',
   },
   // Messages
   messagesContainer: {
@@ -751,17 +609,6 @@ const styles = StyleSheet.create({
   },
   messageTimeMe: {
     color: 'rgba(255, 255, 255, 0.7)',
-  },
-  // Load more
-  loadMoreButton: {
-    alignSelf: 'center',
-    paddingVertical: hp(1),
-    paddingHorizontal: wp(4),
-    marginBottom: hp(1),
-  },
-  loadMoreText: {
-    fontSize: hp(1.4),
-    color: theme.colors.primary,
   },
   // Empty
   emptyContainer: {
@@ -880,63 +727,5 @@ const styles = StyleSheet.create({
   reportOptionText: {
     fontSize: hp(1.6),
     color: theme.colors.text,
-  },
-  // Offer modal
-  offerModal: {
-    backgroundColor: theme.colors.card,
-    borderTopLeftRadius: theme.radius.xxl,
-    borderTopRightRadius: theme.radius.xxl,
-    paddingBottom: hp(4),
-  },
-  offerModalContent: {
-    alignItems: 'center',
-    paddingHorizontal: wp(5),
-    paddingVertical: hp(3),
-  },
-  offerModalIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: theme.colors.primary + '15',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: hp(2),
-  },
-  offerModalTitle: {
-    fontSize: hp(2.2),
-    fontWeight: '600',
-    color: theme.colors.text,
-    textAlign: 'center',
-    marginBottom: hp(1),
-  },
-  offerModalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: wp(1.5),
-    marginBottom: hp(2),
-  },
-  offerModalCity: {
-    fontSize: hp(1.6),
-    color: theme.colors.textLight,
-  },
-  offerModalHint: {
-    fontSize: hp(1.4),
-    color: theme.colors.textLight,
-    marginBottom: hp(3),
-  },
-  offerModalButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.primary,
-    paddingVertical: hp(1.5),
-    paddingHorizontal: wp(6),
-    borderRadius: theme.radius.lg,
-    gap: wp(2),
-  },
-  offerModalButtonText: {
-    fontSize: hp(1.7),
-    fontWeight: '600',
-    color: 'white',
   },
 });

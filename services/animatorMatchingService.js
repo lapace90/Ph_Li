@@ -58,21 +58,30 @@ export const animatorMatchingService = {
     const isSuperLike = action === 'superlike';
     const now = new Date().toISOString();
 
-    const { data: swipe, error: swipeError } = await supabase
+    // Utiliser insert au lieu de upsert pour gérer context_id correctement
+    const { data: swipeData, error: swipeError } = await supabase
       .from('swipes')
-      .upsert({
+      .insert({
         user_id: laboratoryId,
         target_type: 'animator',
         target_id: animatorId,
+        context_id: missionId,  // IMPORTANT: par mission spécifique
         action,
         is_super_like: isSuperLike,
         super_liked_at: isSuperLike ? now : null,
         created_at: now,
-      }, { onConflict: 'user_id,target_type,target_id' })
+      })
       .select()
       .single();
 
-    if (swipeError) throw swipeError;
+    // Gérer les doublons
+    let swipe = swipeData;
+    if (swipeError?.code === '23505') {
+      console.log('Animator swipe already exists, checking for match anyway');
+      swipe = null;
+    } else if (swipeError) {
+      throw swipeError;
+    }
 
     if (isSuperLike) {
       try {
@@ -103,12 +112,14 @@ export const animatorMatchingService = {
 
     if (!mission) return null;
 
+    // Vérifier si le labo a swipé cet animateur POUR CETTE MISSION SPÉCIFIQUE
     const { data: labSwipe } = await supabase
       .from('swipes')
       .select('*')
       .eq('user_id', mission.client_id)
       .eq('target_type', 'animator')
       .eq('target_id', animatorId)
+      .eq('context_id', missionId)  // IMPORTANT: filtrer par mission
       .in('action', ['like', 'superlike'])
       .maybeSingle();
 
@@ -277,11 +288,13 @@ export const animatorMatchingService = {
    * Animateurs swipables pour un labo (par mission)
    */
   async getSwipeableAnimators(laboratoryId, missionId, filters = {}) {
+    // Exclure seulement les animateurs déjà swipés POUR CETTE MISSION
     const { data: swipedIds } = await supabase
       .from('swipes')
       .select('target_id')
       .eq('user_id', laboratoryId)
-      .eq('target_type', 'animator');
+      .eq('target_type', 'animator')
+      .eq('context_id', missionId);  // IMPORTANT: par mission spécifique
 
     const excludeIds = swipedIds?.map(s => s.target_id) || [];
 
@@ -340,6 +353,7 @@ export const animatorMatchingService = {
 
   /**
    * Calcule un score de matching animateur/mission
+   * Inclut un boost pour la visibilité prioritaire
    */
   calculateMatchScore(animator, mission) {
     if (!animator || !mission) return 0;
@@ -358,6 +372,11 @@ export const animatorMatchingService = {
 
     if (animator.missions_completed) {
       score += Math.min(animator.missions_completed, 10);
+    }
+
+    // Boost pour visibilité prioritaire (abonnement premium)
+    if (animator.profile?.priority_visibility) {
+      score += 25;
     }
 
     return Math.min(score, 100);

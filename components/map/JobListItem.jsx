@@ -1,15 +1,16 @@
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
-import { 
-  getContractTypeLabel, 
-  getContractColor, 
+import {
+  getContractTypeLabel,
+  getContractColor,
   getPositionTypeLabel,
   getInternshipTypeLabel,
   getInternshipColor,
   getDurationLabel,
 } from '../../constants/jobOptions';
 import Icon from '../../assets/icons/Icon';
+import { formatPublishedAgoShort } from '../../helpers/dateUtils';
 
 /**
  * Item d'annonce pour la liste
@@ -84,24 +85,12 @@ const JobListItem = ({ job, onPress, showDistance = true, isInternship = false }
         {job.created_at && (
           <View style={styles.extraItem}>
             <Icon name="clock" size={12} color={theme.colors.textLight} />
-            <Text style={styles.extraText}>{formatDate(job.created_at)}</Text>
+            <Text style={styles.extraText}>{formatPublishedAgoShort(job.created_at)}</Text>
           </View>
         )}
       </View>
     </Pressable>
   );
-};
-
-const formatDate = (dateString) => {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-  
-  if (diffDays === 0) return "Aujourd'hui";
-  if (diffDays === 1) return "Hier";
-  if (diffDays < 7) return `Il y a ${diffDays} jours`;
-  if (diffDays < 30) return `Il y a ${Math.floor(diffDays / 7)} sem.`;
-  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 };
 
 const styles = StyleSheet.create({

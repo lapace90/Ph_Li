@@ -246,7 +246,7 @@ Suppression : Anonymisation immédiate à la suppression du compte
 ## 📞 Contact DPO
 
 Pour toute question relative à ces modifications:
-- **Email**: dpo@pharmalink.fr
+- **Email**: contact@pharmalink.pro
 - **Réclamation CNIL**: www.cnil.fr
 
 ## 📚 Références

@@ -6,6 +6,7 @@ import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAnimatorMissions } from '../../hooks/useMissions';
 import { useLaboPosts } from '../../hooks/useLaboPosts';
+import { useFavoriteCount, FAVORITE_TYPES } from '../../hooks/useFavorites';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import Icon from '../../assets/icons/Icon';
 import HomeHeader from '../../components/home/HomeHeader';
@@ -19,6 +20,15 @@ import { EmptyState } from '../../components/common/DashboardComponents';
 
 const StatsCard = ({ stats }) => (
   <View style={commonStyles.homeStatsRow}>
+    <View style={commonStyles.homeStatCard}>
+      <View style={commonStyles.homeStatTopRow}>
+        <View style={[commonStyles.homeStatIcon, { backgroundColor: theme.colors.rose + '15' }]}>
+          <Icon name="heart" size={16} color={theme.colors.rose} />
+        </View>
+        <Text style={commonStyles.homeStatValue}>{stats.followers}</Text>
+      </View>
+      <Text style={commonStyles.homeStatLabel}>Followers</Text>
+    </View>
     <View style={commonStyles.homeStatCard}>
       <View style={commonStyles.homeStatTopRow}>
         <View style={[commonStyles.homeStatIcon, { backgroundColor: theme.colors.primary + '15' }]}>
@@ -37,15 +47,6 @@ const StatsCard = ({ stats }) => (
       </View>
       <Text style={commonStyles.homeStatLabel}>Note</Text>
     </View>
-    <View style={commonStyles.homeStatCard}>
-      <View style={commonStyles.homeStatTopRow}>
-        <View style={[commonStyles.homeStatIcon, { backgroundColor: theme.colors.secondary + '15' }]}>
-          <Icon name="clock" size={16} color={theme.colors.secondary} />
-        </View>
-        <Text style={commonStyles.homeStatValue}>{stats.pendingApplications}</Text>
-      </View>
-      <Text style={commonStyles.homeStatLabel}>En attente</Text>
-    </View>
   </View>
 );
 
@@ -60,13 +61,19 @@ export default function HomeAnimator() {
 
   const { myMissions, availableMissions, loading, refresh: refreshMissions } = useAnimatorMissions(session?.user?.id);
 
+  // Compteur de labos qui suivent cet animateur
+  const { count: followersCount, refresh: refreshFollowers } = useFavoriteCount(
+    FAVORITE_TYPES.ANIMATOR,
+    animatorProfile?.id
+  );
+
   const activeMissions = myMissions?.filter(m => ['assigned', 'in_progress'].includes(m.status)) || [];
   const pendingApplications = myMissions?.filter(m => m.application_status === 'pending') || [];
 
   const stats = {
+    followers: followersCount,
     missionsCompleted: animatorProfile?.missions_completed || 0,
     averageRating: animatorProfile?.average_rating?.toFixed(1),
-    pendingApplications: pendingApplications.length,
   };
 
   const isAvailable = animatorProfile?.available_now;
@@ -76,9 +83,9 @@ export default function HomeAnimator() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refreshMissions?.(), refreshAnimatorProfile?.(), fetchLaboPosts()]);
+    await Promise.all([refreshMissions?.(), refreshAnimatorProfile?.(), fetchLaboPosts(), refreshFollowers?.()]);
     setRefreshing(false);
-  }, [refreshMissions, refreshAnimatorProfile, fetchLaboPosts]);
+  }, [refreshMissions, refreshAnimatorProfile, fetchLaboPosts, refreshFollowers]);
 
   return (
     <ScreenWrapper bg={theme.colors.background}>

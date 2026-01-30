@@ -1,6 +1,7 @@
 // Service pour les publications / actualités des laboratoires
 
 import { supabase } from '../lib/supabase';
+import { subscriptionService } from './subscriptionService';
 
 export const laboratoryPostService = {
   // ==========================================
@@ -223,6 +224,7 @@ export const laboratoryPostService = {
    * Récupère les posts sponsorisés / labos en vedette
    */
   async getFeaturedPosts(limit = 10) {
+    const now = new Date().toISOString();
     const { data, error } = await supabase
       .from('laboratory_posts')
       .select(`
@@ -237,8 +239,8 @@ export const laboratoryPostService = {
         )
       `)
       .eq('is_published', true)
-      .eq('is_sponsored', true)
-      .gt('expires_at', new Date().toISOString())
+      .or(`is_featured.eq.true,is_sponsored.eq.true`)
+      .or(`featured_until.is.null,featured_until.gt.${now},sponsored_until.is.null,sponsored_until.gt.${now}`)
       .order('published_at', { ascending: false })
       .limit(limit);
 
@@ -246,18 +248,185 @@ export const laboratoryPostService = {
     return data || [];
   },
 
+  // ==========================================
+  // FEATURED / SPONSORED
+  // ==========================================
+
+  /**
+   * Met un post en vedette (featured)
+   * Vérifie les quotas avant d'activer
+   */
+  async setFeatured(postId, userId, durationWeeks = 1) {
+    // Vérifier le quota
+    const quota = await subscriptionService.canUseSponsoredWeek(userId);
+    if (!quota.allowed) {
+      return {
+        success: false,
+        error: 'quota_exceeded',
+        message: `Limite atteinte: ${quota.used}/${quota.max} semaines sponsorisées utilisées`,
+      };
+    }
+
+    const featuredUntil = new Date();
+    featuredUntil.setDate(featuredUntil.getDate() + (durationWeeks * 7));
+
+    const { data, error } = await supabase
+      .from('laboratory_posts')
+      .update({
+        is_featured: true,
+        featured_until: featuredUntil.toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', postId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Incrémenter le compteur d'usage
+    await subscriptionService.incrementSponsoredWeeks(userId);
+
+    return { success: true, data };
+  },
+
+  /**
+   * Sponsorise un post
+   * Vérifie les quotas avant d'activer
+   */
+  async setSponsoredPost(postId, userId, durationWeeks = 1) {
+    // Vérifier le quota
+    const quota = await subscriptionService.canUseSponsoredCard(userId);
+    if (!quota.allowed) {
+      return {
+        success: false,
+        error: 'quota_exceeded',
+        message: `Limite atteinte: ${quota.used}/${quota.max} cartes sponsorisées utilisées`,
+      };
+    }
+
+    const sponsoredUntil = new Date();
+    sponsoredUntil.setDate(sponsoredUntil.getDate() + (durationWeeks * 7));
+
+    const { data, error } = await supabase
+      .from('laboratory_posts')
+      .update({
+        is_sponsored: true,
+        sponsored_until: sponsoredUntil.toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', postId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Incrémenter le compteur d'usage
+    await subscriptionService.incrementSponsoredCards(userId);
+
+    return { success: true, data };
+  },
+
+  /**
+   * Retire le statut featured d'un post
+   */
+  async removeFeatured(postId) {
+    const { data, error } = await supabase
+      .from('laboratory_posts')
+      .update({
+        is_featured: false,
+        featured_until: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', postId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Retire le statut sponsored d'un post
+   */
+  async removeSponsored(postId) {
+    const { data, error } = await supabase
+      .from('laboratory_posts')
+      .update({
+        is_sponsored: false,
+        sponsored_until: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', postId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Crée et publie un post avec vérification des quotas
+   */
+  async createPostWithQuotaCheck(laboratoryId, userId, postData) {
+    // Vérifier le quota de posts
+    const postQuota = await subscriptionService.canPublishPost(userId);
+    if (!postQuota.allowed) {
+      return {
+        success: false,
+        error: 'quota_exceeded',
+        message: `Limite de posts atteinte: ${postQuota.used}/${postQuota.max}`,
+        quota: postQuota,
+      };
+    }
+
+    // Si c'est une vidéo, vérifier aussi ce quota
+    if (postData.videoUrl) {
+      const videoQuota = await subscriptionService.canPublishVideo(userId);
+      if (!videoQuota.allowed) {
+        return {
+          success: false,
+          error: 'video_quota_exceeded',
+          message: `Limite de vidéos atteinte: ${videoQuota.used}/${videoQuota.max}`,
+          quota: videoQuota,
+        };
+      }
+    }
+
+    // Créer le post
+    const post = await this.createPost(laboratoryId, postData);
+
+    // Incrémenter les compteurs
+    await subscriptionService.incrementPostsPublished(userId);
+    if (postData.videoUrl) {
+      await subscriptionService.incrementVideosPublished(userId);
+    }
+
+    return { success: true, data: post };
+  },
+
   /**
    * Récupère les labos en vedette (sponsorisés ou Pro/Business)
+   * Les labos avec priority_visibility apparaissent en premier
    */
   async getFeaturedLabs(limit = 10) {
     const { data, error } = await supabase
       .from('laboratory_profiles')
-      .select('id, company_name, brand_name, logo_url, siret_verified, subscription_tier, description')
+      .select('id, company_name, brand_name, logo_url, siret_verified, subscription_tier, description, priority_visibility')
       .in('subscription_tier', ['pro', 'business'])
-      .limit(limit);
+      .limit(limit * 2); // Récupérer plus pour permettre le tri
 
     if (error) throw error;
-    return data || [];
+
+    const labs = data || [];
+
+    // Trier: priority_visibility en premier
+    labs.sort((a, b) => {
+      const aPriority = a.priority_visibility ? 1 : 0;
+      const bPriority = b.priority_visibility ? 1 : 0;
+      return bPriority - aPriority;
+    });
+
+    return labs.slice(0, limit);
   },
 
   // ==========================================
@@ -432,9 +601,22 @@ export const laboratoryPostService = {
   },
 
   /**
-   * Ajoute une photo
+   * Ajoute une photo avec vérification des quotas
    */
-  async addPhoto(laboratoryId, url, caption = null) {
+  async addPhoto(laboratoryId, url, caption = null, userId = null) {
+    // Si userId fourni, vérifier le quota
+    if (userId) {
+      const quota = await subscriptionService.canAddPhoto(userId);
+      if (!quota.allowed) {
+        return {
+          success: false,
+          error: 'quota_exceeded',
+          message: `Limite de photos atteinte: ${quota.used}/${quota.max}`,
+          quota,
+        };
+      }
+    }
+
     // Récupérer l'ordre max actuel
     const { data: existing } = await supabase
       .from('laboratory_photos')
@@ -457,19 +639,45 @@ export const laboratoryPostService = {
       .single();
 
     if (error) throw error;
-    return data;
+
+    // Mettre à jour le compteur de photos si userId fourni
+    if (userId) {
+      const count = await this.getPhotosCount(laboratoryId);
+      await subscriptionService.setPhotosCount(userId, count);
+    }
+
+    return { success: true, data };
   },
 
   /**
-   * Supprime une photo
+   * Compte le nombre de photos d'un labo
    */
-  async deletePhoto(photoId) {
+  async getPhotosCount(laboratoryId) {
+    const { count, error } = await supabase
+      .from('laboratory_photos')
+      .select('*', { count: 'exact', head: true })
+      .eq('laboratory_id', laboratoryId);
+
+    if (error) throw error;
+    return count || 0;
+  },
+
+  /**
+   * Supprime une photo et met à jour le compteur
+   */
+  async deletePhoto(photoId, laboratoryId = null, userId = null) {
     const { error } = await supabase
       .from('laboratory_photos')
       .delete()
       .eq('id', photoId);
 
     if (error) throw error;
+
+    // Mettre à jour le compteur si les IDs sont fournis
+    if (userId && laboratoryId) {
+      const count = await this.getPhotosCount(laboratoryId);
+      await subscriptionService.setPhotosCount(userId, count);
+    }
   },
 
   /**

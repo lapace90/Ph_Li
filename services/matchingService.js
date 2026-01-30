@@ -29,26 +29,58 @@ export const matchingService = {
 
   /**
    * Enregistre un swipe (like, dislike, superlike)
+   * Pour les candidats swipant sur des offres (pas de context_id)
    */
   async recordSwipe(userId, targetType, targetId, action) {
     const isSuperLike = action === 'superlike';
     const now = new Date().toISOString();
 
-    const { data, error } = await supabase
+    // D'abord, vérifier si un swipe existe déjà
+    const { data: existingSwipe } = await supabase
       .from('swipes')
-      .upsert({
-        user_id: userId,
-        target_type: targetType,
-        target_id: targetId,
-        action,
-        is_super_like: isSuperLike,
-        super_liked_at: isSuperLike ? now : null,
-        created_at: now,
-      }, {
-        onConflict: 'user_id,target_type,target_id',
-      })
-      .select()
-      .single();
+      .select('*')
+      .eq('user_id', userId)
+      .eq('target_type', targetType)
+      .eq('target_id', targetId)
+      .is('context_id', null)
+      .maybeSingle();
+
+    let data;
+    let error;
+
+    if (existingSwipe) {
+      // Mettre à jour le swipe existant
+      const result = await supabase
+        .from('swipes')
+        .update({
+          action,
+          is_super_like: isSuperLike,
+          super_liked_at: isSuperLike ? now : existingSwipe.super_liked_at,
+        })
+        .eq('id', existingSwipe.id)
+        .select()
+        .single();
+      data = result.data;
+      error = result.error;
+    } else {
+      // Créer un nouveau swipe
+      const result = await supabase
+        .from('swipes')
+        .insert({
+          user_id: userId,
+          target_type: targetType,
+          target_id: targetId,
+          context_id: null,
+          action,
+          is_super_like: isSuperLike,
+          super_liked_at: isSuperLike ? now : null,
+          created_at: now,
+        })
+        .select()
+        .single();
+      data = result.data;
+      error = result.error;
+    }
 
     if (error) throw error;
 
@@ -87,17 +119,18 @@ export const matchingService = {
 
     if (!offer) return null;
 
-    // Vérifier si l'employeur a aussi swipé like sur ce candidat
+    // Vérifier si l'employeur a aussi swipé like sur ce candidat POUR CETTE OFFRE SPÉCIFIQUE
     const { data: employerSwipe } = await supabase
       .from('swipes')
       .select('*')
       .eq('user_id', offer.pharmacy_owner_id)
       .eq('target_type', 'candidate')
       .eq('target_id', userId)
+      .eq('context_id', targetId)  // IMPORTANT: filtrer par l'offre spécifique
       .in('action', ['like', 'superlike'])
       .maybeSingle();
 
-    // Si l'employeur a liké le candidat, créer le match
+    // Si l'employeur a liké le candidat pour cette offre, créer le match
     if (employerSwipe) {
       return await this.createMatch(userId, targetType, targetId, offer.pharmacy_owner_id, isSuperLike || employerSwipe.is_super_like);
     }
@@ -125,17 +158,53 @@ export const matchingService = {
       matchData.internship_offer_id = targetId;
     }
 
+    // D'abord, vérifier si un match existe déjà
+    const existingQuery = supabase
+      .from('matches')
+      .select('*')
+      .eq('candidate_id', candidateId);
+
+    if (targetType === 'job_offer') {
+      existingQuery.eq('job_offer_id', targetId);
+    } else {
+      existingQuery.eq('internship_offer_id', targetId);
+    }
+
+    const { data: existingMatch } = await existingQuery.maybeSingle();
+
+    if (existingMatch) {
+      // Mettre à jour le match existant vers 'matched'
+      const { data: updated, error: updateError } = await supabase
+        .from('matches')
+        .update({
+          candidate_liked: true,
+          employer_liked: true,
+          status: 'matched',
+          matched_at: new Date().toISOString(),
+          is_super_like: isSuperLike || existingMatch.is_super_like,
+        })
+        .eq('id', existingMatch.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error updating match:', updateError);
+        throw updateError;
+      }
+      return updated;
+    }
+
+    // Sinon, créer un nouveau match
     const { data, error } = await supabase
       .from('matches')
-      .upsert(matchData, {
-        onConflict: targetType === 'job_offer' 
-          ? 'job_offer_id,candidate_id' 
-          : 'internship_offer_id,candidate_id',
-      })
+      .insert(matchData)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error creating match:', error);
+      throw error;
+    }
     return data;
   },
 
@@ -173,30 +242,40 @@ export const matchingService = {
 
   /**
    * Enregistre le swipe d'un employeur sur un candidat
+   * Stocke le context_id (offerId) pour permettre de swiper le même candidat pour différentes offres
+   * @param {string} offerType - 'job_offer' ou 'internship_offer'
    */
-  async recordEmployerSwipe(employerId, candidateId, jobOfferId, action) {
+  async recordEmployerSwipe(employerId, candidateId, offerId, action, offerType = 'job_offer') {
     const isSuperLike = action === 'superlike';
     const now = new Date().toISOString();
+    const offerIdField = offerType === 'job_offer' ? 'job_offer_id' : 'internship_offer_id';
 
-    const { data: swipe, error } = await supabase
+    const { data: swipeData, error } = await supabase
       .from('swipes')
-      .upsert({
+      .insert({
         user_id: employerId,
         target_type: 'candidate',
         target_id: candidateId,
+        context_id: offerId,
         action,
         is_super_like: isSuperLike,
         super_liked_at: isSuperLike ? now : null,
         created_at: now,
-      }, {
-        onConflict: 'user_id,target_type,target_id',
       })
       .select()
       .single();
 
-    if (error) throw error;
+    // Gérer les doublons - mais quand même vérifier si un match devrait exister
+    let swipe = swipeData;
+    if (error?.code === '23505') {
+      console.log('Swipe already exists, checking for match anyway');
+      // Le swipe existe déjà, on continue pour vérifier le match
+      swipe = null;
+    } else if (error) {
+      throw error;
+    }
 
-    if (isSuperLike) {
+    if (isSuperLike && swipe) {
       try {
         await subscriptionService.incrementSuperLikes(employerId);
       } catch (e) {
@@ -213,22 +292,79 @@ export const matchingService = {
         .from('swipes')
         .select('*')
         .eq('user_id', candidateId)
-        .eq('target_type', 'job_offer')
-        .eq('target_id', jobOfferId)
+        .eq('target_type', offerType)
+        .eq('target_id', offerId)
         .in('action', ['like', 'superlike'])
         .maybeSingle();
 
+      console.log(`Checking for candidate swipe on ${offerType}:`, { candidateId, offerId, found: !!candidateSwipe });
+
       if (candidateSwipe) {
         // Match mutuel !
-        const match = await this.createMatch(candidateId, 'job_offer', jobOfferId, employerId);
-        return { swipe, match };
+        try {
+          const match = await this.createMatch(candidateId, offerType, offerId, employerId);
+          console.log('Match created:', match);
+          return { swipe, match };
+        } catch (matchError) {
+          console.error('Error creating match:', matchError);
+          // Essayer de récupérer un match existant
+          const { data: existingMatch } = await supabase
+            .from('matches')
+            .select('*')
+            .eq(offerIdField, offerId)
+            .eq('candidate_id', candidateId)
+            .maybeSingle();
+
+          if (existingMatch) {
+            // Mettre à jour vers 'matched' si pas déjà fait
+            if (existingMatch.status !== 'matched') {
+              const { data: updatedMatch } = await supabase
+                .from('matches')
+                .update({
+                  status: 'matched',
+                  employer_liked: true,
+                  matched_at: new Date().toISOString()
+                })
+                .eq('id', existingMatch.id)
+                .select()
+                .single();
+              return { swipe, match: updatedMatch };
+            }
+            return { swipe, match: existingMatch };
+          }
+        }
       } else {
         // Mettre à jour le match en attente si existe
-        await supabase
+        const { data: pendingMatch } = await supabase
           .from('matches')
-          .update({ employer_liked: true })
-          .eq('job_offer_id', jobOfferId)
-          .eq('candidate_id', candidateId);
+          .select('*')
+          .eq(offerIdField, offerId)
+          .eq('candidate_id', candidateId)
+          .maybeSingle();
+
+        if (pendingMatch) {
+          // Si le candidat avait déjà liké → MATCH !
+          if (pendingMatch.candidate_liked) {
+            const { data: matchedRecord } = await supabase
+              .from('matches')
+              .update({
+                employer_liked: true,
+                status: 'matched',
+                matched_at: new Date().toISOString(),
+              })
+              .eq('id', pendingMatch.id)
+              .select()
+              .single();
+            console.log('Match completed from pending:', matchedRecord);
+            return { swipe, match: matchedRecord };
+          } else {
+            // Sinon juste marquer employer_liked
+            await supabase
+              .from('matches')
+              .update({ employer_liked: true })
+              .eq('id', pendingMatch.id);
+          }
+        }
       }
     }
 
@@ -263,7 +399,9 @@ export const matchingService = {
     let query = supabase
       .from('job_offers')
       .select('*')
-      .eq('status', 'active');
+      .eq('status', 'active')
+      // Exclure les offres expirées
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
 
     if (excludeIds.length > 0) {
       query = query.not('id', 'in', `(${excludeIds.join(',')})`);
@@ -316,7 +454,9 @@ export const matchingService = {
     let query = supabase
       .from('internship_offers')
       .select('*')
-      .eq('status', 'active');
+      .eq('status', 'active')
+      // Exclure les offres expirées
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
 
     if (excludeIds.length > 0) {
       query = query.not('id', 'in', `(${excludeIds.join(',')})`);
@@ -344,76 +484,22 @@ export const matchingService = {
   },
 
   /**
-   * Récupère les candidats swipables pour un employeur
+   * Récupère les candidats swipables pour un employeur via RPC (contourne RLS)
+   * Filtre par offre d'emploi spécifique pour permettre de voir les mêmes candidats sur différentes offres
    */
   async getSwipeableCandidates(employerId, jobOfferId, filters = {}) {
-    const { data: swipedIds } = await supabase
-      .from('swipes')
-      .select('target_id')
-      .eq('user_id', employerId)
-      .eq('target_type', 'candidate');
+    const { data, error } = await supabase.rpc('get_swipeable_candidates', {
+      p_employer_id: employerId,
+      p_job_offer_id: jobOfferId,
+      p_limit: filters.limit || 50,
+    });
 
-    const excludeIds = swipedIds?.map(s => s.target_id) || [];
-    excludeIds.push(employerId);
-
-    // Ajouter les utilisateurs bloqués aux exclusions
-    try {
-      const blockedUserIds = await blockService.getBlockedUserIdsSimple(employerId);
-      excludeIds.push(...blockedUserIds);
-    } catch (e) {
-      console.warn('Could not fetch blocked users:', e);
+    if (error) {
+      console.error('RPC get_swipeable_candidates error:', error);
+      throw error;
     }
 
-    // Récupérer les profils
-    let query = supabase
-      .from('profiles')
-      .select('*');
-
-    if (excludeIds.length > 0) {
-      query = query.not('id', 'in', `(${excludeIds.join(',')})`);
-    }
-
-    if (filters.region) {
-      query = query.eq('current_region', filters.region);
-    }
-
-    query = query.limit(filters.limit || 20);
-
-    const { data: profiles, error } = await query;
-    if (error) throw error;
-
-    // Récupérer les users pour filtrer par user_type
-    const profileIds = (profiles || []).map(p => p.id);
-    if (profileIds.length === 0) return [];
-
-    const { data: users } = await supabase
-      .from('users')
-      .select('id, user_type, profile_completed')
-      .in('id', profileIds)
-      .eq('profile_completed', true)
-      .in('user_type', ['preparateur', 'conseiller', 'etudiant']);
-
-    const validUserIds = new Set((users || []).map(u => u.id));
-
-    // Récupérer les privacy_settings
-    const { data: privacySettings } = await supabase
-      .from('privacy_settings')
-      .select('user_id, searchable_by_recruiters, show_photo, show_full_name')
-      .in('user_id', profileIds);
-
-    const privacyMap = {};
-    (privacySettings || []).forEach(p => { privacyMap[p.user_id] = p; });
-
-    // Filtrer et enrichir les profils, puis mélanger
-    const result = (profiles || [])
-      .filter(p => validUserIds.has(p.id))
-      .filter(p => privacyMap[p.id]?.searchable_by_recruiters !== false)
-      .map(p => ({
-        ...p,
-        privacy_settings: privacyMap[p.id] || {},
-      }));
-    
-    return this.shuffleArray(result);
+    return data || [];
   },
 
   // ==========================================

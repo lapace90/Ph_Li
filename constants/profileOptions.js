@@ -263,9 +263,28 @@ export const SUBSCRIPTION_TIERS_LABORATORY = [
       '1 mission d\'animation',
       '3 favoris',
       '3 super likes / jour',
+      '2 posts / mois',
+      '5 photos',
       'Consulter les profils animateurs',
     ],
-    limits: { missions: 1, contacts: 0, favorites: 3, superLikesPerDay: 3 },
+    limits: {
+      missions: 1,
+      contacts: 0, // MER incluses
+      merFee: { '1-2': 10, '3-5': 15, '6+': 20 }, // Frais MER par palier
+      alerts: 0,
+      favorites: 3,
+      superLikesPerDay: 3,
+      postsPerMonth: 2,
+      videosPerMonth: 0,
+      photosMax: 5,
+      formations: 0,
+      events: false,
+      sponsoredWeeks: 0,
+      sponsoredCards: 0,
+      analytics: 'none',
+      priorityVisibility: false,
+      seeLikes: false,
+    },
   },
   {
     value: 'starter',
@@ -273,26 +292,78 @@ export const SUBSCRIPTION_TIERS_LABORATORY = [
     price: 49,
     features: [
       '3 missions d\'animation',
-      '3 mises en relation / mois',
+      '3 mises en relation incluses / mois',
+      '1 alerte urgente / mois',
       '10 favoris',
       '5 super likes / jour',
+      '5 posts / mois',
+      '1 vidéo / mois',
+      '10 photos',
+      '1 formation',
+      'Voir qui a liké vos missions',
+      'Analytics basiques',
       'Ciblage par région',
     ],
-    limits: { missions: 3, contacts: 3, favorites: 10, superLikesPerDay: 5 },
+    limits: {
+      missions: 3,
+      contacts: 3, // MER incluses
+      merFeeAfterQuota: 15, // Frais après quota
+      alerts: 1,
+      favorites: 10,
+      superLikesPerDay: 5,
+      postsPerMonth: 5,
+      videosPerMonth: 1,
+      photosMax: 10,
+      formations: 1,
+      events: false,
+      sponsoredWeeks: 0,
+      sponsoredCards: 0,
+      analytics: 'basic',
+      priorityVisibility: false,
+      seeLikes: true,
+    },
   },
   {
     value: 'pro',
     label: 'Pro',
     price: 149,
+    popular: true,
     features: [
       '15 missions d\'animation',
-      '10 mises en relation / mois',
+      '10 mises en relation incluses / mois',
+      '5 alertes urgentes / mois',
       '50 favoris',
       '15 super likes / jour',
-      'Ciblage avancé',
+      '15 posts / mois',
+      '5 vidéos / mois',
+      '20 photos',
+      '5 formations',
+      'Événements',
+      '2 semaines en vedette / mois',
+      '2 cartes sponsorisées',
+      'Voir qui a liké vos missions',
+      'Analytics avancés',
       'Visibilité prioritaire',
+      'Ciblage avancé',
     ],
-    limits: { missions: 15, contacts: 10, favorites: 50, superLikesPerDay: 15 },
+    limits: {
+      missions: 15,
+      contacts: 10, // MER incluses
+      merFeeAfterQuota: 10, // Frais après quota
+      alerts: 5,
+      favorites: 50,
+      superLikesPerDay: 15,
+      postsPerMonth: 15,
+      videosPerMonth: 5,
+      photosMax: 20,
+      formations: 5,
+      events: true,
+      sponsoredWeeks: 2,
+      sponsoredCards: 2,
+      analytics: 'advanced',
+      priorityVisibility: true,
+      seeLikes: true,
+    },
   },
   {
     value: 'business',
@@ -301,13 +372,39 @@ export const SUBSCRIPTION_TIERS_LABORATORY = [
     features: [
       'Missions illimitées',
       'Mises en relation illimitées',
+      'Alertes urgentes illimitées',
       'Favoris illimités',
       'Super likes illimités',
-      'Analytics de campagne',
+      'Posts illimités',
+      '10 vidéos / mois',
+      'Photos illimitées',
+      'Formations illimitées',
+      'Événements',
+      '4 semaines en vedette / mois',
+      '2 cartes sponsorisées',
+      'Voir qui a liké vos missions',
+      'Analytics avec export',
+      'Visibilité prioritaire',
       'Badge "Labo Business"',
       'Support prioritaire',
     ],
-    limits: { missions: Infinity, contacts: Infinity, favorites: Infinity, superLikesPerDay: Infinity },
+    limits: {
+      missions: Infinity,
+      contacts: Infinity, // MER illimitées
+      alerts: Infinity,
+      favorites: Infinity,
+      superLikesPerDay: Infinity,
+      postsPerMonth: Infinity,
+      videosPerMonth: 10,
+      photosMax: Infinity,
+      formations: Infinity,
+      events: true,
+      sponsoredWeeks: 4,
+      sponsoredCards: 2,
+      analytics: 'advanced_export',
+      priorityVisibility: true,
+      seeLikes: true,
+    },
   },
 ];
 
@@ -318,39 +415,81 @@ export const SUBSCRIPTION_TIERS_TITULAIRE = [
     price: 0,
     features: [
       '1 offre d\'emploi',
-      '1 offre de stage',
+      'Stages illimités',
       '1 alerte urgente / mois',
+      '5 favoris',
       '3 super likes / jour',
     ],
-    limits: { offers: 1, internships: 1, animatorMissions: 0, alertsPerMonth: 1, superLikesPerDay: 3 },
+    limits: {
+      offers: 1,
+      internships: Infinity, // Stages gratuits
+      animatorMissions: 0,
+      contacts: 0, // MER incluses
+      merFee: { '1-2': 5, '3-5': 8, '6+': 10 }, // Frais MER par palier
+      alertsPerMonth: 1,
+      favorites: 5,
+      superLikesPerDay: 3,
+      priorityVisibility: false,
+      seeLikes: false,
+    },
   },
   {
     value: 'pro',
     label: 'Pro',
     price: 29,
+    popular: true,
     features: [
       '5 offres d\'emploi',
-      '3 offres de stage',
+      'Stages illimités',
       '2 missions animateur',
+      '1 mise en relation incluse / mois',
       '5 alertes urgentes / mois',
+      '20 favoris',
       '10 super likes / jour',
+      'Voir qui a liké vos offres',
       'Visibilité prioritaire',
     ],
-    limits: { offers: 5, internships: 3, animatorMissions: 2, alertsPerMonth: 5, superLikesPerDay: 10 },
+    limits: {
+      offers: 5,
+      internships: Infinity,
+      animatorMissions: 2,
+      contacts: 1, // MER incluses
+      merFeeAfterQuota: 8, // Frais après quota
+      alertsPerMonth: 5,
+      favorites: 20,
+      superLikesPerDay: 10,
+      priorityVisibility: true,
+      seeLikes: true,
+    },
   },
   {
     value: 'business',
     label: 'Business',
     price: 59,
     features: [
-      'Offres illimitées',
+      'Offres d\'emploi illimitées',
       'Stages illimités',
-      'Missions animateur illimitées',
+      '5 missions animateur',
+      '5 mises en relation incluses / mois',
       'Alertes urgentes illimitées',
+      'Favoris illimités',
       'Super likes illimités',
+      'Voir qui a liké vos offres',
+      'Visibilité prioritaire',
       'Support prioritaire',
     ],
-    limits: { offers: Infinity, internships: Infinity, animatorMissions: Infinity, alertsPerMonth: Infinity, superLikesPerDay: Infinity },
+    limits: {
+      offers: Infinity,
+      internships: Infinity,
+      animatorMissions: 5,
+      contacts: 5, // MER incluses
+      merFeeAfterQuota: 5, // Frais après quota
+      alertsPerMonth: Infinity,
+      favorites: Infinity,
+      superLikesPerDay: Infinity,
+      priorityVisibility: true,
+      seeLikes: true,
+    },
   },
 ];
 
@@ -360,30 +499,83 @@ export const SUBSCRIPTION_TIERS_CANDIDAT = [
     label: 'Gratuit',
     price: 0,
     features: [
-      '1 CV actif',
-      '5 documents stockés',
+      '1 CV',
+      '5 documents',
       '1 super like / jour',
       'Recevoir des offres',
     ],
-    limits: { cvCount: 1, storageCount: 5, superLikesPerDay: 1 },
+    limits: {
+      cvGenerated: 1,
+      documentsStorage: 5,
+      superLikesPerDay: 1,
+      priorityVisibility: false,
+      seeLikes: false,
+    },
   },
   {
     value: 'premium',
     label: 'Premium',
     price: 19,
+    popular: true,
     features: [
-      '3 CV actifs',
-      '5 documents stockés',
+      '3 CV',
+      '5 documents',
       '5 super likes / jour',
+      'Voir qui a liké votre profil',
       'Visibilité prioritaire',
       'Badge "Premium"',
     ],
-    limits: { cvCount: 3, storageCount: 5, superLikesPerDay: 5 },
+    limits: {
+      cvGenerated: 3,
+      documentsStorage: 5,
+      superLikesPerDay: 5,
+      priorityVisibility: true,
+      seeLikes: true,
+    },
   },
 ];
 
-// Animateurs : mêmes options que candidats
-export const SUBSCRIPTION_TIERS_ANIMATEUR = SUBSCRIPTION_TIERS_CANDIDAT;
+export const SUBSCRIPTION_TIERS_ANIMATEUR = [
+  {
+    value: 'free',
+    label: 'Gratuit',
+    price: 0,
+    features: [
+      '1 CV',
+      '5 documents',
+      '1 super like / jour',
+      'Recevoir des propositions',
+    ],
+    limits: {
+      cvGenerated: 1,
+      documentsStorage: 5,
+      superLikesPerDay: 1,
+      priorityVisibility: false,
+      seeLikes: false,
+    },
+  },
+  {
+    value: 'premium',
+    label: 'Premium',
+    price: 19,
+    popular: true,
+    features: [
+      '3 CV',
+      '10 documents',
+      '5 super likes / jour',
+      'Voir qui a liké votre profil',
+      'Visibilité prioritaire',
+      'Badge "Premium"',
+    ],
+    limits: {
+      cvGenerated: 3,
+      documentsStorage: 10,
+      superLikesPerDay: 5,
+      priorityVisibility: true,
+      seeLikes: true,
+    },
+  },
+];
 
 export const SUBSCRIPTION_TIERS_ETUDIANT = [
   {
@@ -391,23 +583,38 @@ export const SUBSCRIPTION_TIERS_ETUDIANT = [
     label: 'Gratuit',
     price: 0,
     features: [
-      '1 CV actif',
+      '1 CV',
       '1 super like / jour',
       'Recevoir des offres de stage',
     ],
-    limits: { cvCount: 1, storageCount: 0, superLikesPerDay: 1 },
+    limits: {
+      cvGenerated: 1,
+      documentsStorage: 0,
+      superLikesPerDay: 1,
+      priorityVisibility: false,
+      seeLikes: false,
+    },
   },
   {
     value: 'premium',
     label: 'Premium Étudiant',
-    price: 5,
+    price: 5, // Tarif étudiant réduit
+    popular: true,
     features: [
-      '3 CV actifs',
+      '3 CV',
+      '5 documents',
       '5 super likes / jour',
+      'Voir qui a liké votre profil',
       'Visibilité prioritaire',
       'Badge "Étudiant Premium"',
     ],
-    limits: { cvCount: 3, storageCount: 5, superLikesPerDay: 5 },
+    limits: {
+      cvGenerated: 3,
+      documentsStorage: 5,
+      superLikesPerDay: 5,
+      priorityVisibility: true,
+      seeLikes: true,
+    },
   },
 ];
 
@@ -477,6 +684,12 @@ export const getNextTier = (userType, currentTierValue) => {
   const idx = tiers.findIndex(t => t.value === currentTierValue);
   if (idx === -1 || idx >= tiers.length - 1) return null;
   return tiers[idx + 1];
+};
+
+/** Vérifie si un utilisateur peut voir qui a liké ses offres/profil */
+export const canSeeLikes = (userType, tierValue) => {
+  const limits = getSubscriptionLimits(userType, tierValue);
+  return limits.seeLikes === true;
 };
 
 

@@ -192,10 +192,10 @@ export function useDashboard() {
   }, [userId, isTitulaire, isEtudiant, profile?.current_region]);
 
   // ==========================================
-  // CANDIDATS RÉCENTS (titulaires)
+  // MATCHS EN ATTENTE (titulaires) - matchs sans conversation
   // ==========================================
 
-  const loadRecentCandidates = useCallback(async () => {
+  const loadPendingMatches = useCallback(async () => {
     if (!userId || !isTitulaire) return;
 
     try {
@@ -226,7 +226,7 @@ export function useDashboard() {
           .in('job_offer_id', jobIds)
           .eq('status', 'matched')
           .order('matched_at', { ascending: false })
-          .limit(5);
+          .limit(20);
         matches = [...matches, ...(jm || [])];
       }
 
@@ -237,22 +237,43 @@ export function useDashboard() {
           .in('internship_offer_id', internshipIds)
           .eq('status', 'matched')
           .order('matched_at', { ascending: false })
-          .limit(5);
+          .limit(20);
         matches = [...matches, ...(im || [])];
       }
 
-      matches.sort((a, b) => new Date(b.matched_at || b.created_at) - new Date(a.matched_at || a.created_at));
-      matches = matches.slice(0, 5);
+      if (matches.length === 0) {
+        setRecommendedOffers([]);
+        return;
+      }
 
-      const candidateIds = [...new Set(matches.map(m => m.candidate_id).filter(Boolean))];
-      
+      // Vérifier quels matchs ont déjà des messages
+      const matchIds = matches.map(m => m.id);
+      const { data: messagesData } = await supabase
+        .from('messages')
+        .select('match_id')
+        .in('match_id', matchIds);
+
+      const matchIdsWithMessages = new Set((messagesData || []).map(m => m.match_id));
+
+      // Filtrer les matchs sans conversation
+      let pendingMatches = matches.filter(m => !matchIdsWithMessages.has(m.id));
+      pendingMatches.sort((a, b) => new Date(b.matched_at || b.created_at) - new Date(a.matched_at || a.created_at));
+      pendingMatches = pendingMatches.slice(0, 5);
+
+      if (pendingMatches.length === 0) {
+        setRecommendedOffers([]);
+        return;
+      }
+
+      const candidateIds = [...new Set(pendingMatches.map(m => m.candidate_id).filter(Boolean))];
+
       let candidatesMap = {};
       if (candidateIds.length > 0) {
         const { data: candidates } = await supabase
           .from('profiles')
           .select('id, first_name, last_name, photo_url, current_city, experience_years')
           .in('id', candidateIds);
-        
+
         (candidates || []).forEach(c => { candidatesMap[c.id] = c; });
       }
 
@@ -260,7 +281,7 @@ export function useDashboard() {
       const offersMap = {};
       allOffers.forEach(o => { offersMap[o.id] = o; });
 
-      const result = matches.map(match => ({
+      const result = pendingMatches.map(match => ({
         id: match.id,
         candidate: candidatesMap[match.candidate_id] || null,
         offer: offersMap[match.job_offer_id] || offersMap[match.internship_offer_id] || null,
@@ -269,7 +290,7 @@ export function useDashboard() {
 
       setRecommendedOffers(result);
     } catch (error) {
-      console.error('Erreur chargement candidats:', error);
+      console.error('Erreur chargement matchs en attente:', error);
       setRecommendedOffers([]);
     }
   }, [userId, isTitulaire]);
@@ -323,21 +344,7 @@ export function useDashboard() {
           allMatches = [...allMatches, ...(im || [])];
         }
 
-        const candidateIds = [...new Set(allMatches.map(m => m.candidate_id).filter(Boolean))];
-        let candidatesMap = {};
-        if (candidateIds.length > 0) {
-          const { data: candidates } = await supabase
-            .from('profiles')
-            .select('id, first_name, last_name')
-            .in('id', candidateIds);
-          (candidates || []).forEach(c => { candidatesMap[c.id] = c; });
-        }
-
         allMatches.forEach(match => {
-          const candidate = candidatesMap[match.candidate_id];
-          const candidateName = candidate 
-            ? `${candidate.first_name} ${candidate.last_name?.charAt(0)}.`
-            : 'Un candidat';
           const offer = offersMap[match.job_offer_id] || offersMap[match.internship_offer_id];
           const offerTitle = offer?.title || 'une offre';
 
@@ -345,14 +352,16 @@ export function useDashboard() {
             activities.push({
               id: `match-${match.id}`,
               type: 'match',
-              title: `${candidateName} a matché avec "${offerTitle}"`,
+              title: `Nouveau match sur "${offerTitle}"`,
+              icon: 'heart',
               created_at: match.matched_at || match.created_at,
             });
           } else if (match.status === 'pending') {
             activities.push({
               id: `pending-${match.id}`,
               type: 'application',
-              title: `${candidateName} a liké "${offerTitle}"`,
+              title: `Un candidat a liké "${offerTitle}"`,
+              icon: 'star',
               created_at: match.created_at,
             });
           }
@@ -373,7 +382,7 @@ export function useDashboard() {
         if (jobIds.length > 0) {
           const { data: jobs } = await supabase
             .from('job_offers')
-            .select('id, title, pharmacy_owner_id')
+            .select('id, title')
             .in('id', jobIds);
           (jobs || []).forEach(j => { offersMap[j.id] = j; });
         }
@@ -381,33 +390,21 @@ export function useDashboard() {
         if (internIds.length > 0) {
           const { data: interns } = await supabase
             .from('internship_offers')
-            .select('id, title, pharmacy_owner_id')
+            .select('id, title')
             .in('id', internIds);
           (interns || []).forEach(i => { offersMap[i.id] = i; });
         }
 
-        const ownerIds = [...new Set(Object.values(offersMap).map(o => o.pharmacy_owner_id).filter(Boolean))];
-        let ownersMap = {};
-        if (ownerIds.length > 0) {
-          const { data: owners } = await supabase
-            .from('profiles')
-            .select('id, first_name')
-            .in('id', ownerIds);
-          (owners || []).forEach(o => { ownersMap[o.id] = o; });
-        }
-
         (matchActivities || []).forEach(match => {
           const offer = offersMap[match.job_offer_id] || offersMap[match.internship_offer_id];
-          const owner = offer ? ownersMap[offer.pharmacy_owner_id] : null;
-          const pharmacyName = owner?.first_name 
-            ? `Pharmacie ${owner.first_name}`
-            : 'Une pharmacie';
+          const offerTitle = offer?.title || 'une offre';
 
           if (match.status === 'matched') {
             activities.push({
               id: `match-${match.id}`,
               type: 'match',
-              title: `Match avec ${pharmacyName} - ${offer?.title || 'Offre'}`,
+              title: `Nouveau match sur "${offerTitle}"`,
+              icon: 'heart',
               created_at: match.matched_at || match.created_at,
             });
           }
@@ -428,18 +425,18 @@ export function useDashboard() {
 
   const loadAll = useCallback(async () => {
     if (!userId) return;
-    
+
     setLoading(true);
     try {
       if (isTitulaire) {
-        await Promise.all([loadTitulaireStats(), loadRecentCandidates(), loadActivities()]);
+        await Promise.all([loadTitulaireStats(), loadPendingMatches(), loadActivities()]);
       } else {
         await Promise.all([loadCandidatStats(), loadRecommendedOffers(), loadActivities()]);
       }
     } finally {
       setLoading(false);
     }
-  }, [userId, isTitulaire, loadRecommendedOffers, loadRecentCandidates, loadActivities]);
+  }, [userId, isTitulaire, loadRecommendedOffers, loadPendingMatches, loadActivities]);
 
   useEffect(() => {
     if (userId) {

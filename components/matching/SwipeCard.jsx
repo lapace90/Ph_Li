@@ -337,49 +337,68 @@ const SwipeCard = ({
 
   const renderCandidateCard = () => {
     const specs = card.specializations || [];
-    const contracts = card.contract_types_sought || [];
+    const contracts = card.preferred_contract_types || card.contract_types_sought || [];
 
     return (
-      <>
-        {/* Photo */}
-        <View style={styles.candidatePhoto}>
-          {card.photo_url ? (
-            <Image source={{ uri: card.photo_url }} style={styles.candidateImage} />
+      <View style={styles.candidateContainer}>
+        {/* Header avec avatar et infos principales */}
+        <View style={styles.candidateHeader}>
+          {card.photo_url && card.show_photo !== false ? (
+            <Image source={{ uri: card.photo_url }} style={styles.candidateAvatar} />
           ) : (
-            <View style={styles.candidatePlaceholder}>
-              <Icon name="user" size={50} color={theme.colors.textLight} />
+            <View style={[styles.candidateAvatar, styles.candidateAvatarPlaceholder]}>
+              <Icon name="user" size={32} color={theme.colors.primary} />
             </View>
           )}
-          <View style={styles.candidateTypeBadge}>
-            <Text style={styles.candidateTypeText}>
-              {getRoleLabelShort(card.user_type, card.gender)}
+
+          <View style={styles.candidateHeaderInfo}>
+            <Text style={styles.candidateName}>
+              {getDisplayName(card, !card.show_full_name)}
             </Text>
+            <View style={[commonStyles.badge, commonStyles.badgePrimary, { alignSelf: 'flex-start', marginTop: hp(0.3) }]}>
+              <Text style={[commonStyles.badgeText, commonStyles.badgeTextPrimary]}>
+                {getRoleLabelShort(card.user_type, card.gender)}
+              </Text>
+            </View>
+            {card.experience_years != null && (
+              <Text style={[commonStyles.hint, { marginTop: hp(0.5) }]}>
+                {card.experience_years} an{card.experience_years > 1 ? 's' : ''} d'expérience
+              </Text>
+            )}
           </View>
-          {card.matchScore != null && (
-            <View style={styles.candidateScoreBadge}>
+
+          {card.matchScore != null && card.matchScore > 0 && (
+            <View style={styles.scoreBadge}>
               <Text style={styles.scoreText}>{card.matchScore}%</Text>
+              <Text style={styles.scoreLabel}>match</Text>
             </View>
           )}
         </View>
 
-        {/* Infos */}
-        <View style={styles.candidateContent}>
-          <Text style={commonStyles.sectionTitle}>
-            {getDisplayName(card, !card.show_full_name)}
-          </Text>
-          {card.experience_years != null && (
-            <Text style={commonStyles.hint}>
-              {card.experience_years} an{card.experience_years > 1 ? 's' : ''} d'expérience
-            </Text>
-          )}
-
-          <View style={styles.infoSection}>
-            {card.current_city && <InfoRow icon="mapPin" text={card.current_city} />}
-            {card.availability_date && <InfoRow icon="calendar" text={`Dispo : ${formatShortDate(card.availability_date)}`} />}
-            {card.search_radius && <InfoRow icon="navigation" text={`Rayon : ${card.search_radius} km`} />}
+        {/* Localisation et disponibilité */}
+        <View style={styles.candidateSection}>
+          <View style={commonStyles.rowBetween}>
+            {card.current_city && (
+              <View style={commonStyles.rowGapSmall}>
+                <Icon name="mapPin" size={15} color={theme.colors.primary} />
+                <Text style={commonStyles.hint}>{card.current_city}{card.current_region ? `, ${card.current_region}` : ''}</Text>
+              </View>
+            )}
+            {card.availability_date && (
+              <View style={commonStyles.rowGapSmall}>
+                <Icon name="calendar" size={15} color={theme.colors.success} />
+                <Text style={[commonStyles.hint, { color: theme.colors.success }]}>
+                  Dispo {formatShortDate(card.availability_date)}
+                </Text>
+              </View>
+            )}
           </View>
+        </View>
 
-          {contracts.length > 0 && (
+        {/* Types de contrats recherchés */}
+        {contracts.length > 0 && (
+          <View style={styles.candidateSection}>
+            <Text style={styles.candidateSectionTitle}>Recherche</Text>
             <View style={commonStyles.chipsContainerCompact}>
               {contracts.map((c, i) => (
                 <View key={i} style={[commonStyles.badge, { backgroundColor: getContractColor(c) + '20' }]}>
@@ -389,37 +408,41 @@ const SwipeCard = ({
                 </View>
               ))}
             </View>
-          )}
+          </View>
+        )}
 
-          {specs.length > 0 && (
-            <View style={[commonStyles.chipsContainerCompact, { marginTop: hp(0.5) }]}>
-              {specs.slice(0, 4).map((s, i) => (
-                <View key={i} style={[commonStyles.badge, commonStyles.badgePrimary]}>
-                  <Text style={[commonStyles.badgeText, commonStyles.badgeTextPrimary]}>{s}</Text>
+        {/* Spécialisations */}
+        {specs.length > 0 && (
+          <View style={styles.candidateSection}>
+            <Text style={styles.candidateSectionTitle}>Compétences</Text>
+            <View style={commonStyles.chipsContainerCompact}>
+              {specs.slice(0, 5).map((s, i) => (
+                <View key={i} style={[commonStyles.badge, { backgroundColor: theme.colors.background, borderWidth: 1, borderColor: theme.colors.border }]}>
+                  <Text style={[commonStyles.badgeText, { color: theme.colors.text }]}>{s}</Text>
                 </View>
               ))}
-              {specs.length > 4 && <Text style={commonStyles.hint}>+{specs.length - 4}</Text>}
+              {specs.length > 5 && <Text style={commonStyles.hint}>+{specs.length - 5}</Text>}
             </View>
-          )}
+          </View>
+        )}
 
-          {card.bio && (
-            <Text style={[commonStyles.hint, { marginTop: hp(1) }]} numberOfLines={3}>
-              {card.bio}
-            </Text>
-          )}
+        {/* Bio */}
+        {card.bio && (
+          <View style={styles.candidateSection}>
+            <Text style={styles.candidateSectionTitle}>Présentation</Text>
+            <Text style={commonStyles.hint} numberOfLines={4}>{card.bio}</Text>
+          </View>
+        )}
 
-          {/* Bouton Voir CV */}
-          {card.show_cv_on_card && (
-            <Pressable style={styles.cvButton} onPress={handleCvPress} disabled={cvLoading}>
-              <Icon name="fileText" size={16} color={theme.colors.primary} />
-              <Text style={styles.cvButtonText}>
-                {cvLoading ? 'Chargement...' : 'Voir le CV'}
-              </Text>
-              <Icon name="chevronRight" size={14} color={theme.colors.primary} />
-            </Pressable>
-          )}
-        </View>
-      </>
+        {/* Bouton Voir CV */}
+        <Pressable style={styles.cvButton} onPress={handleCvPress} disabled={cvLoading}>
+          <Icon name="fileText" size={16} color={theme.colors.primary} />
+          <Text style={styles.cvButtonText}>
+            {cvLoading ? 'Chargement...' : 'Voir le CV complet'}
+          </Text>
+          <Icon name="chevronRight" size={14} color={theme.colors.primary} />
+        </Pressable>
+      </View>
     );
   };
 
@@ -890,49 +913,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // Candidat
-  candidatePhoto: {
-    height: hp(22),
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  candidateImage: {
-    width: '100%',
-    height: '100%',
-  },
-  candidatePlaceholder: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  candidateTypeBadge: {
-    position: 'absolute',
-    bottom: hp(1),
-    left: wp(4),
-    backgroundColor: theme.colors.primary,
-    paddingHorizontal: wp(3),
-    paddingVertical: hp(0.4),
-    borderRadius: theme.radius.full,
-  },
-  candidateTypeText: {
-    color: 'white',
-    fontSize: hp(1.2),
-    fontWeight: '600',
-  },
-  candidateScoreBadge: {
-    position: 'absolute',
-    top: hp(1),
-    right: wp(4),
-    backgroundColor: theme.colors.primary,
-    paddingHorizontal: wp(2.5),
-    paddingVertical: hp(0.5),
-    borderRadius: theme.radius.md,
-  },
-  candidateContent: {
+  // Candidat - Nouveau design compact
+  candidateContainer: {
     flex: 1,
     padding: wp(4),
+  },
+  candidateHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: hp(2),
+  },
+  candidateAvatar: {
+    width: hp(9),
+    height: hp(9),
+    borderRadius: hp(4.5),
+    marginRight: wp(3),
+  },
+  candidateAvatarPlaceholder: {
+    backgroundColor: theme.colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  candidateHeaderInfo: {
+    flex: 1,
+    paddingTop: hp(0.5),
+  },
+  candidateName: {
+    fontSize: hp(2.2),
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.text,
+  },
+  candidateSection: {
+    marginBottom: hp(1.5),
+    paddingBottom: hp(1.5),
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  candidateSectionTitle: {
+    fontSize: hp(1.4),
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.textLight,
+    marginBottom: hp(0.8),
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   cvButton: {
     flexDirection: 'row',

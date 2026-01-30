@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, FlatList, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { theme } from '../../constants/theme';
 import { commonStyles } from '../../constants/styles';
@@ -13,11 +13,9 @@ import {
   getStudyLevelLabel,
   getInternshipColor,
   getContentStatusInfo,
-  getApplicationStatusInfo,
 } from '../../constants/jobOptions';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import Icon from '../../assets/icons/Icon';
-import Avatar from '../../components/common/Avatar';
 
 const TABS = [
   { key: 'details', label: 'Détails' },
@@ -31,6 +29,7 @@ export default function InternshipOfferDetail() {
   
   const [activeTab, setActiveTab] = useState('details');
   const [candidates, setCandidates] = useState([]);
+  const [matchesCount, setMatchesCount] = useState(0);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
 
   useEffect(() => {
@@ -41,6 +40,7 @@ export default function InternshipOfferDetail() {
     setLoadingCandidates(true);
     try {
       setCandidates(MOCK_CANDIDATES);
+      setMatchesCount(MOCK_MATCHES_COUNT);
     } catch (error) {
       console.error('Error loading candidates:', error);
     } finally {
@@ -138,7 +138,7 @@ export default function InternshipOfferDetail() {
                 {getInternshipTypeLabel(offer.type)}
               </Text>
             </View>
-            
+
             <Text style={commonStyles.sectionTitle}>{offer.title}</Text>
 
             <View style={[commonStyles.section, { marginTop: hp(1.5), marginBottom: 0 }]}>
@@ -168,56 +168,114 @@ export default function InternshipOfferDetail() {
           </View>
         </ScrollView>
       ) : (
-        <CandidatesTab candidates={candidates} loading={loadingCandidates} onPress={(c) => router.push({ pathname: '/(screens)/candidateDetail', params: { id: c.id, offerId: id, type: 'internship' } })} />
+        <CandidatesTab candidates={candidates} loading={loadingCandidates} router={router} offerId={id} matchesCount={matchesCount} />
       )}
     </ScreenWrapper>
   );
 }
 
-const CandidatesTab = ({ candidates, loading, onPress }) => {
+const CandidatesTab = ({ candidates, loading, router, offerId, matchesCount = 0 }) => {
   if (loading) return <View style={commonStyles.loadingContainer}><ActivityIndicator size="large" color={theme.colors.primary} /></View>;
 
-  if (candidates.length === 0) {
+  // Calculer les stats
+  const unviewedCount = candidates.filter(c => c.status === 'pending').length;
+  const viewedCount = candidates.filter(c => c.status !== 'pending').length;
+  const totalCount = candidates.length;
+
+  if (totalCount === 0 && matchesCount === 0) {
     return (
       <View style={commonStyles.emptyContainer}>
-        <View style={commonStyles.emptyIcon}><Icon name="users" size={40} color={theme.colors.primary} /></View>
+        <View style={commonStyles.emptyIcon}><Icon name="users" size={40} color={theme.colors.secondary} /></View>
         <Text style={commonStyles.emptyTitle}>Aucune candidature</Text>
-        <Text style={commonStyles.emptyText}>Les candidatures d'étudiants apparaîtront ici</Text>
+        <Text style={commonStyles.emptyText}>Les étudiants intéressés apparaîtront ici</Text>
       </View>
     );
   }
 
   return (
-    <FlatList
-      data={candidates}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => <CandidateCard candidate={item} onPress={() => onPress(item)} />}
-      contentContainerStyle={commonStyles.listContainer}
-      showsVerticalScrollIndicator={false}
-    />
-  );
-};
-
-const CandidateCard = ({ candidate, onPress }) => {
-  const statusInfo = getApplicationStatusInfo(candidate.status);
-  return (
-    <Pressable style={commonStyles.listItem} onPress={onPress}>
-      <Avatar uri={candidate.is_anonymous ? null : candidate.photo_url} size={hp(6)} />
-      <View style={commonStyles.listItemContent}>
-        <Text style={commonStyles.listItemTitle}>
-          {candidate.is_anonymous ? 'Candidat anonyme' : `${candidate.first_name} ${candidate.last_name?.[0]}.`}
-        </Text>
-        <Text style={commonStyles.listItemSubtitle}>
-          {candidate.study_level || 'Étudiant'}{candidate.region && ` • ${candidate.region}`}
-        </Text>
-      </View>
-      <View style={{ alignItems: 'flex-end', gap: hp(0.5) }}>
-        <View style={[commonStyles.badge, { backgroundColor: theme.colors[statusInfo.color] + '15' }]}>
-          <Text style={[commonStyles.badgeText, { color: theme.colors[statusInfo.color] }]}>{statusInfo.label}</Text>
+    <ScrollView style={commonStyles.flex1} contentContainerStyle={styles.candidatesContainer} showsVerticalScrollIndicator={false}>
+      {/* Compteur principal */}
+      <View style={styles.counterCard}>
+        <View style={styles.counterIcon}>
+          <Icon name="users" size={28} color={theme.colors.secondary} />
         </View>
-        <Icon name="chevronRight" size={18} color={theme.colors.textLight} />
+        <View style={styles.counterInfo}>
+          <Text style={styles.counterTotal}>{totalCount}</Text>
+          <Text style={styles.counterLabel}>étudiant{totalCount > 1 ? 's' : ''} intéressé{totalCount > 1 ? 's' : ''}</Text>
+        </View>
       </View>
-    </Pressable>
+
+      {/* Répartition en 2 colonnes */}
+      <View style={styles.statsGrid}>
+        <View style={styles.statBox}>
+          <View style={[styles.statIcon, { backgroundColor: theme.colors.rose + '15' }]}>
+            <Icon name="eye" size={18} color={theme.colors.rose} />
+          </View>
+          <View style={styles.statInfo}>
+            <Text style={styles.statNumber}>{unviewedCount}</Text>
+            <Text style={styles.statLabel}>Non consultée{unviewedCount > 1 ? 's' : ''}</Text>
+          </View>
+        </View>
+        <View style={styles.statBox}>
+          <View style={[styles.statIcon, { backgroundColor: theme.colors.secondaryLight + '15' }]}>
+            <Icon name="checkCircle" size={18} color={theme.colors.secondaryLight} />
+          </View>
+          <View style={styles.statInfo}>
+            <Text style={styles.statNumber}>{viewedCount}</Text>
+            <Text style={styles.statLabel}>Consultée{viewedCount > 1 ? 's' : ''}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Matchs - centré */}
+      <View style={styles.statsGridCentered}>
+        <View style={styles.statBox}>
+          <View style={[styles.statIcon, { backgroundColor: theme.colors.secondary + '15' }]}>
+            <Icon name="heart" size={18} color={theme.colors.secondary} />
+          </View>
+          <View style={styles.statInfo}>
+            <Text style={styles.statNumber}>{matchesCount}</Text>
+            <Text style={styles.statLabel}>Match{matchesCount > 1 ? 's' : ''}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Info discretion */}
+      <View style={[commonStyles.card, commonStyles.rowGapSmall, { alignItems: 'flex-start' }]}>
+        <Icon name="shield" size={18} color={theme.colors.textLight} />
+        <Text style={[commonStyles.hint, { flex: 1, lineHeight: hp(2) }]}>
+          Les profils restent anonymes jusqu'au match. Swipez sur les étudiants pour découvrir des profils compatibles.
+        </Text>
+      </View>
+
+      {/* Bouton swipe */}
+      <Pressable
+        style={[commonStyles.buttonSecondary, commonStyles.rowGapSmall, { justifyContent: 'center' }]}
+        onPress={() => router.push({ pathname: '/(tabs)/matching', params: { offerId } })}
+      >
+        <Icon name="heart" size={20} color="white" />
+        <Text style={commonStyles.buttonSecondaryText}>Swiper les étudiants</Text>
+      </Pressable>
+
+      {/* Upsell Premium */}
+      <Pressable
+        style={styles.premiumCard}
+        onPress={() => router.push('/(screens)/subscription')}
+      >
+        <View style={styles.premiumBadge}>
+          <Icon name="star" size={14} color={theme.colors.warning} />
+          <Text style={styles.premiumBadgeText}>Premium</Text>
+        </View>
+        <Text style={styles.premiumTitle}>Voir tous les étudiants</Text>
+        <Text style={styles.premiumText}>
+          Accédez directement aux profils des étudiants intéressés sans attendre le match.
+        </Text>
+        <View style={styles.premiumButton}>
+          <Text style={styles.premiumButtonText}>Découvrir l'offre</Text>
+          <Icon name="chevronRight" size={16} color={theme.colors.warning} />
+        </View>
+      </Pressable>
+    </ScrollView>
   );
 };
 
@@ -240,6 +298,7 @@ const MOCK_CANDIDATES = [
   { id: '1', first_name: 'Léa', last_name: 'Bernard', is_anonymous: false, photo_url: null, study_level: '4ème année pharmacie', region: 'Île-de-France', status: 'pending' },
   { id: '2', first_name: null, last_name: null, is_anonymous: true, photo_url: null, study_level: 'BP Préparateur', region: 'Rhône-Alpes', status: 'viewed' },
 ];
+const MOCK_MATCHES_COUNT = 1;
 
 const styles = StyleSheet.create({
   statusBar: {
@@ -293,5 +352,127 @@ const styles = StyleSheet.create({
   infoGridItem: {
     width: '45%',
     gap: 2,
+  },
+  // Candidates counter styles
+  candidatesContainer: {
+    flex: 1,
+    padding: wp(5),
+    gap: hp(2),
+  },
+  counterCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.xl,
+    padding: hp(2.5),
+    gap: wp(4),
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  counterIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: theme.colors.secondary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  counterInfo: {
+    flex: 1,
+  },
+  counterTotal: {
+    fontSize: hp(3.5),
+    fontWeight: '700',
+    color: theme.colors.text,
+  },
+  counterLabel: {
+    fontSize: hp(1.5),
+    color: theme.colors.textLight,
+    marginTop: hp(0.3),
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: hp(1.5),
+  },
+  statsGridCentered: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  statBox: {
+    flex: 1,
+    maxWidth: '48%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: hp(1.5),
+    gap: wp(3),
+  },
+  statIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statInfo: {
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: hp(2.2),
+    fontWeight: '700',
+    color: theme.colors.text,
+  },
+  statLabel: {
+    fontSize: hp(1.3),
+    color: theme.colors.textLight,
+    marginTop: hp(0.2),
+  },
+  // Premium upsell card
+  premiumCard: {
+    backgroundColor: theme.colors.warning + '10',
+    borderRadius: theme.radius.lg,
+    padding: hp(2),
+    borderWidth: 1,
+    borderColor: theme.colors.warning + '30',
+    gap: hp(1),
+  },
+  premiumBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(1.5),
+    alignSelf: 'flex-start',
+    backgroundColor: theme.colors.warning + '20',
+    paddingHorizontal: wp(2.5),
+    paddingVertical: hp(0.4),
+    borderRadius: theme.radius.md,
+  },
+  premiumBadgeText: {
+    fontSize: hp(1.2),
+    fontWeight: '700',
+    color: theme.colors.warning,
+  },
+  premiumTitle: {
+    fontSize: hp(1.7),
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  premiumText: {
+    fontSize: hp(1.4),
+    color: theme.colors.textLight,
+    lineHeight: hp(2),
+  },
+  premiumButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(1),
+    marginTop: hp(0.5),
+  },
+  premiumButtonText: {
+    fontSize: hp(1.5),
+    fontWeight: '600',
+    color: theme.colors.warning,
   },
 });

@@ -218,7 +218,7 @@ Vos données sont exclusivement stockées et traitées au sein de l'Union Europ�
 
 Pour toute question relative à vos données personnelles ou pour exercer vos droits, contactez notre Délégué à la Protection des Données :
 
-- **Email** : dpo@pharmalink.fr
+- **Email** : contact@pharmalink.pro
 - **Adresse** : [Adresse de l'entreprise]
 
 Vous pouvez également introduire une réclamation auprès de la CNIL (www.cnil.fr).

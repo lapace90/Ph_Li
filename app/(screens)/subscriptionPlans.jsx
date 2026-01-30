@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, Pressable, ActivityIndicator,
-  Alert, StyleSheet, Modal, Linking,
+  Alert, StyleSheet, Modal, Linking, TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -10,6 +10,7 @@ import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
 import { useAuth } from '../../contexts/AuthContext';
 import { subscriptionService } from '../../services/subscriptionService';
+import { promotionService } from '../../services/promotionService';
 import { getSubscriptionTiers } from '../../constants/profileOptions';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import BackButton from '../../components/common/BackButton';
@@ -144,9 +145,100 @@ const PlanCard = ({ tier, isCurrentTier, isPopular, isUpgrade, isDowngrade, onSe
   );
 };
 
-const ConfirmModal = ({ visible, tier, isDowngrade, expiresAt, onConfirm, onCancel, loading }) => {
+// Section Code Promo
+const PromoCodeSection = ({ userId, userType, appliedPromo, onPromoValidated, onPromoRemoved }) => {
+  const [code, setCode] = useState('');
+  const [validating, setValidating] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleValidate = async () => {
+    if (!code.trim()) return;
+    setValidating(true);
+    setError(null);
+
+    try {
+      // Validation sans tier specifique (sera verifie au moment de la selection)
+      const result = await promotionService.validatePromoCode(code.trim(), userId, userType, null);
+      if (result.valid) {
+        onPromoValidated(result.promotion);
+        setCode('');
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      setError(err.message || 'Erreur de validation');
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  if (appliedPromo) {
+    const discountText = appliedPromo.discount_type === 'percent'
+      ? `-${appliedPromo.discount_value}%`
+      : appliedPromo.discount_type === 'fixed'
+        ? `-${appliedPromo.discount_value}\u20AC`
+        : `${appliedPromo.trial_days} jours d'essai`;
+
+    return (
+      <View style={styles.promoApplied}>
+        <View style={styles.promoAppliedContent}>
+          <View style={styles.promoAppliedIcon}>
+            <Icon name="tag" size={16} color={theme.colors.success} />
+          </View>
+          <View style={styles.promoAppliedInfo}>
+            <Text style={styles.promoAppliedCode}>{appliedPromo.code}</Text>
+            <Text style={styles.promoAppliedDiscount}>{discountText}</Text>
+          </View>
+        </View>
+        <Pressable style={styles.promoRemoveButton} onPress={onPromoRemoved}>
+          <Icon name="close" size={16} color={theme.colors.textLight} />
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.promoSection}>
+      <View style={styles.promoInputRow}>
+        <TextInput
+          style={styles.promoInput}
+          placeholder="Code promo"
+          placeholderTextColor={theme.colors.textLight}
+          value={code}
+          onChangeText={setCode}
+          autoCapitalize="characters"
+          autoCorrect={false}
+        />
+        <Pressable
+          style={[styles.promoButton, !code.trim() && styles.promoButtonDisabled]}
+          onPress={handleValidate}
+          disabled={!code.trim() || validating}
+        >
+          {validating ? (
+            <ActivityIndicator size="small" color="white" />
+          ) : (
+            <Text style={styles.promoButtonText}>Appliquer</Text>
+          )}
+        </Pressable>
+      </View>
+      {error && (
+        <View style={styles.promoError}>
+          <Icon name="alertCircle" size={14} color={theme.colors.error} />
+          <Text style={styles.promoErrorText}>{error}</Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
+const ConfirmModal = ({ visible, tier, isDowngrade, expiresAt, appliedPromo, onConfirm, onCancel, loading }) => {
   if (!tier) return null;
   const color = TIER_COLORS[tier.value] || TIER_COLORS.free;
+
+  // Calcul du prix avec promo
+  const priceInfo = appliedPromo && tier.price > 0
+    ? promotionService.calculateDiscountedPrice(tier.price, appliedPromo)
+    : { finalPrice: tier.price, discount: 0, trialDays: 0 };
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -182,8 +274,40 @@ const ConfirmModal = ({ visible, tier, isDowngrade, expiresAt, onConfirm, onCanc
               <View style={styles.modalRecapDivider} />
               <View style={styles.modalRecapRow}>
                 <Text style={styles.modalRecapLabel}>Prix</Text>
-                <Text style={styles.modalRecapValue}>{tier.price}{'\u20AC'} / mois</Text>
+                <View style={styles.modalPriceContainer}>
+                  {priceInfo.discount > 0 ? (
+                    <>
+                      <Text style={styles.modalPriceOriginal}>{tier.price}{'\u20AC'}</Text>
+                      <Text style={styles.modalRecapValue}>{priceInfo.finalPrice}{'\u20AC'} / mois</Text>
+                    </>
+                  ) : (
+                    <Text style={styles.modalRecapValue}>{tier.price}{'\u20AC'} / mois</Text>
+                  )}
+                </View>
               </View>
+              {appliedPromo && (
+                <>
+                  <View style={styles.modalRecapDivider} />
+                  <View style={styles.modalRecapRow}>
+                    <Text style={styles.modalRecapLabel}>Code promo</Text>
+                    <View style={styles.modalPromoTag}>
+                      <Icon name="tag" size={12} color={theme.colors.success} />
+                      <Text style={styles.modalPromoCode}>{appliedPromo.code}</Text>
+                    </View>
+                  </View>
+                </>
+              )}
+              {priceInfo.trialDays > 0 && (
+                <>
+                  <View style={styles.modalRecapDivider} />
+                  <View style={styles.modalRecapRow}>
+                    <Text style={styles.modalRecapLabel}>Essai gratuit</Text>
+                    <Text style={[styles.modalRecapValue, { color: theme.colors.success }]}>
+                      {priceInfo.trialDays} jours
+                    </Text>
+                  </View>
+                </>
+              )}
               <View style={styles.modalRecapDivider} />
               <View style={styles.modalRecapRow}>
                 <Text style={styles.modalRecapLabel}>Facturation</Text>
@@ -234,6 +358,9 @@ export default function SubscriptionPlans() {
   const [expiresAt, setExpiresAt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Promo code
+  const [appliedPromo, setAppliedPromo] = useState(null);
 
   // Modal
   const [confirmModal, setConfirmModal] = useState({ visible: false, tier: null, isDowngrade: false });
@@ -288,7 +415,18 @@ export default function SubscriptionPlans() {
       } else {
         // Upgrade : appliquer immediatement (placeholder paiement)
         await subscriptionService.upgradeTier(session.user.id, tier.value);
+
+        // Appliquer le code promo si present
+        if (appliedPromo) {
+          try {
+            await promotionService.applyPromotion(appliedPromo.code, session.user.id);
+          } catch (promoErr) {
+            console.warn('Erreur application promo:', promoErr);
+          }
+        }
+
         setConfirmModal({ visible: false, tier: null, isDowngrade: false });
+        setAppliedPromo(null);
         Alert.alert(
           'Forfait active',
           `Vous etes maintenant sur le forfait ${tier.label} !`,
@@ -329,6 +467,17 @@ export default function SubscriptionPlans() {
         Debloquez plus de fonctionnalites pour developper votre activite.
       </Text>
 
+      {/* Section Code Promo */}
+      <View style={styles.promoContainer}>
+        <PromoCodeSection
+          userId={session?.user?.id}
+          userType={userType}
+          appliedPromo={appliedPromo}
+          onPromoValidated={setAppliedPromo}
+          onPromoRemoved={() => setAppliedPromo(null)}
+        />
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -356,7 +505,7 @@ export default function SubscriptionPlans() {
         <View style={styles.helpSection}>
           <Icon name="messageCircle" size={20} color={theme.colors.textLight} />
           <Text style={styles.helpText}>
-            Besoin d'aide ? <Text style={styles.helpLink} onPress={() => Linking.openURL('mailto:support@pharmalink.fr')}>Contactez-nous</Text>
+            Besoin d'aide ? <Text style={styles.helpLink} onPress={() => Linking.openURL('mailto:contact@pharmalink.pro')}>Contactez-nous</Text>
           </Text>
         </View>
 
@@ -369,6 +518,7 @@ export default function SubscriptionPlans() {
         tier={confirmModal.tier}
         isDowngrade={confirmModal.isDowngrade}
         expiresAt={expiresAt}
+        appliedPromo={appliedPromo}
         onConfirm={handleConfirm}
         onCancel={() => setConfirmModal({ visible: false, tier: null, isDowngrade: false })}
         loading={actionLoading}
@@ -407,7 +557,106 @@ const styles = StyleSheet.create({
     color: theme.colors.textLight,
     textAlign: 'center',
     paddingHorizontal: wp(10),
-    marginBottom: hp(2),
+    marginBottom: hp(1),
+  },
+
+  // ============================================
+  // PROMO SECTION
+  // ============================================
+  promoContainer: {
+    paddingHorizontal: wp(5),
+    marginBottom: hp(1.5),
+  },
+  promoSection: {
+    gap: hp(0.5),
+  },
+  promoInputRow: {
+    flexDirection: 'row',
+    gap: wp(2),
+  },
+  promoInput: {
+    flex: 1,
+    height: hp(5),
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: wp(4),
+    fontSize: hp(1.5),
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.text,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  promoButton: {
+    height: hp(5),
+    paddingHorizontal: wp(4),
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radius.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  promoButtonDisabled: {
+    backgroundColor: theme.colors.border,
+  },
+  promoButtonText: {
+    color: 'white',
+    fontSize: hp(1.4),
+    fontFamily: theme.fonts.semiBold,
+  },
+  promoError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(1.5),
+    marginTop: hp(0.5),
+    paddingHorizontal: wp(1),
+  },
+  promoErrorText: {
+    color: theme.colors.error,
+    fontSize: hp(1.25),
+    fontFamily: theme.fonts.regular,
+  },
+  promoApplied: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.success + '12',
+    borderRadius: theme.radius.lg,
+    padding: hp(1.2),
+    borderWidth: 1,
+    borderColor: theme.colors.success + '30',
+  },
+  promoAppliedContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(3),
+  },
+  promoAppliedIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.success + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  promoAppliedInfo: {
+    gap: hp(0.2),
+  },
+  promoAppliedCode: {
+    fontSize: hp(1.4),
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.success,
+  },
+  promoAppliedDiscount: {
+    fontSize: hp(1.25),
+    color: theme.colors.textLight,
+    fontFamily: theme.fonts.medium,
+  },
+  promoRemoveButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: theme.colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollView: {
     flex: 1,
@@ -666,6 +915,31 @@ const styles = StyleSheet.create({
   modalRecapDivider: {
     height: 1,
     backgroundColor: theme.colors.border,
+  },
+  modalPriceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(2),
+  },
+  modalPriceOriginal: {
+    fontSize: hp(1.3),
+    color: theme.colors.textLight,
+    fontFamily: theme.fonts.regular,
+    textDecorationLine: 'line-through',
+  },
+  modalPromoTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(1),
+    backgroundColor: theme.colors.success + '15',
+    paddingHorizontal: wp(2),
+    paddingVertical: hp(0.3),
+    borderRadius: theme.radius.sm,
+  },
+  modalPromoCode: {
+    fontSize: hp(1.25),
+    color: theme.colors.success,
+    fontFamily: theme.fonts.semiBold,
   },
 
   // Actions

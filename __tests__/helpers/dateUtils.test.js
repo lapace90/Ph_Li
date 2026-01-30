@@ -10,6 +10,10 @@ import {
   daysBetween,
   formatConversationTime,
   formatRelativeDate,
+  getExpirationStatus,
+  formatExpiration,
+  formatPublishedAgo,
+  formatPublishedAgoShort,
 } from '../../helpers/dateUtils';
 
 // Pin time for all relative date tests
@@ -300,5 +304,162 @@ describe('formatRelativeDate', () => {
     const result = formatRelativeDate('2025-06-20T08:00:00Z');
     expect(result).toBeTruthy();
     expect(result).toContain('20');
+  });
+});
+
+// ============================================
+// getExpirationStatus
+// ============================================
+
+describe('getExpirationStatus', () => {
+  test('returns default object for null', () => {
+    const result = getExpirationStatus(null);
+    expect(result).toEqual({
+      isExpired: false,
+      isExpiringSoon: false,
+      daysRemaining: null,
+      label: '',
+    });
+  });
+
+  test('returns isExpired true for past date', () => {
+    const result = getExpirationStatus('2025-06-10T10:00:00Z');
+    expect(result.isExpired).toBe(true);
+    expect(result.daysRemaining).toBe(0);
+    expect(result.label).toBe('Expirée');
+  });
+
+  test('returns Expire demain for 1 day remaining', () => {
+    const result = getExpirationStatus('2025-06-16T10:00:00Z');
+    expect(result.isExpired).toBe(false);
+    expect(result.isExpiringSoon).toBe(true);
+    expect(result.daysRemaining).toBe(1);
+    expect(result.label).toBe('Expire demain');
+  });
+
+  test('returns isExpiringSoon for 5 days remaining', () => {
+    const result = getExpirationStatus('2025-06-20T10:00:00Z');
+    expect(result.isExpired).toBe(false);
+    expect(result.isExpiringSoon).toBe(true);
+    expect(result.daysRemaining).toBe(5);
+    expect(result.label).toBe('Expire dans 5 jours');
+  });
+
+  test('returns jours restants for 10 days remaining', () => {
+    const result = getExpirationStatus('2025-06-25T10:00:00Z');
+    expect(result.isExpired).toBe(false);
+    expect(result.isExpiringSoon).toBe(false);
+    expect(result.daysRemaining).toBe(10);
+    expect(result.label).toBe('10 jours restants');
+  });
+
+  test('returns Expire le for more than 14 days', () => {
+    const result = getExpirationStatus('2025-07-15T10:00:00Z');
+    expect(result.isExpired).toBe(false);
+    expect(result.isExpiringSoon).toBe(false);
+    expect(result.label).toContain('Expire le');
+  });
+});
+
+// ============================================
+// formatExpiration
+// ============================================
+
+describe('formatExpiration', () => {
+  test('returns empty string for null', () => {
+    expect(formatExpiration(null)).toBe('');
+  });
+
+  test('returns Expirée for past date', () => {
+    expect(formatExpiration('2025-06-10T10:00:00Z')).toBe('Expirée');
+  });
+
+  test('returns label for valid future date', () => {
+    const result = formatExpiration('2025-06-20T10:00:00Z');
+    expect(result).toBe('Expire dans 5 jours');
+  });
+});
+
+// ============================================
+// formatPublishedAgo
+// ============================================
+
+describe('formatPublishedAgo', () => {
+  test('returns empty string for null', () => {
+    expect(formatPublishedAgo(null)).toBe('');
+  });
+
+  test('returns "Publiée aujourd\'hui" for today', () => {
+    expect(formatPublishedAgo('2025-06-15T08:00:00Z')).toBe("Publiée aujourd'hui");
+  });
+
+  test('returns "Publiée hier" for yesterday', () => {
+    expect(formatPublishedAgo('2025-06-14T10:00:00Z')).toBe('Publiée hier');
+  });
+
+  test('returns "Publiée il y a X jours" for 3 days ago', () => {
+    expect(formatPublishedAgo('2025-06-12T10:00:00Z')).toBe('Publiée il y a 3 jours');
+  });
+
+  test('returns "Publiée il y a 1 semaine" for 7 days ago', () => {
+    expect(formatPublishedAgo('2025-06-08T10:00:00Z')).toBe('Publiée il y a 1 semaine');
+  });
+
+  test('returns "Publiée il y a X semaines" for 14 days ago', () => {
+    expect(formatPublishedAgo('2025-06-01T10:00:00Z')).toBe('Publiée il y a 2 semaines');
+  });
+
+  test('returns "Publiée il y a 1 mois" for ~31 days ago', () => {
+    expect(formatPublishedAgo('2025-05-15T10:00:00Z')).toBe('Publiée il y a 1 mois');
+  });
+
+  test('returns "Publiée il y a X mois" for several months ago', () => {
+    const result = formatPublishedAgo('2025-02-15T10:00:00Z');
+    expect(result).toBe('Publiée il y a 4 mois');
+  });
+
+  test('returns "Publiée le ..." for very old dates', () => {
+    const result = formatPublishedAgo('2024-01-15T10:00:00Z');
+    expect(result).toContain('Publiée le');
+  });
+});
+
+// ============================================
+// formatPublishedAgoShort
+// ============================================
+
+describe('formatPublishedAgoShort', () => {
+  test('returns empty string for null', () => {
+    expect(formatPublishedAgoShort(null)).toBe('');
+  });
+
+  test('returns "Aujourd\'hui" for today', () => {
+    expect(formatPublishedAgoShort('2025-06-15T08:00:00Z')).toBe("Aujourd'hui");
+  });
+
+  test('returns "Hier" for yesterday', () => {
+    expect(formatPublishedAgoShort('2025-06-14T10:00:00Z')).toBe('Hier');
+  });
+
+  test('returns "3j" for 3 days ago', () => {
+    expect(formatPublishedAgoShort('2025-06-12T10:00:00Z')).toBe('3j');
+  });
+
+  test('returns "1 sem." for 7 days ago', () => {
+    expect(formatPublishedAgoShort('2025-06-08T10:00:00Z')).toBe('1 sem.');
+  });
+
+  test('returns "2 sem." for 14 days ago', () => {
+    expect(formatPublishedAgoShort('2025-06-01T10:00:00Z')).toBe('2 sem.');
+  });
+
+  test('returns "1 mois" for ~31 days ago', () => {
+    expect(formatPublishedAgoShort('2025-05-15T10:00:00Z')).toBe('1 mois');
+  });
+
+  test('returns formatted date for very old dates', () => {
+    const result = formatPublishedAgoShort('2024-01-15T10:00:00Z');
+    expect(result).toBeTruthy();
+    expect(result).toContain('15');
   });
 });

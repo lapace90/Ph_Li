@@ -109,9 +109,15 @@ const JobCard = ({ job, onPress, isInternship }) => {
 
 const CandidateCard = ({ data, onPress }) => {
   const { candidate, offer } = data;
-  
+
   return (
     <Pressable style={styles.jobCard} onPress={onPress}>
+      {/* Badge à contacter */}
+      <View style={styles.pendingBadge}>
+        <Icon name="messageCircle" size={10} color={theme.colors.primary} />
+        <Text style={styles.pendingBadgeText}>À contacter</Text>
+      </View>
+
       <View style={styles.candidateAvatar}>
         {candidate?.photo_url ? (
           <Image source={{ uri: candidate.photo_url }} style={styles.avatarImage} />
@@ -137,17 +143,45 @@ const CandidateCard = ({ data, onPress }) => {
   );
 };
 
-const ActivityItem = ({ activity, onPress }) => (
-  <Pressable style={styles.activityItem} onPress={onPress}>
-    <View style={[styles.activityIcon, { backgroundColor: theme.colors.primary + '15' }]}>
-      <Icon name={activity.icon || 'bell'} size={18} color={theme.colors.primary} />
-    </View>
-    <View style={styles.activityContent}>
-      <Text style={styles.activityTitle}>{activity.title}</Text>
-      <Text style={styles.activityTime}>{activity.time}</Text>
-    </View>
-  </Pressable>
-);
+const ActivityItem = ({ activity, onPress }) => {
+  const iconColors = {
+    heart: theme.colors.rose,
+    star: theme.colors.warning,
+    bell: theme.colors.primary,
+  };
+  const iconName = activity.icon || 'bell';
+  const iconColor = iconColors[iconName] || theme.colors.primary;
+
+  // Formater le temps relatif
+  const formatTime = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "À l'instant";
+    if (diffMins < 60) return `Il y a ${diffMins} min`;
+    if (diffHours < 24) return `Il y a ${diffHours}h`;
+    if (diffDays === 1) return 'Hier';
+    if (diffDays < 7) return `Il y a ${diffDays} jours`;
+    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  };
+
+  return (
+    <Pressable style={styles.activityItem} onPress={onPress}>
+      <View style={[styles.activityIcon, { backgroundColor: iconColor + '15' }]}>
+        <Icon name={iconName} size={18} color={iconColor} />
+      </View>
+      <View style={styles.activityContent}>
+        <Text style={styles.activityTitle}>{activity.title}</Text>
+        <Text style={styles.activityTime}>{formatTime(activity.created_at)}</Text>
+      </View>
+    </Pressable>
+  );
+};
 
 // ============================================
 // COMPOSANT PRINCIPAL
@@ -228,13 +262,15 @@ export default function Home() {
           onPostPress={(post) => router.push({ pathname: '/(screens)/postDetail', params: { postId: post.id } })}
         />
 
-        {/* Candidats récents (titulaire uniquement) */}
+        {/* Matchs en attente (titulaire uniquement) */}
         {isTitulaire && (
           <View style={commonStyles.homeSection}>
             <View style={commonStyles.rowBetween}>
-              <Text style={commonStyles.sectionTitle}>Candidats récents</Text>
-              <Pressable style={commonStyles.row} onPress={() => router.push('/(screens)/matches')}>
-                <Text style={commonStyles.homeSeeAllText}>Voir tout</Text>
+              <Text style={commonStyles.sectionTitle}>Matchs en attente</Text>
+              <Pressable style={commonStyles.row} onPress={() => router.push(recommendedOffers?.length > 0 ? '/(screens)/matches' : '/(tabs)/messages')}>
+                <Text style={commonStyles.homeSeeAllText}>
+                  {recommendedOffers?.length > 0 ? 'Voir tout' : 'Conversations'}
+                </Text>
                 <Icon name="chevronRight" size={16} color={theme.colors.primary} />
               </Pressable>
             </View>
@@ -255,37 +291,24 @@ export default function Home() {
                 )}
               />
             ) : (
-              <EmptyState
-                icon="users"
-                title="Aucun candidat récent"
-                subtitle="Les candidats qui matchent avec vos offres apparaîtront ici"
-              />
+              <Text style={[commonStyles.hint, { marginTop: hp(1) }]}>
+                Tous vos matchs ont été contactés ✓
+              </Text>
             )}
           </View>
         )}
 
-        {/* Activité récente */}
-        <View style={commonStyles.homeSection}>
-          <Text style={commonStyles.sectionTitle}>Activité récente</Text>
-          
-          {loading ? (
-            <View style={commonStyles.loadingContainer}>
-              <ActivityIndicator size="small" color={theme.colors.primary} />
-            </View>
-          ) : activities?.length > 0 ? (
+        {/* Activité récente - masquée si vide */}
+        {activities?.length > 0 && (
+          <View style={commonStyles.homeSection}>
+            <Text style={commonStyles.sectionTitle}>Activité récente</Text>
             <View style={styles.activitiesList}>
               {activities.map((activity) => (
                 <ActivityItem key={activity.id} activity={activity} onPress={() => handleActivityPress(activity)} />
               ))}
             </View>
-          ) : (
-            <EmptyState 
-              icon="clock"
-              title="Aucune activité récente"
-              subtitle={isTitulaire ? 'Les interactions avec vos annonces apparaîtront ici' : 'Vos matchs apparaîtront ici'}
-            />
-          )}
-        </View>
+          </View>
+        )}
 
         {/* Pour toi (labos suivis) */}
         <LaboCarousel
@@ -448,6 +471,22 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  pendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: theme.colors.primary + '15',
+    paddingHorizontal: wp(2),
+    paddingVertical: hp(0.3),
+    borderRadius: theme.radius.sm,
+    marginBottom: hp(0.8),
+    gap: wp(1),
+  },
+  pendingBadgeText: {
+    fontSize: hp(1),
+    fontWeight: '600',
+    color: theme.colors.primary,
   },
 
   // Activity

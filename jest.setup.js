@@ -50,3 +50,61 @@ jest.mock('./services/subscriptionService', () => ({
     }),
   },
 }));
+
+// Mock log service (pour les services qui l'utilisent)
+jest.mock('./services/logService', () => ({
+  logService: {
+    log: jest.fn(),
+    auth: {
+      signup: jest.fn(),
+      login: jest.fn(),
+      loginFailed: jest.fn(),
+      logout: jest.fn(),
+      passwordReset: jest.fn(),
+      accountDeleted: jest.fn(),
+      passwordChanged: jest.fn(),
+      passwordResetRequested: jest.fn(),
+    },
+    verification: {
+      siretVerified: jest.fn(),
+      siretRejected: jest.fn(),
+      rppsVerified: jest.fn(),
+      rppsRejected: jest.fn(),
+    },
+    report: {
+      created: jest.fn(),
+      userBlocked: jest.fn(),
+      userUnblocked: jest.fn(),
+    },
+    mission: {
+      created: jest.fn(),
+      published: jest.fn(),
+      confirmed: jest.fn(),
+      completed: jest.fn(),
+      cancelled: jest.fn(),
+    },
+    listing: {
+      created: jest.fn(),
+      closed: jest.fn(),
+    },
+    internship: {
+      created: jest.fn(),
+      applied: jest.fn(),
+    },
+    subscription: {
+      started: jest.fn(),
+      upgraded: jest.fn(),
+      cancelled: jest.fn(),
+    },
+    error: {
+      api: jest.fn(),
+      payment: jest.fn(),
+      critical: jest.fn(),
+    },
+    messaging: {
+      conversationStarted: jest.fn(),
+      messageReported: jest.fn(),
+    },
+  },
+}));
+

@@ -320,7 +320,8 @@ export const AuthProvider = ({ children }) => {
 
   // Helpers pour vérifier le type d'utilisateur
   const isCandidate = ['preparateur', 'etudiant', 'conseiller'].includes(user?.user_type);
-  const isRecruiter = user?.user_type === 'titulaire';
+  const isTitulaire = user?.user_type === 'titulaire';
+  const isRecruiter = isTitulaire; // Alias
   const isAnimator = user?.user_type === 'animateur';
   const isLaboratory = user?.user_type === 'laboratoire';
 
@@ -347,6 +348,7 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated: !!session,
         isProfileComplete: !!user?.profile_completed,
         isCandidate,
+        isTitulaire,
         isRecruiter,
         isAnimator,
         isLaboratory,

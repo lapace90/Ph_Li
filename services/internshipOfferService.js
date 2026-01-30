@@ -1,5 +1,8 @@
 import { supabase } from '../lib/supabase';
 
+// Durée de validité par défaut (en jours)
+const DEFAULT_EXPIRATION_DAYS = 30;
+
 export const internshipOfferService = {
   /**
    * Récupère toutes les annonces stage/alternance d'un employeur
@@ -31,11 +34,17 @@ export const internshipOfferService = {
 
   /**
    * Crée une nouvelle annonce stage/alternance
+   * Par défaut, expire après 30 jours
    */
   async create(ownerId, offerData) {
     // Convertir 'asap' en null pour la base de données
     // 'asap' sera interprété comme "dès que possible" à l'affichage
     const startDate = offerData.start_date === 'asap' ? null : offerData.start_date;
+
+    // Calculer la date d'expiration (30 jours par défaut)
+    const expirationDays = offerData.expiration_days || DEFAULT_EXPIRATION_DAYS;
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + expirationDays);
 
     const { data, error } = await supabase
       .from('internship_offers')
@@ -56,6 +65,7 @@ export const internshipOfferService = {
         region: offerData.region,
         department: offerData.department,
         status: offerData.status || 'active',
+        expires_at: expiresAt.toISOString(),
         // Pharmacy selector fields
         pharmacy_id: offerData.pharmacy_id || null,
         pharmacy_name: offerData.pharmacy_name || null,
@@ -110,12 +120,18 @@ export const internshipOfferService = {
 
   /**
    * Récupère les annonces actives avec filtres
+   * Exclut automatiquement les offres expirées
    */
   async search(filters = {}) {
     let query = supabase
       .from('internship_offers')
       .select('*')
       .eq('status', 'active');
+
+    // Exclure les offres expirées (sauf si on veut les inclure)
+    if (!filters.includeExpired) {
+      query = query.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
+    }
 
     // Filtres
     if (filters.type) {
@@ -162,5 +178,51 @@ export const internshipOfferService = {
       return this.search(filters);
     }
     return data || [];
+  },
+
+  /**
+   * Prolonge la date d'expiration d'une annonce
+   * @param {string} offerId - ID de l'offre
+   * @param {number} days - Nombre de jours à ajouter (défaut: 30)
+   */
+  async extendExpiration(offerId, days = DEFAULT_EXPIRATION_DAYS) {
+    const newExpiresAt = new Date();
+    newExpiresAt.setDate(newExpiresAt.getDate() + days);
+
+    return this.update(offerId, { expires_at: newExpiresAt.toISOString() });
+  },
+
+  /**
+   * Vérifie si une offre est expirée ou proche de l'expiration
+   * @returns {{ isExpired: boolean, isExpiringSoon: boolean, daysRemaining: number }}
+   */
+  getExpirationStatus(offer) {
+    if (!offer?.expires_at) {
+      return { isExpired: false, isExpiringSoon: false, daysRemaining: null };
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(offer.expires_at);
+    const diffMs = expiresAt - now;
+    const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    return {
+      isExpired: daysRemaining <= 0,
+      isExpiringSoon: daysRemaining > 0 && daysRemaining <= 7,
+      daysRemaining: Math.max(0, daysRemaining),
+    };
+  },
+
+  /**
+   * Réactive une offre expirée (remet en active + nouvelle expiration)
+   */
+  async reactivateExpired(offerId, days = DEFAULT_EXPIRATION_DAYS) {
+    const newExpiresAt = new Date();
+    newExpiresAt.setDate(newExpiresAt.getDate() + days);
+
+    return this.update(offerId, {
+      status: 'active',
+      expires_at: newExpiresAt.toISOString(),
+    });
   },
 };

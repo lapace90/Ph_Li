@@ -2,6 +2,7 @@ import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
 import Icon from '../../assets/icons/Icon';
+import { formatPublishedAgoShort } from '../../helpers/dateUtils';
 
 const JobCard = ({ job, onPress }) => {
     const getContractColor = (type) => {
@@ -60,6 +61,13 @@ const JobCard = ({ job, onPress }) => {
                 </View>
                 <Text style={styles.distance}>{job.distance} km</Text>
             </View>
+
+            {job.created_at && (
+                <View style={styles.timeRow}>
+                    <Icon name="clock" size={12} color={theme.colors.textLight} />
+                    <Text style={styles.timeText}>{formatPublishedAgoShort(job.created_at)}</Text>
+                </View>
+            )}
         </Pressable>
     );
 };
@@ -131,5 +139,18 @@ const styles = StyleSheet.create({
         fontSize: hp(1.3),
         color: theme.colors.primary,
         fontFamily: theme.fonts.medium,
+    },
+    timeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(1),
+        marginTop: hp(0.8),
+        paddingTop: hp(0.8),
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.border,
+    },
+    timeText: {
+        fontSize: hp(1.2),
+        color: theme.colors.textLight,
     },
 });

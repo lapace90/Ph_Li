@@ -265,11 +265,28 @@ export default function Profile() {
                                 onPress={() => router.push('/(screens)/recruiterDashboard')}
                                 highlight
                             />
+                            {/* Afficher "Vérifications & Pharmacies" seulement si au moins une vérification est faite */}
+                            {(user?.rpps_verified || user?.siret_verified || pharmacies.length > 0) && (
+                                <MenuItem
+                                    icon="shield"
+                                    label="Vérifications & Pharmacies"
+                                    subtitle={
+                                        user?.rpps_verified && user?.siret_verified
+                                            ? "Tout vérifié"
+                                            : user?.siret_verified
+                                                ? "SIRET vérifié"
+                                                : user?.rpps_verified
+                                                    ? "RPPS vérifié"
+                                                    : `${pharmacies.length} pharmacie${pharmacies.length > 1 ? 's' : ''}`
+                                    }
+                                    onPress={() => router.push('/(screens)/pharmacyManagement')}
+                                />
+                            )}
                             <MenuItem
-                                icon="shield"
-                                label="Vérifications & Pharmacies"
-                                subtitle={user?.siret_verified ? "SIRET vérifié" : "Vérifiez votre SIRET"}
-                                onPress={() => router.push('/(screens)/pharmacyManagement')}
+                                icon="star"
+                                label="Mes favoris"
+                                subtitle="Candidats et annonces sauvegardés"
+                                onPress={() => router.push('/(screens)/myFavorites')}
                             />
                             <MenuItem
                                 icon="zap"

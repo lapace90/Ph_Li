@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { StyleSheet, Text, View, FlatList, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -8,6 +8,7 @@ import { hp, wp } from '../../helpers/common';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConversations } from '../../hooks/useMessaging';
 import { useFavQuota } from '../../hooks/useFavQuota';
+import { useFavoriteIds, FAVORITE_TYPES } from '../../hooks/useFavorites';
 import { formatConversationTime } from '../../helpers/dateUtils';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import FavQuotaBanner from '../../components/common/FavQuotaBanner';
@@ -19,6 +20,17 @@ export default function Messages() {
   const { conversations, loading, unreadTotal, refresh } = useConversations();
   const { favQuota, loadFavQuota } = useFavQuota();
   const [refreshing, setRefreshing] = useState(false);
+
+  // Type de favori selon le type d'utilisateur
+  const favoriteType = useMemo(() => {
+    const userType = user?.user_type;
+    if (userType === 'titulaire') return FAVORITE_TYPES.CANDIDATE;
+    if (userType === 'laboratoire') return FAVORITE_TYPES.ANIMATOR;
+    if (userType === 'animateur') return FAVORITE_TYPES.LABORATORY;
+    return null;
+  }, [user?.user_type]);
+
+  const { isFavorite } = useFavoriteIds(user?.id, favoriteType);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -37,6 +49,7 @@ export default function Messages() {
     const hasUnread = item.unreadCount > 0;
     const lastMessage = item.lastMessage;
     const offer = item.match?.job_offers || item.match?.internship_offers;
+    const isOtherUserFavorite = favoriteType && item.otherUser?.id && isFavorite(item.otherUser.id);
 
     return (
       <Pressable
@@ -58,12 +71,17 @@ export default function Messages() {
         {/* Contenu */}
         <View style={styles.conversationContent}>
           <View style={styles.conversationHeader}>
-            <Text style={[styles.userName, hasUnread && styles.textBold]} numberOfLines={1}>
-              {item.otherUser 
-                ? `${item.otherUser.first_name} ${item.otherUser.last_name?.[0] || ''}.`
-                : 'Utilisateur'
-              }
-            </Text>
+            <View style={styles.userNameRow}>
+              <Text style={[styles.userName, hasUnread && styles.textBold]} numberOfLines={1}>
+                {item.otherUser
+                  ? `${item.otherUser.first_name} ${item.otherUser.last_name?.[0] || ''}.`
+                  : 'Utilisateur'
+                }
+              </Text>
+              {isOtherUserFavorite && (
+                <Icon name="star" size={14} color={theme.colors.warning} style={styles.favoriteIcon} />
+              )}
+            </View>
             <Text style={styles.time}>
               {formatConversationTime(lastMessage?.created_at || item.updated_at)}
             </Text>
@@ -279,10 +297,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  userName: {
+  userNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
+    gap: wp(1),
+  },
+  userName: {
     fontSize: hp(1.8),
     color: theme.colors.text,
+    flexShrink: 1,
+  },
+  favoriteIcon: {
+    marginLeft: wp(0.5),
   },
   textBold: {
     fontWeight: '600',

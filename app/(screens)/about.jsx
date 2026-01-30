@@ -12,7 +12,7 @@ export default function About() {
   const router = useRouter();
 
   const handleContact = () => {
-    Linking.openURL('mailto:contact@pharmalink.fr');
+    Linking.openURL('mailto:contact@pharmalink.pro');
   };
 
   return (
@@ -57,12 +57,12 @@ export default function About() {
           <Text style={styles.cardTitle}>Contact</Text>
           <Pressable style={styles.contactButton} onPress={handleContact}>
             <Icon name="mail" size={20} color={theme.colors.primary} />
-            <Text style={styles.contactText}>contact@pharmalink.fr</Text>
+            <Text style={styles.contactText}>contact@pharmalink.pro</Text>
           </Pressable>
         </View>
 
         <Text style={styles.copyright}>
-          © 2025 PharmaLink. Tous droits réservés.
+          © 2026 PharmaLink. Tous droits réservés.
         </Text>
       </ScrollView>
     </ScreenWrapper>

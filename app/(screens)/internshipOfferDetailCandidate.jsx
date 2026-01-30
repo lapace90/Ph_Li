@@ -20,6 +20,7 @@ import Icon from '../../assets/icons/Icon';
 import Button from '../../components/common/Button';
 import ApplyModal from '../../components/application/ApplyModal';
 import { notificationService, NOTIFICATION_TYPES } from '../../services/notificationService';
+import { formatPublishedAgo } from '../../helpers/dateUtils';
 
 export default function InternshipOfferDetailCandidate() {
   const router = useRouter();
@@ -231,11 +232,7 @@ export default function InternshipOfferDetailCandidate() {
         <View style={styles.metaInfo}>
           <Icon name="clock" size={14} color={theme.colors.textLight} />
           <Text style={styles.metaText}>
-            Publiée le {new Date(offer.created_at).toLocaleDateString('fr-FR', { 
-              day: 'numeric', 
-              month: 'long', 
-              year: 'numeric' 
-            })}
+            {formatPublishedAgo(offer.created_at)}
           </Text>
         </View>
       </ScrollView>
