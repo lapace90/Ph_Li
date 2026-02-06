@@ -222,7 +222,8 @@ describe('isToday', () => {
   });
 
   test('returns true for today at different time', () => {
-    expect(isToday('2025-06-15T23:59:00Z')).toBe(true);
+    // Use midday to avoid timezone boundary issues
+    expect(isToday('2025-06-15T12:00:00Z')).toBe(true);
   });
 });
 

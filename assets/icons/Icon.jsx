@@ -35,6 +35,9 @@ const iconMap = {
   info: { lib: 'feather', name: 'info' },
   alertCircle: { lib: 'feather', name: 'alert-circle' },
   checkCircle: { lib: 'feather', name: 'check-circle' },
+  checkSquare: { lib: 'feather', name: 'check-square' },
+  circle: { lib: 'feather', name: 'circle' },
+  clock: { lib: 'feather', name: 'clock' },
 
   // Alertes urgentes
   alertTriangle: { lib: 'feather', name: 'alert-triangle' },
@@ -124,6 +127,7 @@ const iconMap = {
   bookOpen: { lib: 'feather', name: 'book-open' },
   bell: { lib: 'feather', name: 'bell' },
   bellRing: { lib: 'feather', name: 'bell' },
+  megaphone: { lib: 'material', name: 'campaign' },
   briefcase: { lib: 'feather', name: 'briefcase' },
   globe: { lib: 'feather', name: 'globe' },
   hash: { lib: 'feather', name: 'hash' },

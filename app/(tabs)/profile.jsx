@@ -1,13 +1,20 @@
 // app/(tabs)/profile.jsx
-import { StyleSheet, Text, View, Pressable, ScrollView, Switch, ActivityIndicator } from 'react-native';
+import { useState, useCallback } from 'react';
+import { StyleSheet, Text, View, Pressable, ScrollView, Switch, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
 import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePrivacy } from '../../hooks/usePrivacy';
 import { usePharmacyDetails } from '../../hooks/usePharmacyDetails';
+import { useCVs } from '../../hooks/useCVs';
+
+// Activer LayoutAnimation sur Android (ignoré si New Architecture)
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !global.__turboModuleProxy) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import ScreenWrapper from '../../components/common/ScreenWrapper';
 import RoleAvatar from '../../components/common/RoleAvatar';
 import Icon from '../../assets/icons/Icon';
@@ -18,7 +25,16 @@ import { getRoleLabel } from '../../helpers/roleLabel';
 export default function Profile() {
     const router = useRouter();
     const { session, user, profile, laboratoryProfile, signOut } = useAuth();
-    const { privacy, setSearchable } = usePrivacy(session?.user?.id);
+    const { privacy, setSearchable, refresh: refreshPrivacy } = usePrivacy(session?.user?.id);
+    const [completionExpanded, setCompletionExpanded] = useState(false);
+    const [completeBadgeDismissed, setCompleteBadgeDismissed] = useState(false);
+
+    // Rafraîchir les données de confidentialité quand l'écran revient au focus
+    useFocusEffect(
+        useCallback(() => {
+            refreshPrivacy();
+        }, [refreshPrivacy])
+    );
 
     // Déterminer le type d'utilisateur
     const isTitulaire = user?.user_type === 'titulaire';
@@ -32,6 +48,27 @@ export default function Profile() {
     const { pharmacies, loading: pharmaciesLoading, verifiedPharmacies } = usePharmacyDetails(
         isTitulaire ? session?.user?.id : null
     );
+
+    // CVs pour les candidats
+    const { cvs } = useCVs(isCandidate ? session?.user?.id : null);
+    const hasCV = cvs?.length > 0;
+
+    // Score de complétion du profil candidat
+    // Si mode discret (show_photo n'est pas true), la photo n'est pas requise
+    // Cela inclut: false explicite, null, undefined
+    const photoRequired = privacy?.show_photo === true;
+    const candidateCompletionItems = isCandidate ? [
+        // Photo requise seulement si show_photo est explicitement true
+        ...(photoRequired ? [{ label: 'Photo', done: !!profile?.photo_url, icon: 'camera' }] : []),
+        { label: 'Bio', done: !!profile?.bio, icon: 'fileText' },
+        { label: 'CV', done: hasCV, icon: 'file' },
+        { label: 'Expérience', done: !!profile?.experience_years, icon: 'briefcase' },
+        { label: 'Disponibilité', done: !!profile?.availability_date, icon: 'calendar' },
+        { label: 'Contrats', done: profile?.preferred_contract_types?.length > 0, icon: 'checkSquare' },
+    ] : [];
+    const candidateCompletionScore = candidateCompletionItems.length > 0
+        ? Math.round((candidateCompletionItems.filter(i => i.done).length / candidateCompletionItems.length) * 100)
+        : 0;
 
     const handleToggleSearchable = async (value) => {
         await setSearchable(value);
@@ -177,6 +214,86 @@ export default function Profile() {
                 {/* ====== SECTION CANDIDAT ====== */}
                 {isCandidate && (
                     <>
+                        {/* Complétion du profil */}
+                        {candidateCompletionScore === 100 ? (
+                            !completeBadgeDismissed && (
+                                <View style={styles.completeBadge}>
+                                    <Icon name="checkCircle" size={18} color={theme.colors.success} />
+                                    <Text style={[styles.completeBadgeText, { flex: 1 }]}>Profil complet</Text>
+                                    <Pressable onPress={() => setCompleteBadgeDismissed(true)} hitSlop={8}>
+                                        <Icon name="x" size={16} color={theme.colors.success} />
+                                    </Pressable>
+                                </View>
+                            )
+                        ) : (
+                            <View style={styles.completionCard}>
+                                <Pressable
+                                    style={commonStyles.rowBetween}
+                                    onPress={() => {
+                                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                        setCompletionExpanded(!completionExpanded);
+                                    }}
+                                >
+                                    <View style={commonStyles.row}>
+                                        <Text style={styles.completionTitle}>Complétude du profil</Text>
+                                        <Icon
+                                            name={completionExpanded ? 'chevronUp' : 'chevronDown'}
+                                            size={16}
+                                            color={theme.colors.textLight}
+                                            style={{ marginLeft: wp(2) }}
+                                        />
+                                    </View>
+                                    <Text style={[styles.completionScore, candidateCompletionScore === 100 && { color: theme.colors.success }]}>
+                                        {candidateCompletionScore}%
+                                    </Text>
+                                </Pressable>
+                                <View style={styles.progressBar}>
+                                    <View style={[styles.progressFill, { width: `${candidateCompletionScore}%` }]} />
+                                </View>
+
+                                {/* Détails en accordéon */}
+                                {completionExpanded && (
+                                    <>
+                                        <View style={styles.completionItems}>
+                                            {candidateCompletionItems.map((item, i) => (
+                                                <Pressable
+                                                    key={i}
+                                                    style={styles.completionItem}
+                                                    onPress={() => {
+                                                        if (!item.done) {
+                                                            if (item.label === 'CV') {
+                                                                router.push('/(screens)/cvList');
+                                                            } else {
+                                                                router.push(getEditProfileRoute());
+                                                            }
+                                                        }
+                                                    }}
+                                                >
+                                                    <Icon
+                                                        name={item.done ? 'checkCircle' : 'circle'}
+                                                        size={14}
+                                                        color={item.done ? theme.colors.success : theme.colors.gray}
+                                                    />
+                                                    <Text style={[styles.completionLabel, item.done && { color: theme.colors.success }]}>
+                                                        {item.label}
+                                                    </Text>
+                                                    {!item.done && <Icon name="chevronRight" size={12} color={theme.colors.gray} />}
+                                                </Pressable>
+                                            ))}
+                                        </View>
+                                        {/* Rappel CV */}
+                                        {!hasCV && (
+                                            <Pressable style={styles.cvReminder} onPress={() => router.push('/(screens)/cvList')}>
+                                                <Icon name="alertCircle" size={16} color={theme.colors.warning} />
+                                                <Text style={styles.cvReminderText}>Ajoutez un CV pour être visible des recruteurs</Text>
+                                                <Icon name="chevronRight" size={16} color={theme.colors.warning} />
+                                            </Pressable>
+                                        )}
+                                    </>
+                                )}
+                            </View>
+                        )}
+
                         {/* Toggle recherche */}
                         <View style={commonStyles.card}>
                             <View style={[commonStyles.rowBetween, { padding: 0 }]}>
@@ -293,6 +410,12 @@ export default function Profile() {
                                 label="Alertes urgentes"
                                 subtitle="Trouvez un remplacement en urgence"
                                 onPress={() => router.push('/(screens)/myAlerts')}
+                            />
+                            <MenuItem
+                                icon="users"
+                                label="Missions d'animation"
+                                subtitle="Recruter des animateurs"
+                                onPress={() => router.push('/(screens)/laboratoryMissions')}
                             />
                         </View>
 
@@ -760,5 +883,77 @@ const styles = StyleSheet.create({
         fontSize: hp(1.6),
         fontFamily: theme.fonts.semiBold,
         color: theme.colors.text,
+    },
+    // Completion
+    completionCard: {
+        backgroundColor: theme.colors.card,
+        borderRadius: theme.radius.lg,
+        padding: hp(2),
+    },
+    completionTitle: {
+        fontSize: hp(1.5),
+        fontFamily: theme.fonts.semiBold,
+        color: theme.colors.text,
+    },
+    completionScore: {
+        fontSize: hp(1.8),
+        fontFamily: theme.fonts.bold,
+        color: theme.colors.primary,
+    },
+    progressBar: {
+        height: 6,
+        backgroundColor: theme.colors.gray + '30',
+        borderRadius: 3,
+        marginVertical: hp(1.5),
+        overflow: 'hidden',
+    },
+    progressFill: {
+        height: '100%',
+        backgroundColor: theme.colors.primary,
+        borderRadius: 3,
+    },
+    completionItems: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: wp(3),
+    },
+    completionItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(1.5),
+        width: '45%',
+    },
+    completionLabel: {
+        fontSize: hp(1.3),
+        color: theme.colors.textLight,
+        flex: 1,
+    },
+    cvReminder: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(2),
+        backgroundColor: theme.colors.warning + '15',
+        padding: hp(1.2),
+        borderRadius: theme.radius.md,
+        marginTop: hp(1.5),
+    },
+    cvReminderText: {
+        flex: 1,
+        fontSize: hp(1.25),
+        color: theme.colors.warning,
+        fontFamily: theme.fonts.medium,
+    },
+    completeBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(2),
+        backgroundColor: theme.colors.success + '15',
+        padding: hp(1.5),
+        borderRadius: theme.radius.lg,
+    },
+    completeBadgeText: {
+        fontSize: hp(1.5),
+        fontFamily: theme.fonts.semiBold,
+        color: theme.colors.success,
     },
 });

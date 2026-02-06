@@ -3,7 +3,7 @@
  * Gère candidats (préparateur, conseiller, étudiant) ET animateurs
  */
 import { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, Pressable } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { theme } from '../../constants/theme';
@@ -18,6 +18,11 @@ import Icon from '../../assets/icons/Icon';
 import { getDisplayName } from '../../helpers/displayName';
 import { getRoleLabel, isFreelance } from '../../helpers/roleLabel';
 import { getAnimationSpecialtyLabel } from '../../constants/profileOptions';
+
+// Activer LayoutAnimation sur Android (ignoré si New Architecture)
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental && !global.__turboModuleProxy) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export default function PreviewMyCard() {
   const router = useRouter();
@@ -63,6 +68,22 @@ export default function PreviewMyCard() {
   ];
   const animatorCompletionScore = Math.round(
     (animatorCompletionItems.filter(i => i.done).length / animatorCompletionItems.length) * 100
+  );
+
+  // Score de complétude candidat
+  // Si mode discret (show_photo n'est pas true), la photo n'est pas requise
+  const photoRequired = showPhoto === true;
+  const candidateCompletionItems = [
+    // Photo requise seulement si show_photo est explicitement true
+    ...(photoRequired ? [{ label: 'Photo', done: !!profile?.photo_url, icon: 'camera' }] : []),
+    { label: 'Bio', done: !!profile?.bio, icon: 'fileText' },
+    { label: 'CV', done: !!defaultCV, icon: 'file' },
+    { label: 'Expérience', done: !!profile?.experience_years, icon: 'briefcase' },
+    { label: 'Disponibilité', done: !!profile?.availability_date, icon: 'calendar' },
+    { label: 'Contrats', done: profile?.preferred_contract_types?.length > 0, icon: 'checkSquare' },
+  ];
+  const candidateCompletionScore = Math.round(
+    (candidateCompletionItems.filter(i => i.done).length / candidateCompletionItems.length) * 100
   );
 
   // ============================================
@@ -390,12 +411,19 @@ export default function PreviewMyCard() {
         )}
 
         {/* ============================================ */}
-        {/* COMPLÉTUDE / CONSEILS */}
+        {/* COMPLÉTUDE DU PROFIL */}
         {/* ============================================ */}
         {isAnimator ? (
           <CompletionCard score={animatorCompletionScore} items={animatorCompletionItems} editRoute={editRoute} router={router} />
         ) : (
-          <TipsCard profile={profile} hasStandardCV={hasStandardCV} router={router} editRoute={editRoute} />
+          <CompletionCard
+            score={candidateCompletionScore}
+            items={candidateCompletionItems}
+            editRoute={editRoute}
+            router={router}
+            cvRoute="/(screens)/cvList"
+            hasCV={!!defaultCV}
+          />
         )}
 
         {/* Action */}
@@ -422,48 +450,85 @@ const StatItem = ({ icon, value, label }) => (
   </View>
 );
 
-const CompletionCard = ({ score, items, editRoute, router }) => (
-  <View style={styles.completionCard}>
-    <View style={commonStyles.rowBetween}>
-      <Text style={styles.completionTitle}>Complétude du profil</Text>
-      <Text style={[styles.completionScore, score === 100 && { color: theme.colors.success }]}>{score}%</Text>
-    </View>
-    <View style={styles.progressBar}>
-      <View style={[styles.progressFill, { width: `${score}%` }]} />
-    </View>
-    <View style={styles.completionItems}>
-      {items.map((item, i) => (
-        <View key={i} style={styles.completionItem}>
-          <Icon name={item.done ? 'checkCircle' : 'circle'} size={14} color={item.done ? theme.colors.success : theme.colors.gray} />
-          <Text style={[styles.completionLabel, item.done && { color: theme.colors.success }]}>{item.label}</Text>
-        </View>
-      ))}
-    </View>
-  </View>
-);
+const CompletionCard = ({ score, items, editRoute, router, cvRoute, hasCV }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
-const TipsCard = ({ profile, hasStandardCV, router, editRoute }) => (
-  <View style={styles.tipsCard}>
-    <Text style={styles.tipsTitle}>💡 Améliorer mon profil</Text>
-    {!profile?.photo_url && <TipItem icon="camera" text="Ajouter une photo" onPress={() => router.push(editRoute)} />}
-    {!profile?.bio && <TipItem icon="edit" text="Rédiger une bio" onPress={() => router.push(editRoute)} />}
-    {!hasStandardCV && <TipItem icon="file" text="Créer un CV standardisé" onPress={() => router.push('/(screens)/cvList')} />}
-    {profile?.photo_url && profile?.bio && hasStandardCV && (
-      <View style={styles.tipItem}>
-        <Icon name="checkCircle" size={14} color={theme.colors.success} />
-        <Text style={[styles.tipText, { color: theme.colors.success }]}>Profil complet !</Text>
+  const toggleExpanded = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpanded(!expanded);
+  };
+
+  // Badge de succès si profil complet
+  if (score === 100) {
+    if (dismissed) return null;
+    return (
+      <View style={styles.completeBadge}>
+        <Icon name="checkCircle" size={18} color={theme.colors.success} />
+        <Text style={[styles.completeBadgeText, { flex: 1 }]}>Profil complet</Text>
+        <Pressable onPress={() => setDismissed(true)} hitSlop={8}>
+          <Icon name="x" size={16} color={theme.colors.success} />
+        </Pressable>
       </View>
-    )}
-  </View>
-);
+    );
+  }
 
-const TipItem = ({ icon, text, onPress }) => (
-  <Pressable style={styles.tipItem} onPress={onPress}>
-    <Icon name={icon} size={14} color={theme.colors.warning} />
-    <Text style={styles.tipText}>{text}</Text>
-    <Icon name="chevronRight" size={14} color={theme.colors.textLight} />
-  </Pressable>
-);
+  return (
+    <View style={styles.completionCard}>
+      <Pressable style={commonStyles.rowBetween} onPress={toggleExpanded}>
+        <View style={commonStyles.row}>
+          <Text style={styles.completionTitle}>Complétude du profil</Text>
+          <Icon
+            name={expanded ? 'chevronUp' : 'chevronDown'}
+            size={16}
+            color={theme.colors.textLight}
+            style={{ marginLeft: wp(2) }}
+          />
+        </View>
+        <Text style={[styles.completionScore, score === 100 && { color: theme.colors.success }]}>{score}%</Text>
+      </Pressable>
+      <View style={styles.progressBar}>
+        <View style={[styles.progressFill, { width: `${score}%` }]} />
+      </View>
+
+      {/* Détails en accordéon */}
+      {expanded && (
+        <>
+          <View style={styles.completionItems}>
+            {items.map((item, i) => (
+              <Pressable
+                key={i}
+                style={styles.completionItem}
+                onPress={() => {
+                  if (!item.done) {
+                    if (item.label === 'CV' && cvRoute) {
+                      router.push(cvRoute);
+                    } else {
+                      router.push(editRoute);
+                    }
+                  }
+                }}
+              >
+                <Icon name={item.done ? 'checkCircle' : 'circle'} size={14} color={item.done ? theme.colors.success : theme.colors.gray} />
+                <Text style={[styles.completionLabel, item.done && { color: theme.colors.success }]}>{item.label}</Text>
+                {!item.done && <Icon name="chevronRight" size={12} color={theme.colors.gray} />}
+              </Pressable>
+            ))}
+          </View>
+          {/* Rappel CV si manquant */}
+          {cvRoute && !hasCV && (
+            <Pressable style={styles.cvReminder} onPress={() => router.push(cvRoute)}>
+              <Icon name="alertCircle" size={16} color={theme.colors.warning} />
+              <Text style={styles.cvReminderText}>Ajoutez un CV pour être visible des recruteurs</Text>
+              <Icon name="chevronRight" size={16} color={theme.colors.warning} />
+            </Pressable>
+          )}
+        </>
+      )}
+    </View>
+  );
+};
+
 
 // ============================================
 // STYLES
@@ -553,11 +618,31 @@ const styles = StyleSheet.create({
   progressFill: { height: '100%', backgroundColor: theme.colors.primary, borderRadius: 3 },
   completionItems: { flexDirection: 'row', flexWrap: 'wrap', gap: wp(3) },
   completionItem: { flexDirection: 'row', alignItems: 'center', gap: wp(1.5), width: '45%' },
-  completionLabel: { fontSize: hp(1.3), color: theme.colors.textLight },
+  completionLabel: { fontSize: hp(1.3), color: theme.colors.textLight, flex: 1 },
+  cvReminder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(2),
+    backgroundColor: theme.colors.warning + '15',
+    padding: hp(1.2),
+    borderRadius: theme.radius.md,
+    marginTop: hp(1.5),
+  },
+  cvReminderText: { flex: 1, fontSize: hp(1.25), color: theme.colors.warning, fontWeight: '500' },
 
-  // Tips
-  tipsCard: { backgroundColor: theme.colors.card, borderRadius: theme.radius.lg, padding: wp(4), marginBottom: hp(2) },
-  tipsTitle: { fontSize: hp(1.5), fontWeight: '600', color: theme.colors.text, marginBottom: hp(1) },
-  tipItem: { flexDirection: 'row', alignItems: 'center', gap: wp(2), paddingVertical: hp(0.8) },
-  tipText: { fontSize: hp(1.3), color: theme.colors.text, flex: 1 },
+  // Complete badge
+  completeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(2),
+    backgroundColor: theme.colors.success + '15',
+    padding: hp(1.5),
+    borderRadius: theme.radius.lg,
+    marginBottom: hp(2),
+  },
+  completeBadgeText: {
+    fontSize: hp(1.5),
+    fontWeight: '600',
+    color: theme.colors.success,
+  },
 });

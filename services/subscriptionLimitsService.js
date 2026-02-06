@@ -122,15 +122,18 @@ const LIMITS = {
 
   // ----------------------------------------
   // ANIMATEUR
+  // Les animateurs ne paient jamais de MER
   // ----------------------------------------
   animateur: {
     free: {
+      mer_included: Infinity, // Toujours gratuit
       super_likes_daily: 1,
       cv_generated: 1,
       documents_storage: 5,
       priority_visibility: false,
     },
     premium: {
+      mer_included: Infinity, // Toujours gratuit
       super_likes_daily: 5,
       cv_generated: 3,
       documents_storage: 10,

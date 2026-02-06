@@ -1,3 +1,10 @@
+// Mock React Native Dimensions (iPhone dimensions for tests)
+jest.doMock('react-native', () => {
+  const RN = jest.requireActual('react-native');
+  RN.Dimensions.get = jest.fn().mockReturnValue({ width: 375, height: 812 });
+  return RN;
+});
+
 // Mock supabase client
 jest.mock('./lib/supabase', () => {
   const mockChain = () => ({

@@ -44,7 +44,11 @@ const getMissionTypeLabel = (type) => {
 
 export default function LaboratoryMissions() {
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
+
+  // Supporter les labos ET les titulaires
+  const clientType = profile?.user_type === 'laboratoire' ? 'laboratory' : 'pharmacy';
+
   const {
     missions,
     loading,
@@ -53,7 +57,7 @@ export default function LaboratoryMissions() {
     publishMission,
     cancelMission,
     deleteMission,
-  } = useClientMissions(session?.user?.id, 'laboratory');
+  } = useClientMissions(session?.user?.id, clientType);
 
   const [activeTab, setActiveTab] = useState('open');
   const [refreshing, setRefreshing] = useState(false);

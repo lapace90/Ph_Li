@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { StyleSheet, Text, View, FlatList, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, FlatList, Pressable, RefreshControl, ActivityIndicator, Modal, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '../../constants/theme';
 import { commonStyles } from '../../constants/styles';
@@ -11,17 +11,18 @@ import Icon from '../../assets/icons/Icon';
 
 export default function Notifications() {
   const router = useRouter();
-  const { 
-    notifications, 
-    loading, 
-    unreadCount, 
-    markAsRead, 
-    markAllAsRead, 
+  const {
+    notifications,
+    loading,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
     deleteNotification,
-    refresh 
+    refresh
   } = useNotifications();
-  
+
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState(null);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -87,6 +88,11 @@ export default function Notifications() {
             params: { missionId: data.missionId },
           });
         }
+        break;
+      case NOTIFICATION_TYPES.ANNOUNCEMENT:
+      case NOTIFICATION_TYPES.ADMIN_MESSAGE:
+        // Ouvrir la modal pour afficher le contenu complet
+        setSelectedNotification(notification);
         break;
       default:
         break;
@@ -218,6 +224,58 @@ export default function Notifications() {
           />
         }
       />
+
+      {/* Modal pour les annonces et messages admin */}
+      <Modal
+        visible={!!selectedNotification}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedNotification(null)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setSelectedNotification(null)}
+        >
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            {selectedNotification && (
+              <>
+                <View style={styles.modalHeader}>
+                  <View style={[
+                    styles.modalIcon,
+                    { backgroundColor: getNotificationColor(selectedNotification.type) + '20' }
+                  ]}>
+                    <Icon
+                      name={getNotificationIcon(selectedNotification.type)}
+                      size={24}
+                      color={getNotificationColor(selectedNotification.type)}
+                    />
+                  </View>
+                  <Pressable
+                    style={styles.modalClose}
+                    onPress={() => setSelectedNotification(null)}
+                    hitSlop={8}
+                  >
+                    <Icon name="x" size={20} color={theme.colors.textLight} />
+                  </Pressable>
+                </View>
+                <Text style={styles.modalTitle}>{selectedNotification.title}</Text>
+                <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+                  <Text style={styles.modalBody}>{selectedNotification.content}</Text>
+                </ScrollView>
+                <Text style={styles.modalTime}>
+                  {new Date(selectedNotification.created_at).toLocaleDateString('fr-FR', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Text>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScreenWrapper>
   );
 }
@@ -342,5 +400,56 @@ const styles = StyleSheet.create({
     fontSize: hp(1.6),
     color: theme.colors.textLight,
     textAlign: 'center',
+  },
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: wp(5),
+  },
+  modalContent: {
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.xl,
+    padding: wp(5),
+    width: '100%',
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: hp(2),
+  },
+  modalIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalClose: {
+    padding: wp(1),
+  },
+  modalTitle: {
+    fontSize: hp(2.2),
+    fontWeight: '700',
+    color: theme.colors.text,
+    marginBottom: hp(1.5),
+  },
+  modalScroll: {
+    maxHeight: hp(40),
+  },
+  modalBody: {
+    fontSize: hp(1.7),
+    color: theme.colors.text,
+    lineHeight: hp(2.6),
+  },
+  modalTime: {
+    fontSize: hp(1.3),
+    color: theme.colors.textLight,
+    marginTop: hp(2),
+    textAlign: 'right',
   },
 });

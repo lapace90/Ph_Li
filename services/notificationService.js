@@ -155,16 +155,20 @@ export const notificationService = {
 
 // Types de notifications
 export const NOTIFICATION_TYPES = {
+  // Matching
   MATCH: 'match',
+  NEW_MATCH: 'new_match', // Alias DB
   MESSAGE: 'message',
+  SUPER_LIKE: 'super_like',
+  PROFILE_VIEWED: 'profile_viewed',
+  // Candidatures
   APPLICATION_RECEIVED: 'application_received',
   APPLICATION_VIEWED: 'application_viewed',
   APPLICATION_ACCEPTED: 'application_accepted',
   APPLICATION_REJECTED: 'application_rejected',
-  SUPER_LIKE: 'super_like',
-  PROFILE_VIEWED: 'profile_viewed',
+  // Offres
+  NEW_JOB: 'new_job',
   OFFER_EXPIRED: 'offer_expired',
-  SYSTEM: 'system',
   // Missions
   MISSION_PROPOSAL: 'mission_proposal',
   PROPOSAL_ACCEPTED: 'proposal_accepted',
@@ -172,12 +176,19 @@ export const NOTIFICATION_TYPES = {
   MISSION_CONFIRMED: 'mission_confirmed',
   MISSION_REVIEW_REMINDER: 'mission_review_reminder',
   NEW_REVIEW: 'new_review',
+  // Vérification
+  BADGE_VERIFIED: 'badge_verified',
+  // Admin / Système
+  SYSTEM: 'system',
+  ANNOUNCEMENT: 'announcement',
+  ADMIN_MESSAGE: 'admin_message',
 };
 
 // Icônes par type
 export const getNotificationIcon = (type) => {
   switch (type) {
     case NOTIFICATION_TYPES.MATCH:
+    case NOTIFICATION_TYPES.NEW_MATCH:
       return 'heart';
     case NOTIFICATION_TYPES.MESSAGE:
       return 'messageCircle';
@@ -193,6 +204,8 @@ export const getNotificationIcon = (type) => {
       return 'star';
     case NOTIFICATION_TYPES.PROFILE_VIEWED:
       return 'user';
+    case NOTIFICATION_TYPES.NEW_JOB:
+      return 'briefcase';
     case NOTIFICATION_TYPES.OFFER_EXPIRED:
       return 'clock';
     case NOTIFICATION_TYPES.MISSION_PROPOSAL:
@@ -205,6 +218,12 @@ export const getNotificationIcon = (type) => {
     case NOTIFICATION_TYPES.MISSION_REVIEW_REMINDER:
     case NOTIFICATION_TYPES.NEW_REVIEW:
       return 'star';
+    case NOTIFICATION_TYPES.BADGE_VERIFIED:
+      return 'shield';
+    case NOTIFICATION_TYPES.ANNOUNCEMENT:
+      return 'megaphone';
+    case NOTIFICATION_TYPES.ADMIN_MESSAGE:
+      return 'info';
     default:
       return 'bell';
   }
@@ -258,15 +277,23 @@ export const shouldAlertForType = async (type) => {
 export const getNotificationColor = (type) => {
   switch (type) {
     case NOTIFICATION_TYPES.MATCH:
+    case NOTIFICATION_TYPES.NEW_MATCH:
       return '#FF6B6B';
     case NOTIFICATION_TYPES.MESSAGE:
       return '#4ECDC4';
     case NOTIFICATION_TYPES.APPLICATION_ACCEPTED:
+    case NOTIFICATION_TYPES.BADGE_VERIFIED:
       return '#2ECC71';
     case NOTIFICATION_TYPES.APPLICATION_REJECTED:
       return '#E74C3C';
     case NOTIFICATION_TYPES.SUPER_LIKE:
       return '#FFB800';
+    case NOTIFICATION_TYPES.NEW_JOB:
+      return '#3498DB';
+    case NOTIFICATION_TYPES.ANNOUNCEMENT:
+      return '#E67E22'; // Orange pour les annonces
+    case NOTIFICATION_TYPES.ADMIN_MESSAGE:
+      return '#9B59B6'; // Violet pour les messages admin
     default:
       return '#9B59B6';
   }
