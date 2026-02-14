@@ -19,6 +19,7 @@ import { hp, wp } from '../../helpers/common';
 import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { notificationService } from '../../services/notificationService';
 import { blockService } from '../../services/blockService';
 import { reportService, REPORT_REASON_LABELS, REPORT_CONTENT_TYPES } from '../../services/reportService';
 import { favoritesService, FAVORITE_TYPES } from '../../services/favoritesService';
@@ -81,6 +82,9 @@ export default function AnimatorConversation() {
         }
 
         setConversationInfo({ match, otherUser, mission: match.mission });
+
+        // Marquer les notifications de cette conversation comme lues
+        await notificationService.markConversationNotificationsAsRead(user.id, matchId);
       } catch (err) {
         console.error('Error loading animator conversation info:', err);
       } finally {
@@ -321,7 +325,7 @@ export default function AnimatorConversation() {
   }
 
   return (
-    <ScreenWrapper bg={theme.colors.background}>
+    <ScreenWrapper bg={theme.colors.background} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={commonStyles.flex1}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

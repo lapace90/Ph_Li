@@ -59,8 +59,8 @@ export default function CVCreate() {
         ...EMPTY_CV_STRUCTURE,
         contact_email: session?.user?.email || '',
         contact_phone: profile?.phone || '',
-        current_city: profile?.current_city || '',
-        current_region: profile?.current_region || '',
+        current_city: '',
+        current_region: '',
     });
 
     const [showExpModal, setShowExpModal] = useState(false);
@@ -253,27 +253,35 @@ export default function CVCreate() {
                     <Text style={commonStyles.hint}>Ce titre apparaîtra en en-tête de votre CV</Text>
                 </View>
 
-                <View style={commonStyles.formGroup}>
-                    <Text style={commonStyles.label}>Votre localisation actuelle *</Text>
+                <View style={[commonStyles.formGroup, { zIndex: 100 }]}>
+                    <Text style={commonStyles.label}>Votre localisation *</Text>
                     <CityAutocomplete
-                        placeholder="Rechercher votre ville..."
+                        placeholder="Rechercher une ville..."
                         onSelect={handleCitySelect}
-                        initialValue={cvData.current_city}
+                        value={cvData.current_city && cvData.current_region
+                            ? `${cvData.current_city} - ${cvData.current_region}`
+                            : ''}
                     />
-                    {cvData.current_city && (
-                        <View style={[commonStyles.card, { marginTop: hp(1) }]}>
-                            <View style={commonStyles.rowGapSmall}>
-                                <Icon name="mapPin" size={16} color={theme.colors.primary} />
-                                <Text style={{ fontFamily: theme.fonts.medium, color: theme.colors.text }}>
-                                    {cvData.current_city}
-                                </Text>
-                            </View>
-                            <Text style={[commonStyles.hint, { marginTop: hp(0.5), marginLeft: wp(6) }]}>
-                                {cvData.current_region}
+
+                    {profile?.current_city && (
+                        <Pressable
+                            style={styles.quickSelectButton}
+                            onPress={() => {
+                                setCvData(prev => ({
+                                    ...prev,
+                                    current_city: profile.current_city,
+                                    current_region: profile.current_region,
+                                }));
+                            }}
+                        >
+                            <Icon name="mapPin" size={16} color={theme.colors.primary} />
+                            <Text style={styles.quickSelectText}>
+                                Utiliser ma ville actuelle ({profile.current_city})
                             </Text>
-                        </View>
+                        </Pressable>
                     )}
-                    <Text style={commonStyles.hint}>En mode anonyme, seule la région sera visible</Text>
+
+                    <Text style={[commonStyles.hint, { marginTop: hp(1) }]}>En mode anonyme, seule la région sera visible</Text>
                 </View>
 
                 {/* Coordonnées de contact (pour version complète du CV) */}
@@ -1052,5 +1060,23 @@ const styles = StyleSheet.create({
         fontSize: hp(1.6),
         fontFamily: theme.fonts.semiBold,
         color: 'white',
+    },
+    quickSelectButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(2),
+        paddingVertical: hp(1),
+        paddingHorizontal: wp(3),
+        marginTop: hp(1),
+        borderRadius: theme.radius.md,
+        borderWidth: 1,
+        borderColor: theme.colors.primary + '30',
+        backgroundColor: theme.colors.primary + '10',
+        alignSelf: 'flex-start',
+    },
+    quickSelectText: {
+        fontSize: hp(1.5),
+        fontFamily: theme.fonts.medium,
+        color: theme.colors.primary,
     },
 });

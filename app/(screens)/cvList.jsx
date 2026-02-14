@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, Modal, ActivityIndicator, Switch, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 import { theme } from '../../constants/theme';
 import { commonStyles } from '../../constants/styles';
 import { hp, wp } from '../../helpers/common';
@@ -34,9 +35,11 @@ export default function CVList() {
     }
   };
 
-  useEffect(() => {
-    refresh();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
 
   useEffect(() => {
     loadQuotas();

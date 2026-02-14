@@ -63,7 +63,7 @@ const ROLES = [
 ];
 
 const SECTIONS = {
-  candidate: { title: 'Je cherche un emploi', color: theme.colors.primary },
+  candidate: { title: 'Je cherche un emploi', color: '#2196F3' },
   recruiter: { title: 'Je recrute', color: '#F57C00' },
   freelance: { title: 'Je suis freelance', color: '#E91E63' },
   business: { title: 'Je représente une entreprise', color: '#1565C0' },

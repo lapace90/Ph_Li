@@ -365,6 +365,27 @@ export default function SubscriptionPlans() {
   // Modal
   const [confirmModal, setConfirmModal] = useState({ visible: false, tier: null, isDowngrade: false });
 
+  const handleContact = async () => {
+    try {
+      const supported = await Linking.canOpenURL('mailto:contact@pharmalink.pro');
+      if (supported) {
+        await Linking.openURL('mailto:contact@pharmalink.pro');
+      } else {
+        Alert.alert(
+          'Email non disponible',
+          'Veuillez nous contacter à : contact@pharmalink.pro',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      Alert.alert(
+        'Email non disponible',
+        'Veuillez nous contacter à : contact@pharmalink.pro',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
   const loadData = useCallback(async () => {
     if (!session?.user?.id) return;
     try {
@@ -505,7 +526,7 @@ export default function SubscriptionPlans() {
         <View style={styles.helpSection}>
           <Icon name="messageCircle" size={20} color={theme.colors.textLight} />
           <Text style={styles.helpText}>
-            Besoin d'aide ? <Text style={styles.helpLink} onPress={() => Linking.openURL('mailto:contact@pharmalink.pro')}>Contactez-nous</Text>
+            Besoin d'aide ? <Text style={styles.helpLink} onPress={handleContact}>Contactez-nous</Text>
           </Text>
         </View>
 

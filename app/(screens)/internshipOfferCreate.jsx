@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform, StyleSheet, Modal, ActivityIndicator, Switch } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { theme } from '../../constants/theme';
 import { commonStyles } from '../../constants/styles';
 import { hp, wp } from '../../helpers/common';
 import { useAuth } from '../../contexts/AuthContext';
-import { useInternshipOffers } from '../../hooks/useInternshipOffers';
+import { useInternshipOffers, useInternshipOffer } from '../../hooks/useInternshipOffers';
 import { usePharmacyDetails } from '../../hooks/usePharmacyDetails';
 import {
   INTERNSHIP_TYPES,
@@ -44,8 +44,12 @@ const STEPS = [
 
 export default function InternshipOfferCreate() {
   const router = useRouter();
+  const { id } = useLocalSearchParams();
+  const isEditMode = !!id;
+
   const { session, user, profile } = useAuth();
-  const { createOffer } = useInternshipOffers(session?.user?.id);
+  const { createOffer, updateOffer } = useInternshipOffers(session?.user?.id);
+  const { offer: existingOffer, loading: offerLoading } = useInternshipOffer(id);
   const { pharmacies, loading: pharmaciesLoading } = usePharmacyDetails(session?.user?.id);
 
   // Vérification RPPS requise
@@ -76,6 +80,44 @@ export default function InternshipOfferCreate() {
     latitude: profile?.current_latitude || null,
     longitude: profile?.current_longitude || null,
   });
+
+  // Load existing offer data in edit mode
+  useEffect(() => {
+    if (isEditMode && existingOffer && !offerLoading) {
+      setFormData({
+        title: existingOffer.title || '',
+        description: existingOffer.description || '',
+        type: existingOffer.type || null,
+        duration_months: existingOffer.duration_months || null,
+        remuneration: existingOffer.remuneration || null,
+        benefits: existingOffer.benefits || [],
+        required_level: existingOffer.required_level || null,
+        start_date: existingOffer.start_date || null,
+        latitude: existingOffer.latitude || null,
+        longitude: existingOffer.longitude || null,
+        city: existingOffer.city || '',
+        postal_code: existingOffer.postal_code || '',
+        region: existingOffer.region || '',
+        department: existingOffer.department || '',
+        status: existingOffer.status || 'active',
+        pharmacy_name: existingOffer.pharmacy_name || '',
+        pharmacy_siret: existingOffer.pharmacy_siret || '',
+        pharmacy_siret_verified: existingOffer.pharmacy_siret_verified || false,
+      });
+      setDiscreteMode(existingOffer.discrete_mode || false);
+      setPublishAsActive(existingOffer.status === 'active');
+    }
+  }, [isEditMode, existingOffer, offerLoading]);
+
+  // Load pharmacy when available
+  useEffect(() => {
+    if (isEditMode && existingOffer?.pharmacy_id && pharmacies?.length > 0 && !selectedPharmacy) {
+      const pharmacy = pharmacies.find(p => p.id === existingOffer.pharmacy_id);
+      if (pharmacy) {
+        setSelectedPharmacy(pharmacy);
+      }
+    }
+  }, [isEditMode, existingOffer?.pharmacy_id, pharmacies, selectedPharmacy]);
 
   const updateField = (field, value) => {
     setFormData(prev => {
@@ -180,7 +222,7 @@ export default function InternshipOfferCreate() {
     setLoading(true);
     try {
       const status = publishAsActive ? 'active' : 'draft';
-      const { error } = await createOffer({
+      const dataToSave = {
         ...formData,
         pharmacy_id: selectedPharmacy?.id || null,
         pharmacy_name: discreteMode ? null : (formData.pharmacy_name || null),
@@ -188,10 +230,18 @@ export default function InternshipOfferCreate() {
         pharmacy_siret_verified: formData.pharmacy_siret_verified || false,
         discrete_mode: discreteMode,
         status,
-      });
+      };
+
+      let error;
+      if (isEditMode) {
+        ({ error } = await updateOffer(id, dataToSave));
+      } else {
+        ({ error } = await createOffer(dataToSave));
+      }
+
       if (error) throw error;
       Alert.alert(
-        publishAsActive ? 'Annonce publiée !' : 'Brouillon enregistré',
+        isEditMode ? 'Modifications enregistrées' : (publishAsActive ? 'Annonce publiée !' : 'Brouillon enregistré'),
         publishAsActive
           ? `Votre offre de ${formData.type} est maintenant visible.`
           : 'Vous pourrez la publier plus tard.',
@@ -218,21 +268,40 @@ export default function InternshipOfferCreate() {
     }));
   };
 
+  // Show loading while fetching existing offer in edit mode
+  if (isEditMode && offerLoading) {
+    return (
+      <ScreenWrapper bg={theme.colors.background}>
+        <View style={[commonStyles.flex1, commonStyles.centered]}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={[commonStyles.hint, { marginTop: hp(2) }]}>Chargement de l'annonce...</Text>
+        </View>
+      </ScreenWrapper>
+    );
+  }
+
   return (
     <ScreenWrapper bg={theme.colors.background}>
       <KeyboardAvoidingView style={commonStyles.flex1} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {/* Header */}
         <View style={commonStyles.headerNoBorder}>
           <Pressable style={commonStyles.headerButton} onPress={handleBack}>
-            <Icon name={currentStep === 0 ? "x" : "arrowLeft"} size={24} color={theme.colors.text} />
+            <Icon name={(isEditMode || currentStep > 0) ? "arrowLeft" : "x"} size={24} color={theme.colors.text} />
           </Pressable>
           <View style={styles.headerCenter}>
-            <Text style={commonStyles.headerTitle}>{STEPS[currentStep].title}</Text>
-            <Text style={commonStyles.hint}>{STEPS[currentStep].subtitle}</Text>
+            <Text style={commonStyles.headerTitle}>
+              {isEditMode ? 'Modifier' : STEPS[currentStep].title}
+            </Text>
+            <Text style={commonStyles.hint}>
+              {isEditMode ? (existingOffer ? `✅ ${existingOffer.title}` : '⏳ Chargement...') : STEPS[currentStep].subtitle}
+            </Text>
           </View>
-          <Pressable style={commonStyles.headerButton} onPress={handleCancel}>
-            <Icon name="x" size={24} color={theme.colors.textLight} />
-          </Pressable>
+          {!isEditMode && (
+            <Pressable style={commonStyles.headerButton} onPress={handleCancel}>
+              <Icon name="x" size={24} color={theme.colors.textLight} />
+            </Pressable>
+          )}
+          {isEditMode && <View style={commonStyles.headerButton} />}
         </View>
 
         {/* Pharmacy Selector Modal */}

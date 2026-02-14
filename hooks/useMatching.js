@@ -176,7 +176,7 @@ export const useMatches = () => {
 
     try {
       // Déterminer si l'utilisateur est candidat ou employeur
-      const userType = profile?.users?.user_type;
+      const userType = user?.user_type;
       let data;
 
       if (userType === 'titulaire') {
@@ -192,7 +192,7 @@ export const useMatches = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, profile]);
+  }, [user?.id]);
 
   useEffect(() => {
     fetchMatches();
@@ -323,6 +323,125 @@ export const useSwipeCandidates = (jobOfferId) => {
   return {
     candidates,
     jobOffer,
+    loading,
+    lastMatch,
+    swipeRight,
+    swipeLeft,
+    superLike,
+    clearLastMatch,
+    refresh: fetchCandidates,
+    superLikesRemaining: superLikeQuota.unlimited ? null : superLikeQuota.remaining,
+    superLikeQuota,
+  };
+};
+
+/**
+ * Hook générique pour le swipe de candidats (emploi ou stage/alternance)
+ */
+export const useSwipeCandidatesForOffer = (offerId, offerType = 'job_offer') => {
+  const { user } = useAuth();
+  const [candidates, setCandidates] = useState([]);
+  const [offer, setOffer] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [lastMatch, setLastMatch] = useState(null);
+  const [superLikeQuota, setSuperLikeQuota] = useState({ remaining: 3, max: 3, used: 0, allowed: true, unlimited: false });
+
+  const fetchCandidates = useCallback(async () => {
+    if (!user?.id || !offerId) return;
+
+    setLoading(true);
+    try {
+      // 1. Charger l'offre pour calculer le score
+      const offerTable = offerType === 'job_offer' ? 'job_offers' : 'internship_offers';
+      const { data: offerData } = await import('../lib/supabase').then(m =>
+        m.supabase.from(offerTable).select('*').eq('id', offerId).single()
+      );
+      setOffer(offerData);
+
+      // 2. Charger les candidats (RPC fonctionne pour les deux types)
+      const data = await matchingService.getSwipeableCandidates(user.id, offerId);
+
+      // 3. Calculer le score de compatibilité pour chaque candidat
+      const candidatesWithScore = (data || []).map(candidate => ({
+        ...candidate,
+        matchScore: offerData ? matchingService.calculateMatchScore(candidate, offerData) : null,
+      }));
+
+      setCandidates(candidatesWithScore);
+    } catch (error) {
+      console.error('Error fetching swipeable candidates:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, offerId, offerType]);
+
+  // Charger le quota de super likes
+  useEffect(() => {
+    const loadQuota = async () => {
+      if (!user?.id) return;
+      try {
+        const quota = await matchingService.getSuperLikeQuota(user.id);
+        setSuperLikeQuota(quota);
+      } catch (err) {
+        console.error('Error loading super like quota:', err);
+      }
+    };
+    loadQuota();
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchCandidates();
+  }, [fetchCandidates]);
+
+  const swipe = useCallback(async (candidateId, action) => {
+    if (!user?.id || !offerId) return { success: false };
+
+    try {
+      const result = await matchingService.recordEmployerSwipe(
+        user.id,
+        candidateId,
+        offerId,
+        action,
+        offerType
+      );
+
+      // Retirer le candidat de la liste
+      setCandidates(prev => prev.filter(c => c.id !== candidateId));
+
+      // Si match, l'afficher
+      if (result.match?.status === 'matched') {
+        setLastMatch(result.match);
+      }
+
+      if (action === 'superlike') {
+        setSuperLikeQuota(prev => ({
+          ...prev,
+          used: prev.used + 1,
+          remaining: prev.unlimited ? prev.remaining : Math.max(0, prev.remaining - 1),
+          allowed: prev.unlimited || prev.used + 1 < prev.max,
+        }));
+      }
+
+      return { success: true, match: result.match };
+    } catch (error) {
+      console.error('Error swiping candidate:', error);
+      return { success: false, error: error.message };
+    }
+  }, [user?.id, offerId, offerType]);
+
+  const swipeRight = useCallback((candidateId) => swipe(candidateId, 'like'), [swipe]);
+  const swipeLeft = useCallback((candidateId) => swipe(candidateId, 'dislike'), [swipe]);
+  const superLike = useCallback(async (candidateId) => {
+    if (!superLikeQuota.allowed && !superLikeQuota.unlimited) {
+      return { success: false, error: 'quota_exceeded', quotaExceeded: true };
+    }
+    return swipe(candidateId, 'superlike');
+  }, [swipe, superLikeQuota]);
+  const clearLastMatch = useCallback(() => setLastMatch(null), []);
+
+  return {
+    candidates,
+    offer,
     loading,
     lastMatch,
     swipeRight,

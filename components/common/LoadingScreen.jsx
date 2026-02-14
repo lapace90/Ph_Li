@@ -28,9 +28,15 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.extraBold,
     color: theme.colors.primary,
     marginTop: hp(2),
+    paddingHorizontal: wp(5),
+    textAlign: 'center',
+    width: '100%',
   },
   message: {
     fontSize: hp(1.6),
     color: theme.colors.textLight,
+    paddingHorizontal: wp(5),
+    textAlign: 'center',
+    width: '100%',
   },
 });

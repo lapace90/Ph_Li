@@ -93,7 +93,7 @@ export default function JobOfferDetail() {
           <Icon name="arrowLeft" size={24} color={theme.colors.text} />
         </Pressable>
         <Text style={commonStyles.headerTitle}>Détail annonce</Text>
-        <Pressable style={commonStyles.headerButton} onPress={() => router.push({ pathname: '/(screens)/jobOfferEdit', params: { id } })}>
+        <Pressable style={commonStyles.headerButton} onPress={() => router.push(`/(screens)/jobOfferCreate?id=${id}`)}>
           <Icon name="edit" size={20} color={theme.colors.text} />
         </Pressable>
       </View>

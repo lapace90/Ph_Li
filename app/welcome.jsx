@@ -111,11 +111,13 @@ const styles = StyleSheet.create({
     fontSize: hp(4),
     fontFamily: theme.fonts.extraBold,
     color: theme.colors.primary,
+    flexShrink: 1,
   },
   titleLink: {
     fontSize: hp(4),
     fontFamily: theme.fonts.bold,
     color: theme.colors.secondary,
+    flexShrink: 1,
     // fontStyle: 'italic',
   },
   subtitle: {
@@ -124,11 +126,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: hp(1),
     paddingHorizontal: wp(4),
-    lineHeight: hp(2),
+    lineHeight: hp(2.4),
     fontFamily: theme.fonts.semiBold,
+    flexShrink: 1,
   },
   features: {
-    gap: hp(2),
+    gap: hp(0.5),
+    marginVertical: hp(2.5),
   },
   featureItem: {
     flexDirection: 'row',
@@ -157,11 +161,14 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.semiBold,
     color: theme.colors.text,
     marginBottom: hp(0.3),
+    flexShrink: 1,
   },
   featureText: {
     fontSize: hp(1.6),
     color: theme.colors.textLight,
     lineHeight: hp(2.2),
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
   footer: {
     gap: hp(2),
@@ -174,10 +181,12 @@ const styles = StyleSheet.create({
   loginText: {
     fontSize: hp(1.8),
     color: theme.colors.textLight,
+    flexShrink: 1,
   },
   loginLink: {
     fontSize: hp(1.8),
     color: theme.colors.primary,
     fontFamily: theme.fonts.semiBold,
+    flexShrink: 1,
   },
 });

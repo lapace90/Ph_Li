@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform, StyleSheet, Modal, ActivityIndicator, Switch } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { theme } from '../../constants/theme';
 import { commonStyles } from '../../constants/styles';
 import { hp, wp } from '../../helpers/common';
 import { useAuth } from '../../contexts/AuthContext';
-import { useJobOffers } from '../../hooks/useJobOffers';
+import { useJobOffers, useJobOffer } from '../../hooks/useJobOffers';
 import { usePharmacyDetails } from '../../hooks/usePharmacyDetails';
 import {
   POSITION_TYPES,
-  EMPLOYEE_CONTRACT_TYPES,
+  CONTRACT_TYPES,
   SALARY_RANGES,
   EXPERIENCE_LEVELS,
   DIPLOMA_OPTIONS,
@@ -42,9 +42,30 @@ const STEPS = [
 
 export default function JobOfferCreate() {
   const router = useRouter();
+  const { id } = useLocalSearchParams(); // Get id for edit mode
+  const isEditMode = !!id;
+
   const { session, user, profile } = useAuth();
-  const { createOffer } = useJobOffers(session?.user?.id);
+  const { createOffer, updateOffer } = useJobOffers(session?.user?.id);
+  const { offer: existingOffer, loading: offerLoading } = useJobOffer(id);
   const { pharmacies, loading: pharmaciesLoading } = usePharmacyDetails(session?.user?.id);
+
+  // Debug logs
+  console.log('🔍 JobOfferCreate - Debug:', {
+    id,
+    idType: typeof id,
+    isEditMode,
+    hasExistingOffer: !!existingOffer,
+    offerLoading,
+    existingOfferTitle: existingOffer?.title
+  });
+
+  // Debug on mount in edit mode
+  useEffect(() => {
+    if (id) {
+      console.log('⚠️ Edit mode detected with ID:', id);
+    }
+  }, []);
 
   // Vérification RPPS requise
   const canPublish = DEV_BYPASS_RPPS_CHECK || (user?.user_type === 'titulaire' && user?.rpps_verified);
@@ -74,6 +95,62 @@ export default function JobOfferCreate() {
     latitude: profile?.current_latitude || null,
     longitude: profile?.current_longitude || null,
   });
+
+  // Load existing offer data in edit mode
+  useEffect(() => {
+    console.log('📝 useEffect - Load existing offer:', {
+      isEditMode,
+      hasExistingOffer: !!existingOffer,
+      offerLoading,
+      existingOfferData: existingOffer ? {
+        id: existingOffer.id,
+        title: existingOffer.title,
+        contract_type: existingOffer.contract_type
+      } : null
+    });
+
+    if (isEditMode && existingOffer && !offerLoading) {
+      console.log('✅ Loading existing offer data into form');
+      setFormData({
+        title: existingOffer.title || '',
+        description: existingOffer.description || '',
+        contract_type: existingOffer.contract_type || null,
+        position_type: existingOffer.position_type || null,
+        salary_range: existingOffer.salary_range || null,
+        benefits: existingOffer.benefits || [],
+        latitude: existingOffer.latitude || null,
+        longitude: existingOffer.longitude || null,
+        address: existingOffer.address || '',
+        city: existingOffer.city || '',
+        postal_code: existingOffer.postal_code || '',
+        region: existingOffer.region || '',
+        department: existingOffer.department || '',
+        required_experience: existingOffer.required_experience || null,
+        required_diplomas: existingOffer.required_diplomas || [],
+        start_date: existingOffer.start_date || null,
+        status: existingOffer.status || 'active',
+        pharmacy_name: existingOffer.pharmacy_name || '',
+        pharmacy_siret: existingOffer.pharmacy_siret || '',
+        pharmacy_siret_verified: existingOffer.pharmacy_siret_verified || false,
+      });
+      setDiscreteMode(existingOffer.discrete_mode || false);
+      setPublishAsActive(existingOffer.status === 'active');
+    }
+  }, [isEditMode, existingOffer, offerLoading]);
+
+  // Separate useEffect to handle pharmacy selection when pharmacies load
+  useEffect(() => {
+    if (isEditMode && existingOffer?.pharmacy_id && pharmacies?.length > 0 && !selectedPharmacy) {
+      console.log('🏥 Looking for pharmacy:', existingOffer.pharmacy_id, 'in', pharmacies.length, 'pharmacies');
+      const pharmacy = pharmacies.find(p => p.id === existingOffer.pharmacy_id);
+      if (pharmacy) {
+        console.log('✅ Found pharmacy:', pharmacy.name);
+        setSelectedPharmacy(pharmacy);
+      } else {
+        console.log('❌ Pharmacy not found');
+      }
+    }
+  }, [isEditMode, existingOffer?.pharmacy_id, pharmacies, selectedPharmacy]);
 
   const updateField = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
@@ -157,7 +234,9 @@ export default function JobOfferCreate() {
   const handleCancel = () => {
     Alert.alert(
       'Annuler',
-      'Voulez-vous vraiment quitter ? Les informations saisies seront perdues.',
+      isEditMode
+        ? 'Voulez-vous vraiment quitter ? Les modifications ne seront pas enregistrées.'
+        : 'Voulez-vous vraiment quitter ? Les informations saisies seront perdues.',
       [
         { text: 'Non', style: 'cancel' },
         { text: 'Oui, quitter', style: 'destructive', onPress: () => router.back() },
@@ -169,7 +248,7 @@ export default function JobOfferCreate() {
     setLoading(true);
     try {
       const status = publishAsActive ? 'active' : 'draft';
-      const { error } = await createOffer({
+      const dataToSave = {
         ...formData,
         required_diplomas: formData.required_diplomas?.length > 0 ? formData.required_diplomas : null,
         pharmacy_id: selectedPharmacy?.id || null,
@@ -178,19 +257,40 @@ export default function JobOfferCreate() {
         pharmacy_siret_verified: formData.pharmacy_siret_verified || false,
         discrete_mode: discreteMode,
         status,
-      });
+      };
+
+      let error;
+      if (isEditMode) {
+        ({ error } = await updateOffer(id, dataToSave));
+      } else {
+        ({ error } = await createOffer(dataToSave));
+      }
+
       if (error) throw error;
+
       Alert.alert(
-        publishAsActive ? 'Annonce publiée !' : 'Brouillon enregistré',
-        publishAsActive ? 'Votre annonce est maintenant visible.' : 'Vous pourrez la publier plus tard.',
+        isEditMode ? 'Modifications enregistrées' : (publishAsActive ? 'Annonce publiée !' : 'Brouillon enregistré'),
+        isEditMode ? 'Votre annonce a été mise à jour.' : (publishAsActive ? 'Votre annonce est maintenant visible.' : 'Vous pourrez la publier plus tard.'),
         [{ text: 'OK', onPress: () => router.replace('/(screens)/recruiterDashboard') }]
       );
     } catch (error) {
-      Alert.alert('Erreur', error.message || 'Impossible de publier');
+      Alert.alert('Erreur', error.message || (isEditMode ? 'Impossible de modifier l\'annonce' : 'Impossible de publier'));
     } finally {
       setLoading(false);
     }
   };
+
+  // Show loading while fetching existing offer in edit mode
+  if (isEditMode && offerLoading) {
+    return (
+      <ScreenWrapper bg={theme.colors.background}>
+        <View style={[commonStyles.flex1, commonStyles.centered]}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={[commonStyles.hint, { marginTop: hp(2) }]}>Chargement de l'annonce...</Text>
+        </View>
+      </ScreenWrapper>
+    );
+  }
 
   return (
     <ScreenWrapper bg={theme.colors.background}>
@@ -198,15 +298,22 @@ export default function JobOfferCreate() {
         {/* Header */}
         <View style={commonStyles.headerNoBorder}>
           <Pressable style={commonStyles.headerButton} onPress={handleBack}>
-            <Icon name={currentStep === 0 ? "x" : "arrowLeft"} size={24} color={theme.colors.text} />
+            <Icon name={(isEditMode || currentStep > 0) ? "arrowLeft" : "x"} size={24} color={theme.colors.text} />
           </Pressable>
           <View style={styles.headerCenter}>
-            <Text style={commonStyles.headerTitle}>{STEPS[currentStep].title}</Text>
-            <Text style={commonStyles.hint}>{STEPS[currentStep].subtitle}</Text>
+            <Text style={commonStyles.headerTitle}>
+              {isEditMode ? 'Modifier' : STEPS[currentStep].title}
+            </Text>
+            <Text style={commonStyles.hint}>
+              {isEditMode ? (existingOffer ? `✅ ${existingOffer.title}` : '⏳ Chargement...') : STEPS[currentStep].subtitle}
+            </Text>
           </View>
-          <Pressable style={commonStyles.headerButton} onPress={handleCancel}>
-            <Icon name="x" size={24} color={theme.colors.textLight} />
-          </Pressable>
+          {!isEditMode && (
+            <Pressable style={commonStyles.headerButton} onPress={handleCancel}>
+              <Icon name="x" size={24} color={theme.colors.textLight} />
+            </Pressable>
+          )}
+          {isEditMode && <View style={commonStyles.headerButton} />}
         </View>
 
         {/* Pharmacy Selector Modal */}
@@ -256,7 +363,11 @@ export default function JobOfferCreate() {
         {/* Footer */}
         <View style={commonStyles.footer}>
           <Button
-            title={currentStep === STEPS.length - 1 ? (publishAsActive ? 'Publier l\'annonce' : 'Enregistrer le brouillon') : 'Continuer'}
+            title={
+              currentStep === STEPS.length - 1
+                ? (isEditMode ? 'Enregistrer les modifications' : (publishAsActive ? 'Publier l\'annonce' : 'Enregistrer le brouillon'))
+                : 'Continuer'
+            }
             onPress={handleNext}
             loading={loading}
             disabled={!canGoNext()}
@@ -324,7 +435,7 @@ const StepBasics = ({ formData, updateField }) => (
     <View style={commonStyles.formGroup}>
       <Text style={commonStyles.label}>Type de contrat *</Text>
       <View style={commonStyles.chipsContainer}>
-        {EMPLOYEE_CONTRACT_TYPES.map((type) => (
+        {CONTRACT_TYPES.map((type) => (
           <Pressable
             key={type.value}
             style={[commonStyles.chip, formData.contract_type === type.value && commonStyles.chipActive]}

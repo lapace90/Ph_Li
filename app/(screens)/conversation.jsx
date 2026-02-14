@@ -20,6 +20,7 @@ import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMessages } from '../../hooks/useMessaging';
 import { messagingService } from '../../services/messagingService';
+import { notificationService } from '../../services/notificationService';
 import { blockService } from '../../services/blockService';
 import { reportService, REPORT_REASON_LABELS, REPORT_CONTENT_TYPES } from '../../services/reportService';
 import { favoritesService, FAVORITE_TYPES } from '../../services/favoritesService';
@@ -55,6 +56,9 @@ export default function Conversation() {
       try {
         const info = await messagingService.getConversationByMatchId(matchId, user.id);
         setConversationInfo(info);
+
+        // Marquer les notifications de cette conversation comme lues
+        await notificationService.markConversationNotificationsAsRead(user.id, matchId);
 
         // Charger le statut de partage CV si candidat
         if (isCandidate) {
@@ -304,7 +308,7 @@ export default function Conversation() {
   }
 
   return (
-    <ScreenWrapper bg={theme.colors.background}>
+    <ScreenWrapper bg={theme.colors.background} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={commonStyles.flex1}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

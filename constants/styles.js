@@ -525,14 +525,16 @@ export const commonStyles = StyleSheet.create({
     // ============================================
     footer: {
         paddingHorizontal: wp(5),
-        paddingVertical: hp(2),
+        paddingTop: hp(2),
+        paddingBottom: hp(4),
         borderTopWidth: 1,
         borderTopColor: theme.colors.border,
         backgroundColor: theme.colors.background,
     },
     footerNoBorder: {
         paddingHorizontal: wp(5),
-        paddingVertical: hp(2),
+        paddingTop: hp(2),
+        paddingBottom: hp(4),
         backgroundColor: theme.colors.background,
     },
 
@@ -1337,9 +1339,9 @@ export const commonStyles = StyleSheet.create({
         flex: 1,
         backgroundColor: theme.colors.card,
         borderRadius: theme.radius.lg,
-        padding: wp(4),
+        padding: wp(3),
         alignItems: 'center',
-        gap: hp(1),
+        gap: hp(0.8),
     },
     homeQuickActionIcon: {
         width: 44,

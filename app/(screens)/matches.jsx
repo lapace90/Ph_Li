@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { theme } from '../../constants/theme';
 import { commonStyles } from '../../constants/styles';
 import { hp, wp } from '../../helpers/common';
+import { useAuth } from '../../contexts/AuthContext';
 import { useMatches } from '../../hooks/useMatching';
 import { getContractTypeLabel, getContractColor } from '../../constants/jobOptions';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
@@ -13,6 +14,7 @@ import Icon from '../../assets/icons/Icon';
 
 export default function MatchesScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const { matches, loading, error, stats, refresh } = useMatches();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -129,24 +131,53 @@ export default function MatchesScreen() {
     );
   }, [handleMatchPress]);
 
-  const renderEmptyComponent = () => (
-    <View style={styles.emptyContainer}>
-      <View style={styles.emptyIcon}>
-        <Icon name="heart" size={50} color={theme.colors.primary} />
+  const getEmptyConfig = () => {
+    const userType = user?.user_type;
+    if (userType === 'titulaire') {
+      return {
+        text: 'Commencez à swiper sur les candidats qui vous intéressent pour créer des matchs !',
+        buttonLabel: 'Trouver des candidats',
+      };
+    }
+    if (userType === 'laboratoire') {
+      return {
+        text: 'Commencez à swiper sur les animateurs qui vous intéressent pour créer des matchs !',
+        buttonLabel: 'Recruter des animateurs',
+      };
+    }
+    if (userType === 'animateur') {
+      return {
+        text: 'Commencez à swiper sur les missions qui vous intéressent pour créer des matchs !',
+        buttonLabel: 'Découvrir des missions',
+      };
+    }
+    return {
+      text: 'Commencez à swiper sur les offres qui vous intéressent pour créer des matchs !',
+      buttonLabel: 'Découvrir des offres',
+    };
+  };
+
+  const renderEmptyComponent = () => {
+    const config = getEmptyConfig();
+    return (
+      <View style={styles.emptyContainer}>
+        <View style={styles.emptyIcon}>
+          <Icon name="heart" size={50} color={theme.colors.primary} />
+        </View>
+        <Text style={styles.emptyTitle}>Aucun match pour le moment</Text>
+        <Text style={styles.emptyText}>
+          {config.text}
+        </Text>
+        <Pressable
+          style={styles.discoverButton}
+          onPress={() => router.push('/(tabs)/matching')}
+        >
+          <Icon name="search" size={18} color="white" />
+          <Text style={styles.discoverButtonText}>{config.buttonLabel}</Text>
+        </Pressable>
       </View>
-      <Text style={styles.emptyTitle}>Aucun match pour le moment</Text>
-      <Text style={styles.emptyText}>
-        Commencez à swiper sur les offres qui vous intéressent pour créer des matchs !
-      </Text>
-      <Pressable 
-        style={styles.discoverButton}
-        onPress={() => router.push('/(tabs)/matching')}
-      >
-        <Icon name="search" size={18} color="white" />
-        <Text style={styles.discoverButtonText}>Découvrir des offres</Text>
-      </Pressable>
-    </View>
-  );
+    );
+  };
 
   const renderHeader = () => (
     <View style={styles.statsContainer}>

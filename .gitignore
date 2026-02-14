@@ -1,5 +1,5 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-.env
+
 # dependencies
 node_modules/
 
@@ -31,10 +31,7 @@ yarn-error.*
 *.pem
 
 # local env files
-.env*.local
-.env.production
-.env.staging
-.env.development
+.env*
 
 # typescript
 *.tsbuildinfo
@@ -60,3 +57,5 @@ supabase/migrations/
 .claude/settings.local.json
 
 docs/
+supabase/bd.sql
+supabase/cleanup-user.sql

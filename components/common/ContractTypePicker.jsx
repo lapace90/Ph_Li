@@ -3,23 +3,20 @@ import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
 
 const CONTRACT_TYPES = {
-  employee: [
+  all: [
     { value: 'CDI', label: 'CDI' },
     { value: 'CDD', label: 'CDD' },
+    { value: 'stage', label: 'Stage' },
+    { value: 'alternance', label: 'Alternance' },
     { value: 'vacation', label: 'Vacation' },
     { value: 'remplacement', label: 'Remplacement' },
     { value: 'temps-plein', label: 'Temps plein' },
     { value: 'temps-partiel', label: 'Temps partiel' },
   ],
-  student: [
-    { value: 'stage', label: 'Stage' },
-    { value: 'alternance', label: 'Alternance' },
-  ],
 };
 
 const ContractTypePicker = ({ value = [], onChange, userType }) => {
-  const isStudent = userType === 'etudiant';
-  const options = isStudent ? CONTRACT_TYPES.student : CONTRACT_TYPES.employee;
+  const options = CONTRACT_TYPES.all;
 
   const toggleType = (type) => {
     if (value.includes(type)) {

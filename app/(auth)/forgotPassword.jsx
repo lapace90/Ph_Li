@@ -28,9 +28,7 @@ const ForgotPassword = () => {
 
     setLoading(true);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'pharmalink://reset-password',
-    });
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
 
     setLoading(false);
 
@@ -54,7 +52,7 @@ const ForgotPassword = () => {
 
           <View style={styles.successContainer}>
             <View style={styles.iconContainer}>
-              <Icon name="mail" size={48} color={theme.colors.primary} />
+              <Icon name="mail" size={48} color={theme.colors.success} />
             </View>
             <Text style={styles.successTitle}>Email envoyé !</Text>
             <Text style={styles.successText}>
@@ -122,6 +120,7 @@ const styles = StyleSheet.create({
     gap: hp(3),
     paddingHorizontal: wp(5),
     paddingTop: hp(8),
+    paddingBottom: hp(4),
   },
   header: {
     gap: hp(1.5),
@@ -165,7 +164,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: theme.colors.primaryLight,
+    backgroundColor: theme.colors.success + '15',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: hp(1),

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform, Switch, StyleSheet, Modal, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { theme } from '../../constants/theme';
 import { commonStyles } from '../../constants/styles';
 import { hp, wp } from '../../helpers/common';
 import { useAuth } from '../../contexts/AuthContext';
-import { useMyListings } from '../../hooks/usePharmacyListings';
+import { useMyListings, usePharmacyListing } from '../../hooks/usePharmacyListings';
 import { usePharmacyDetails } from '../../hooks/usePharmacyDetails';
 import { storageService } from '../../services/storageService';
 import {
@@ -37,8 +37,12 @@ const STEPS = [
 
 export default function ListingCreate() {
   const router = useRouter();
+  const { id } = useLocalSearchParams();
+  const isEditMode = !!id;
+
   const { session, user, profile } = useAuth();
-  const { createListing } = useMyListings(session?.user?.id);
+  const { createListing, updateListing } = useMyListings(session?.user?.id);
+  const { listing: existingListing, loading: listingLoading } = usePharmacyListing(id);
   const { pharmacies, loading: pharmaciesLoading } = usePharmacyDetails(session?.user?.id);
 
   // Vérification RPPS requise
@@ -69,6 +73,46 @@ export default function ListingCreate() {
     latitude: profile?.current_latitude || null,
     longitude: profile?.current_longitude || null,
   });
+
+  // Load existing listing data in edit mode
+  useEffect(() => {
+    if (isEditMode && existingListing && !listingLoading) {
+      setFormData({
+        type: existingListing.type || null,
+        title: existingListing.title || '',
+        description: existingListing.description || '',
+        price: existingListing.price || null,
+        negotiable: existingListing.negotiable || false,
+        turnover: existingListing.turnover || null,
+        net_income: existingListing.net_income || null,
+        num_employees: existingListing.num_employees || null,
+        city: existingListing.city || '',
+        postal_code: existingListing.postal_code || '',
+        region: existingListing.region || '',
+        department: existingListing.department || '',
+        latitude: existingListing.latitude || null,
+        longitude: existingListing.longitude || null,
+        photos: existingListing.photos || [],
+        anonymized: existingListing.anonymized || false,
+        pharmacy_nearby: existingListing.pharmacy_nearby || [],
+        status: existingListing.status || 'active',
+        pharmacy_name: existingListing.pharmacy_name || '',
+        pharmacy_siret: existingListing.pharmacy_siret || '',
+        pharmacy_siret_verified: existingListing.pharmacy_siret_verified || false,
+      });
+      setPublishAsActive(existingListing.status === 'active');
+    }
+  }, [isEditMode, existingListing, listingLoading]);
+
+  // Load pharmacy when available
+  useEffect(() => {
+    if (isEditMode && existingListing?.pharmacy_id && pharmacies?.length > 0 && !selectedPharmacy) {
+      const pharmacy = pharmacies.find(p => p.id === existingListing.pharmacy_id);
+      if (pharmacy) {
+        setSelectedPharmacy(pharmacy);
+      }
+    }
+  }, [isEditMode, existingListing?.pharmacy_id, pharmacies, selectedPharmacy]);
 
   const updateField = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
@@ -226,12 +270,18 @@ export default function ListingCreate() {
         status: publishAsActive ? 'active' : 'draft',
       };
 
-      const { error } = await createListing(listingData);
+      let error;
+      if (isEditMode) {
+        ({ error } = await updateListing(id, listingData));
+      } else {
+        ({ error } = await createListing(listingData));
+      }
+
       if (error) throw error;
 
       Alert.alert(
-        publishAsActive ? 'Annonce publiée !' : 'Brouillon enregistré',
-        publishAsActive ? 'Votre annonce est maintenant visible.' : 'Vous pourrez la publier plus tard.',
+        isEditMode ? 'Modifications enregistrées' : (publishAsActive ? 'Annonce publiée !' : 'Brouillon enregistré'),
+        isEditMode ? 'Votre annonce a été mise à jour.' : (publishAsActive ? 'Votre annonce est maintenant visible.' : 'Vous pourrez la publier plus tard.'),
         [{ text: 'OK', onPress: () => router.replace('/(tabs)/search') }]
       );
     } catch (error) {
@@ -241,21 +291,40 @@ export default function ListingCreate() {
     }
   };
 
+  // Show loading while fetching existing listing in edit mode
+  if (isEditMode && listingLoading) {
+    return (
+      <ScreenWrapper bg={theme.colors.background}>
+        <View style={[commonStyles.flex1, commonStyles.centered]}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={[commonStyles.hint, { marginTop: hp(2) }]}>Chargement de l'annonce...</Text>
+        </View>
+      </ScreenWrapper>
+    );
+  }
+
   return (
     <ScreenWrapper bg={theme.colors.background}>
       <KeyboardAvoidingView style={commonStyles.flex1} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {/* Header */}
         <View style={commonStyles.headerNoBorder}>
           <Pressable style={commonStyles.headerButton} onPress={handleBack}>
-            <Icon name="arrowLeft" size={24} color={theme.colors.text} />
+            <Icon name={(isEditMode || currentStep > 0) ? "arrowLeft" : "x"} size={24} color={theme.colors.text} />
           </Pressable>
           <View style={styles.headerCenter}>
-            <Text style={commonStyles.headerTitle}>{STEPS[currentStep].title}</Text>
-            <Text style={commonStyles.hint}>{STEPS[currentStep].subtitle}</Text>
+            <Text style={commonStyles.headerTitle}>
+              {isEditMode ? 'Modifier' : STEPS[currentStep].title}
+            </Text>
+            <Text style={commonStyles.hint}>
+              {isEditMode ? (existingListing ? `✅ ${existingListing.title}` : '⏳ Chargement...') : STEPS[currentStep].subtitle}
+            </Text>
           </View>
-          <Pressable style={commonStyles.headerButton} onPress={handleCancel}>
-            <Icon name="x" size={24} color={theme.colors.textLight} />
-          </Pressable>
+          {!isEditMode && (
+            <Pressable style={commonStyles.headerButton} onPress={handleCancel}>
+              <Icon name="x" size={24} color={theme.colors.textLight} />
+            </Pressable>
+          )}
+          {isEditMode && <View style={commonStyles.headerButton} />}
         </View>
 
         {/* Pharmacy Selector Modal */}

@@ -32,6 +32,42 @@ export const usePharmacyListings = (filters = {}) => {
   };
 };
 
+export const usePharmacyListing = (id) => {
+  const [listing, setListing] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchListing = useCallback(async () => {
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await pharmacyListingService.getById(id);
+      setListing(data);
+    } catch (err) {
+      setError(err);
+      console.error('usePharmacyListing error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchListing();
+  }, [fetchListing]);
+
+  return {
+    listing,
+    loading,
+    error,
+    refresh: fetchListing,
+  };
+};
+
 export const useMyListings = (userId) => {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);

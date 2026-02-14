@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, Dimensions, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { theme } from '../../constants/theme';
@@ -23,6 +24,7 @@ export default function ListingDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { session } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -97,9 +99,22 @@ export default function ListingDetail() {
     ]);
   };
 
-  const handleContact = () => {
-    // TODO: Implémenter la messagerie
-    Alert.alert('Contact', 'La messagerie sera bientôt disponible');
+  const handleContact = async () => {
+    try {
+      const { messagingService } = await import('../../services/messagingService');
+      const conversation = await messagingService.getOrCreateListingConversation(id, session.user.id);
+
+      router.push({
+        pathname: '/(screens)/listingConversation',
+        params: {
+          listingId: id,
+          isNew: conversation.isNew,
+        },
+      });
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      Alert.alert('Erreur', error.message || 'Impossible de démarrer la conversation');
+    }
   };
 
   const handlePhotoScroll = (event) => {
@@ -140,7 +155,11 @@ export default function ListingDetail() {
 
   const getPrice = () => {
     if (!listing.price) return 'Prix sur demande';
-    return `${formatNumber(listing.price)} €${listing.negotiable ? ' (négociable)' : ''}`;
+    return `${formatNumber(listing.price)} €`;
+  };
+
+  const getPriceNegotiable = () => {
+    return listing.negotiable ? '(négociable)' : '';
   };
 
   return (
@@ -209,7 +228,7 @@ export default function ListingDetail() {
             
             <View style={[commonStyles.section, { marginTop: hp(1.5), marginBottom: 0 }]}>
               <InfoRow icon="mapPin" text={getLocation()} />
-              <InfoRow icon="briefcase" text={getPrice()} highlight />
+              <InfoRow icon="briefcase" text={`${getPrice()} ${getPriceNegotiable()}`} highlight />
             </View>
           </View>
 
@@ -303,10 +322,12 @@ export default function ListingDetail() {
 
       {/* Contact Footer (non-owner only) */}
       {!isOwner && (
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, hp(2)) }]}>
           <View>
             <Text style={styles.footerPrice}>{getPrice()}</Text>
-            <Text style={commonStyles.hint}>{getLocation()}</Text>
+            {listing.negotiable && (
+              <Text style={styles.footerNegotiable}>{getPriceNegotiable()}</Text>
+            )}
           </View>
           <Button title="Contacter" onPress={handleContact} buttonStyle={{ paddingHorizontal: wp(8) }} />
         </View>
@@ -448,5 +469,10 @@ const styles = StyleSheet.create({
     fontSize: hp(1.8),
     fontFamily: theme.fonts.bold,
     color: theme.colors.primary,
+  },
+  footerNegotiable: {
+    fontSize: hp(1.4),
+    color: theme.colors.textLight,
+    marginTop: hp(0.3),
   },
 });

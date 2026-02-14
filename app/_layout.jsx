@@ -1,6 +1,7 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { View, Text, TextInput } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import LoadingScreen from '../components/common/LoadingScreen';
 import NotificationToast from '../components/common/NotificationToast';
@@ -14,7 +15,8 @@ import {
 } from '@expo-google-fonts/montserrat';
 import * as SplashScreen from 'expo-splash-screen';
 
-SplashScreen.preventAutoHideAsync();
+// DÉSACTIVÉ: Laisser le splash se cacher automatiquement
+// SplashScreen.preventAutoHideAsync();
 
 const setDefaultFont = () => {
   const defaultFont = 'Montserrat_400Regular';
@@ -30,22 +32,31 @@ const MainLayout = () => {
   const router = useRouter();
 
   useEffect(() => {
+    console.log('🟢 Navigation:', { loading, session: !!session, profile: !!profile, segments });
+
     if (loading) return;
 
     const inAuth = segments[0] === '(auth)';
     const isWelcome = segments[0] === 'welcome';
 
+    console.log('🟢 Navigation check:', { inAuth, isWelcome, hasSession: !!session, hasProfile: !!profile });
+
     if (!session && !inAuth && !isWelcome) {
+      console.log('🟢 Navigating to /welcome (no session)');
       router.replace('/welcome');
     } else if (session && !profile?.first_name && !segments.includes('onboarding')) {
+      console.log('🟢 Navigating to /(auth)/onboarding (session without profile)');
       router.replace('/(auth)/onboarding');
     } else if (user && profile?.first_name && (inAuth || isWelcome)) {
       // Connecté avec profil → App principale selon user_type
       if (user.user_type === 'animateur') {
+        console.log('🟢 Navigating to /(tabs)/homeAnimator');
         router.replace('/(tabs)/homeAnimator');
       } else if (user.user_type === 'laboratoire') {
+        console.log('🟢 Navigating to /(tabs)/homeLaboratory');
         router.replace('/(tabs)/homeLaboratory');
       } else {
+        console.log('🟢 Navigating to /(tabs)/home');
         router.replace('/(tabs)/home');
       }
     }
@@ -78,21 +89,18 @@ export default function RootLayout() {
     Montserrat_800ExtraBold,
   });
 
+  // Appliquer les fonts quand elles sont chargées
   useEffect(() => {
     if (fontsLoaded) {
       setDefaultFont();
-      SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);
 
-  // Attendre que les fonts soient chargées
-  if (!fontsLoaded) {
-    return null;
-  }
-
   return (
-    <AuthProvider>
-      <MainLayout />
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <MainLayout />
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

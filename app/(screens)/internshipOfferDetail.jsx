@@ -93,7 +93,7 @@ export default function InternshipOfferDetail() {
           <Icon name="arrowLeft" size={24} color={theme.colors.text} />
         </Pressable>
         <Text style={commonStyles.headerTitle}>Détail {offer.type}</Text>
-        <Pressable style={commonStyles.headerButton} onPress={() => router.push({ pathname: '/(screens)/internshipOfferEdit', params: { id } })}>
+        <Pressable style={commonStyles.headerButton} onPress={() => router.push(`/(screens)/internshipOfferCreate?id=${id}`)}>
           <Icon name="edit" size={20} color={theme.colors.text} />
         </Pressable>
       </View>

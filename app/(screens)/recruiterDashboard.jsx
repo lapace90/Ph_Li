@@ -204,11 +204,22 @@ export default function RecruiterDashboard() {
           <Text style={commonStyles.hint}>Créée le {formatDate(item.created_at)}</Text>
           <View style={commonStyles.rowGapSmall}>
             <Pressable style={styles.iconButton} onPress={() => handleToggleStatus(item)}>
-              <Icon 
-                name={item.status === 'active' ? 'eyeOff' : 'eye'} 
-                size={16} 
-                color={item.status === 'active' ? theme.colors.warning : theme.colors.success} 
+              <Icon
+                name={item.status === 'active' ? 'eyeOff' : 'eye'}
+                size={16}
+                color={item.status === 'active' ? theme.colors.warning : theme.colors.success}
               />
+            </Pressable>
+            <Pressable
+              style={styles.iconButton}
+              onPress={() => {
+                const editRoute = activeTab === 'jobs'
+                  ? `/(screens)/jobOfferCreate?id=${item.id}`
+                  : `/(screens)/internshipOfferCreate?id=${item.id}`;
+                router.push(editRoute);
+              }}
+            >
+              <Icon name="edit" size={16} color={theme.colors.primary} />
             </Pressable>
             <Pressable style={styles.iconButton} onPress={() => handleDelete(item)}>
               <Icon name="trash" size={16} color={theme.colors.rose} />
@@ -270,11 +281,17 @@ export default function RecruiterDashboard() {
             <Text style={commonStyles.hint}>{formatDate(item.created_at)}</Text>
             <View style={commonStyles.rowGapSmall}>
               <Pressable style={styles.iconButtonSmall} onPress={() => handleToggleStatus(item)}>
-                <Icon 
-                  name={item.status === 'active' ? 'eyeOff' : 'eye'} 
-                  size={14} 
-                  color={item.status === 'active' ? theme.colors.warning : theme.colors.success} 
+                <Icon
+                  name={item.status === 'active' ? 'eyeOff' : 'eye'}
+                  size={14}
+                  color={item.status === 'active' ? theme.colors.warning : theme.colors.success}
                 />
+              </Pressable>
+              <Pressable
+                style={styles.iconButtonSmall}
+                onPress={() => router.push(`/(screens)/listingCreate?id=${item.id}`)}
+              >
+                <Icon name="edit" size={14} color={theme.colors.primary} />
               </Pressable>
               <Pressable style={styles.iconButtonSmall} onPress={() => handleDelete(item)}>
                 <Icon name="trash" size={14} color={theme.colors.rose} />

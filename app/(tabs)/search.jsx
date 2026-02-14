@@ -236,12 +236,12 @@ export default function Search() {
           {loading ? 'Chargement...' : `${filteredData.length} annonce${filteredData.length > 1 ? 's' : ''}`}
         </Text>
         {selectedRegionName && (
-          <Pressable 
+          <Pressable
             style={styles.regionTag}
             onPress={() => setSelectedRegion(null)}
           >
             <Text style={styles.regionTagText}>{selectedRegionName}</Text>
-            <Icon name="x" size={14} color={theme.colors.primary} />
+            <Icon name="x" size={14} color="white" />
           </Pressable>
         )}
       </View>
@@ -440,14 +440,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: wp(1),
-    backgroundColor: theme.colors.primaryLight,
+    backgroundColor: theme.colors.secondary,
     paddingHorizontal: wp(2),
     paddingVertical: hp(0.5),
     borderRadius: theme.radius.md,
   },
   regionTagText: {
     fontSize: hp(1.4),
-    color: theme.colors.primary,
+    color: 'white',
     fontWeight: theme.fonts.medium,
   },
   scrollContent: {

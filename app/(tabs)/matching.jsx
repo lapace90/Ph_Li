@@ -6,9 +6,10 @@ import { theme } from '../../constants/theme';
 import { hp, wp } from '../../helpers/common';
 import { commonStyles } from '../../constants/styles';
 import { useAuth } from '../../contexts/AuthContext';
-import { useSwipeScreen, useSwipeCandidates } from '../../hooks/useMatching';
+import { useSwipeScreen, useSwipeCandidates, useSwipeCandidatesForOffer } from '../../hooks/useMatching';
 import { useSwipeMissions, useSwipeAnimators } from '../../hooks/useAnimatorMatching';
 import { useJobOffers } from '../../hooks/useJobOffers';
+import { useInternshipOffers } from '../../hooks/useInternshipOffers';
 import { useClientMissions } from '../../hooks/useMissions';
 import { useFavoriteIds, useFavorites } from '../../hooks/useFavorites';
 import { FAVORITE_TYPES } from '../../services/favoritesService';
@@ -398,18 +399,28 @@ function LaboratorySwipeView({ router, userId, missionId, onBack }) {
 // TITULAIRE → Sélection offre puis swipe candidats
 // ============================================
 function TitulaireMatching({ router, userId }) {
-  const { offers, loading: offersLoading } = useJobOffers(userId);
-  const activeOffers = offers?.filter(o => o.status === 'active') || [];
-  const [selectedOfferId, setSelectedOfferId] = useState(null);
+  const { offers: jobOffers, loading: jobOffersLoading } = useJobOffers(userId);
+  const { offers: internshipOffers, loading: internshipOffersLoading } = useInternshipOffers(userId);
+
+  const activeJobOffers = jobOffers?.filter(o => o.status === 'active').map(o => ({ ...o, offerType: 'job_offer' })) || [];
+  const activeInternshipOffers = internshipOffers?.filter(o => o.status === 'active').map(o => ({ ...o, offerType: 'internship_offer' })) || [];
+
+  // Combine both types of offers
+  const allActiveOffers = [...activeJobOffers, ...activeInternshipOffers].sort((a, b) =>
+    new Date(b.created_at) - new Date(a.created_at)
+  );
+
+  const loading = jobOffersLoading || internshipOffersLoading;
+  const [selectedOffer, setSelectedOffer] = useState(null);
 
   // Si une offre est sélectionnée → swipe candidats
-  if (selectedOfferId) {
+  if (selectedOffer) {
     return (
       <TitulaireSwipeView
         router={router}
         userId={userId}
-        jobOfferId={selectedOfferId}
-        onBack={() => setSelectedOfferId(null)}
+        offer={selectedOffer}
+        onBack={() => setSelectedOffer(null)}
       />
     );
   }
@@ -433,55 +444,72 @@ function TitulaireMatching({ router, userId }) {
         <Text style={commonStyles.sectionTitle}>Sélectionnez une offre</Text>
         <Text style={commonStyles.hint}>Pour trouver des candidats correspondants</Text>
 
-        {offersLoading ? (
+        {loading ? (
           <View style={commonStyles.loadingContainer}>
             <Text style={commonStyles.loadingText}>Chargement...</Text>
           </View>
-        ) : activeOffers.length > 0 ? (
+        ) : allActiveOffers.length > 0 ? (
           <View style={labStyles.missionsList}>
-            {activeOffers.map(offer => (
-              <Pressable
-                key={offer.id}
-                style={labStyles.missionCard}
-                onPress={() => setSelectedOfferId(offer.id)}
-              >
-                <View style={labStyles.missionIcon}>
-                  <Icon name="briefcase" size={20} color={theme.colors.primary} />
-                </View>
-                <View style={commonStyles.flex1}>
-                  <Text style={labStyles.missionTitle} numberOfLines={1}>{offer.title}</Text>
-                  <View style={labStyles.missionMeta}>
-                    {offer.city && (
-                      <View style={labStyles.missionMetaItem}>
-                        <Icon name="mapPin" size={12} color={theme.colors.textLight} />
-                        <Text style={labStyles.missionMetaText}>{offer.city}</Text>
-                      </View>
-                    )}
-                    {offer.contract_type && (
-                      <View style={labStyles.missionMetaItem}>
-                        <Icon name="fileText" size={12} color={theme.colors.textLight} />
-                        <Text style={labStyles.missionMetaText}>{offer.contract_type}</Text>
-                      </View>
-                    )}
-                    {offer.salary_range && (
-                      <View style={labStyles.missionMetaItem}>
-                        <Icon name="dollarSign" size={12} color={theme.colors.primary} />
-                        <Text style={[labStyles.missionMetaText, { color: theme.colors.primary, fontFamily: theme.fonts.semiBold }]}>{offer.salary_range}</Text>
-                      </View>
-                    )}
+            {allActiveOffers.map(offer => {
+              const isInternship = offer.offerType === 'internship_offer';
+              const badgeColor = isInternship ? theme.colors.secondary : theme.colors.primary;
+              const badgeText = isInternship ? (offer.type === 'stage' ? 'Stage' : 'Alternance') : 'Emploi';
+
+              return (
+                <Pressable
+                  key={`${offer.offerType}-${offer.id}`}
+                  style={labStyles.missionCard}
+                  onPress={() => setSelectedOffer(offer)}
+                >
+                  <View style={labStyles.missionIcon}>
+                    <Icon name={isInternship ? "bookOpen" : "briefcase"} size={20} color={badgeColor} />
                   </View>
-                </View>
-                <View style={labStyles.missionArrow}>
-                  <Icon name="chevronRight" size={18} color={theme.colors.primary} />
-                </View>
-              </Pressable>
-            ))}
+                  <View style={commonStyles.flex1}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: wp(1.5), marginBottom: hp(0.5) }}>
+                      <Text style={labStyles.missionTitle} numberOfLines={1}>{offer.title}</Text>
+                      <View style={[labStyles.offerBadge, { backgroundColor: badgeColor + '15' }]}>
+                        <Text style={[labStyles.offerBadgeText, { color: badgeColor }]}>{badgeText}</Text>
+                      </View>
+                    </View>
+                    <View style={labStyles.missionMeta}>
+                      {offer.city && (
+                        <View style={labStyles.missionMetaItem}>
+                          <Icon name="mapPin" size={12} color={theme.colors.textLight} />
+                          <Text style={labStyles.missionMetaText}>{offer.city}</Text>
+                        </View>
+                      )}
+                      {offer.contract_type && (
+                        <View style={labStyles.missionMetaItem}>
+                          <Icon name="fileText" size={12} color={theme.colors.textLight} />
+                          <Text style={labStyles.missionMetaText}>{offer.contract_type}</Text>
+                        </View>
+                      )}
+                      {isInternship && offer.duration_months && (
+                        <View style={labStyles.missionMetaItem}>
+                          <Icon name="clock" size={12} color={theme.colors.textLight} />
+                          <Text style={labStyles.missionMetaText}>{offer.duration_months} mois</Text>
+                        </View>
+                      )}
+                      {offer.salary_range && (
+                        <View style={labStyles.missionMetaItem}>
+                          <Icon name="dollarSign" size={12} color={theme.colors.primary} />
+                          <Text style={[labStyles.missionMetaText, { color: theme.colors.primary, fontFamily: theme.fonts.semiBold }]}>{offer.salary_range}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                  <View style={labStyles.missionArrow}>
+                    <Icon name="chevronRight" size={18} color={badgeColor} />
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
         ) : (
           <EmptyState
             icon="briefcase"
             title="Aucune offre active"
-            subtitle="Créez une offre d'emploi pour trouver des candidats"
+            subtitle="Créez une offre d'emploi ou de stage pour trouver des candidats"
             action={() => router.push('/(screens)/jobOfferCreate')}
             actionLabel="Créer une offre"
           />
@@ -494,10 +522,13 @@ function TitulaireMatching({ router, userId }) {
 // ============================================
 // TITULAIRE → Vue swipe candidats
 // ============================================
-function TitulaireSwipeView({ router, userId, jobOfferId, onBack }) {
-  const { candidates, jobOffer, loading, lastMatch, swipeRight, swipeLeft, superLike, clearLastMatch, refresh, superLikesRemaining, superLikeQuota } = useSwipeCandidates(jobOfferId);
+function TitulaireSwipeView({ router, userId, offer, onBack }) {
+  const { candidates, offer: offerData, loading, lastMatch, swipeRight, swipeLeft, superLike, clearLastMatch, refresh, superLikesRemaining, superLikeQuota } = useSwipeCandidatesForOffer(offer.id, offer.offerType);
   const { isFavorite: isCandidateFav } = useFavoriteIds(userId, FAVORITE_TYPES.CANDIDATE);
   const { toggleFavorite: toggleCandidateFav } = useFavorites(userId, FAVORITE_TYPES.CANDIDATE);
+
+  const isInternship = offer.offerType === 'internship_offer';
+  const offerTitle = offerData?.title || offer.title;
 
   const handleSwipeLeft = async (card) => await swipeLeft(card.id);
   const handleSwipeRight = async (card) => await swipeRight(card.id);
@@ -530,6 +561,7 @@ function TitulaireSwipeView({ router, userId, jobOfferId, onBack }) {
         </Pressable>
         <View style={{ alignItems: 'center', flex: 1 }}>
           <Text style={commonStyles.headerTitle}>Candidats</Text>
+          {offerTitle && <Text style={commonStyles.hint} numberOfLines={1}>{offerTitle}</Text>}
         </View>
         <View style={commonStyles.rowGapSmall}>
           <Pressable style={commonStyles.headerButton} onPress={() => router.push('/(tabs)/messages')}>
@@ -610,5 +642,15 @@ const labStyles = StyleSheet.create({
     backgroundColor: theme.colors.primary + '10',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  offerBadge: {
+    paddingHorizontal: wp(2),
+    paddingVertical: hp(0.3),
+    borderRadius: theme.radius.sm,
+  },
+  offerBadgeText: {
+    fontSize: hp(1.1),
+    fontFamily: theme.fonts.semiBold,
+    textTransform: 'uppercase',
   },
 });

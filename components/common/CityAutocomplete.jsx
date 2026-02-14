@@ -10,6 +10,11 @@ const CityAutocomplete = ({ value, onSelect, placeholder = "Rechercher une ville
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
+  // Synchroniser avec la prop value quand elle change
+  useEffect(() => {
+    setQuery(value || '');
+  }, [value]);
+
   useEffect(() => {
     if (query.length < 2) {
       setSuggestions([]);
@@ -81,6 +86,9 @@ const CityAutocomplete = ({ value, onSelect, placeholder = "Rechercher une ville
           placeholder={placeholder}
           placeholderTextColor={theme.colors.textLight}
           onFocus={() => query.length >= 2 && setShowSuggestions(true)}
+          editable={true}
+          selectTextOnFocus={true}
+          autoCorrect={false}
         />
         {loading && <ActivityIndicator size="small" color={theme.colors.primary} />}
       </View>

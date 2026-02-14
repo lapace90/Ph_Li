@@ -32,6 +32,21 @@ export const useConversations = () => {
     fetchConversations();
   }, [fetchConversations]);
 
+  // Realtime subscription pour les nouveaux messages
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const unsubscribe = messagingService.subscribeToConversations(
+      user.id,
+      () => {
+        // Rafraîchir la liste des conversations quand un nouveau message arrive
+        fetchConversations();
+      }
+    );
+
+    return unsubscribe;
+  }, [user?.id, fetchConversations]);
+
   const unreadTotal = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
 
   return {
@@ -177,11 +192,20 @@ export const useUnreadCount = () => {
     fetchCount();
   }, [fetchCount]);
 
-  // Actualiser périodiquement
+  // Real-time subscription pour mettre à jour le compteur
   useEffect(() => {
-    const interval = setInterval(fetchCount, 30000);
-    return () => clearInterval(interval);
-  }, [fetchCount]);
+    if (!user?.id) return;
+
+    const unsubscribe = messagingService.subscribeToConversations(
+      user.id,
+      () => {
+        // Rafraîchir le compteur quand un nouveau message arrive
+        fetchCount();
+      }
+    );
+
+    return unsubscribe;
+  }, [user?.id, fetchCount]);
 
   return count;
 };

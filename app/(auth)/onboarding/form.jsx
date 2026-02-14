@@ -26,7 +26,7 @@ import { SPECIALIZATIONS, GENDERS, STUDY_LEVELS } from '../../../constants/profi
 // ============================================
 
 const SectionIdentity = ({ formData, updateField }) => (
-  <View style={commonStyles.section}>
+  <View style={[commonStyles.section, { marginBottom: hp(0.5) }]}>
     <Text style={commonStyles.sectionTitle}>Identité</Text>
 
     <Input
@@ -86,7 +86,7 @@ const SectionIdentity = ({ formData, updateField }) => (
 );
 
 const SectionLocation = ({ formData, updateField, handleCitySelect, isCandidate }) => (
-  <View style={[commonStyles.section, { zIndex: 100 }]}>
+  <View style={[commonStyles.section, { zIndex: 100, marginBottom: hp(0.5) }]}>
     <Text style={commonStyles.sectionTitle}>Localisation</Text>
 
     <CityAutocomplete

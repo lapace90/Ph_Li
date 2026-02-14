@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, Linking, Pressable } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Linking, Pressable, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { hp, wp } from '../../helpers/common';
@@ -11,8 +11,25 @@ import Icon from '../../assets/icons/Icon';
 export default function About() {
   const router = useRouter();
 
-  const handleContact = () => {
-    Linking.openURL('mailto:contact@pharmalink.pro');
+  const handleContact = async () => {
+    try {
+      const supported = await Linking.canOpenURL('mailto:contact@pharmalink.pro');
+      if (supported) {
+        await Linking.openURL('mailto:contact@pharmalink.pro');
+      } else {
+        Alert.alert(
+          'Email non disponible',
+          'Veuillez nous contacter à : contact@pharmalink.pro',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      Alert.alert(
+        'Email non disponible',
+        'Veuillez nous contacter à : contact@pharmalink.pro',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   return (

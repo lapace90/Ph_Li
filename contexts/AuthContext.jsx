@@ -19,16 +19,24 @@ export const AuthProvider = ({ children }) => {
   const [laboratoryProfile, setLaboratoryProfile] = useState(null);
 
   useEffect(() => {
+    console.log('🔵 AuthProvider: Initializing...');
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('🔵 AuthProvider: Got session', !!session);
       setSession(session);
       if (session?.user) {
+        console.log('🔵 AuthProvider: Loading user data for', session.user.id);
         loadUserData(session.user.id, session.user.email);
       } else {
+        console.log('🔵 AuthProvider: No session, setting loading=false');
         setLoading(false);
       }
+    }).catch(error => {
+      console.error('🔴 AuthProvider: Error getting session', error);
+      setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('🔵 AuthProvider: Auth state changed', _event);
       setSession(session);
       if (session?.user) {
         loadUserData(session.user.id, session.user.email);

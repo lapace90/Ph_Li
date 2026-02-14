@@ -329,19 +329,19 @@ export default function Home() {
                   <View style={[commonStyles.homeQuickActionIcon, { backgroundColor: theme.colors.primary + '15' }]}>
                     <Icon name="briefcase" size={20} color={theme.colors.primary} />
                   </View>
-                  <Text style={commonStyles.homeQuickActionText}>Mes annonces</Text>
+                  <Text style={commonStyles.homeQuickActionText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>Mes annonces</Text>
                 </Pressable>
                 <Pressable style={commonStyles.homeQuickAction} onPress={() => router.push('/(tabs)/matching')}>
                   <View style={[commonStyles.homeQuickActionIcon, { backgroundColor: theme.colors.rose + '15' }]}>
                     <Icon name="heart" size={20} color={theme.colors.rose} />
                   </View>
-                  <Text style={commonStyles.homeQuickActionText}>Swipe candidats</Text>
+                  <Text style={commonStyles.homeQuickActionText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>Swipe candidats</Text>
                 </Pressable>
                 <Pressable style={commonStyles.homeQuickAction} onPress={() => router.push('/(screens)/matches')}>
                   <View style={[commonStyles.homeQuickActionIcon, { backgroundColor: theme.colors.secondary + '15' }]}>
                     <Icon name="users" size={20} color={theme.colors.secondary} />
                   </View>
-                  <Text style={commonStyles.homeQuickActionText}>Mes matchs</Text>
+                  <Text style={commonStyles.homeQuickActionText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>Mes matchs</Text>
                 </Pressable>
               </>
             ) : (
@@ -350,19 +350,19 @@ export default function Home() {
                   <View style={[commonStyles.homeQuickActionIcon, { backgroundColor: theme.colors.rose + '15' }]}>
                     <Icon name="heart" size={20} color={theme.colors.rose} />
                   </View>
-                  <Text style={commonStyles.homeQuickActionText}>Swiper</Text>
+                  <Text style={commonStyles.homeQuickActionText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>Swiper</Text>
                 </Pressable>
                 <Pressable style={commonStyles.homeQuickAction} onPress={() => router.push('/(tabs)/search')}>
                   <View style={[commonStyles.homeQuickActionIcon, { backgroundColor: theme.colors.primary + '15' }]}>
                     <Icon name="search" size={20} color={theme.colors.primary} />
                   </View>
-                  <Text style={commonStyles.homeQuickActionText}>Rechercher</Text>
+                  <Text style={commonStyles.homeQuickActionText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>Rechercher</Text>
                 </Pressable>
                 <Pressable style={commonStyles.homeQuickAction} onPress={() => router.push('/(screens)/matches')}>
                   <View style={[commonStyles.homeQuickActionIcon, { backgroundColor: theme.colors.secondary + '15' }]}>
                     <Icon name="messageCircle" size={20} color={theme.colors.secondary} />
                   </View>
-                  <Text style={commonStyles.homeQuickActionText}>Mes matchs</Text>
+                  <Text style={commonStyles.homeQuickActionText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>Mes matchs</Text>
                 </Pressable>
               </>
             )}

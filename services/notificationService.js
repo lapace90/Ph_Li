@@ -75,23 +75,114 @@ export const notificationService = {
 
   /**
    * Crée une notification
+   * Utilise une fonction RPC pour contourner RLS (permet de créer des notifications pour d'autres utilisateurs)
    */
   async createNotification(userId, type, title, content, data = {}) {
-    const { data: notification, error } = await supabase
-      .from('notifications')
-      .insert({
-        user_id: userId,
-        type,
-        title,
-        content,
-        data,
-        read: false,
-      })
-      .select()
-      .single();
+    const { data: notificationId, error } = await supabase
+      .rpc('create_notification_for_user', {
+        p_user_id: userId,
+        p_type: type,
+        p_title: title,
+        p_content: content,
+        p_data: data,
+      });
 
     if (error) throw error;
-    return notification;
+
+    // Retourner un objet avec l'ID pour compatibilité
+    return { id: notificationId, user_id: userId, type, title, content, data };
+  },
+
+  /**
+   * Crée ou met à jour une notification de message
+   * Groupe les messages d'une même conversation pour éviter le spam
+   */
+  async createOrUpdateMessageNotification(userId, senderId, senderName, matchId, messagePreview) {
+    try {
+      // Chercher une notification non-lue existante pour cette conversation
+      const { data: existingNotif, error: searchError } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('type', NOTIFICATION_TYPES.MESSAGE)
+        .eq('read', false)
+        .contains('data', { match_id: matchId })
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (searchError) {
+        console.warn('Error searching for existing notification:', searchError);
+      }
+
+      if (existingNotif) {
+        // Notification existante → mettre à jour avec compteur
+        const currentCount = existingNotif.data?.message_count || 1;
+        const newCount = currentCount + 1;
+
+        const { error: updateError } = await supabase
+          .from('notifications')
+          .update({
+            title: `${newCount} nouveaux messages`,
+            content: `${senderName} : ${messagePreview}`,
+            data: {
+              ...existingNotif.data,
+              message_count: newCount,
+              last_message_preview: messagePreview,
+            },
+            created_at: new Date().toISOString(), // Mettre à jour le timestamp
+          })
+          .eq('id', existingNotif.id);
+
+        if (updateError) {
+          console.error('Error updating notification:', updateError);
+        }
+
+        return { id: existingNotif.id, updated: true };
+      } else {
+        // Pas de notification existante → en créer une nouvelle
+        return await this.createNotification(
+          userId,
+          NOTIFICATION_TYPES.MESSAGE,
+          'Nouveau message',
+          `${senderName} : ${messagePreview}`,
+          {
+            match_id: matchId,
+            conversation_id: matchId,
+            sender_id: senderId,
+            message_count: 1,
+          }
+        );
+      }
+    } catch (err) {
+      console.error('Error in createOrUpdateMessageNotification:', err);
+      // Fallback : créer une notification classique
+      return await this.createNotification(
+        userId,
+        NOTIFICATION_TYPES.MESSAGE,
+        'Nouveau message',
+        `${senderName} : ${messagePreview}`,
+        { match_id: matchId, conversation_id: matchId }
+      );
+    }
+  },
+
+  /**
+   * Marque toutes les notifications de message d'une conversation comme lues
+   * À appeler quand l'utilisateur ouvre une conversation
+   */
+  async markConversationNotificationsAsRead(userId, matchId) {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('user_id', userId)
+      .eq('type', NOTIFICATION_TYPES.MESSAGE)
+      .eq('read', false)
+      .contains('data', { match_id: matchId });
+
+    if (error) {
+      console.error('Error marking conversation notifications as read:', error);
+    }
   },
 
   /**

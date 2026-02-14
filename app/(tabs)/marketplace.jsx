@@ -169,6 +169,7 @@ const styles = StyleSheet.create({
   },
   filterTextActive: {
     color: 'white',
+    fontFamily: theme.fonts.semiBold,
   },
   loadingContainer: {
     flex: 1,

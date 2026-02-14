@@ -64,7 +64,12 @@ const ListingCard = ({ listing, onPress }) => {
           <Text style={styles.location}>{getLocation()}</Text>
         </View>
 
-        <Text style={styles.price}>{formatPrice()}</Text>
+        <View>
+          <Text style={styles.price}>{formatPrice()}</Text>
+          {listing.negotiable && (
+            <Text style={styles.negotiable}>(négociable)</Text>
+          )}
+        </View>
 
         {/* Features */}
         <View style={styles.features}>
@@ -150,6 +155,11 @@ const styles = StyleSheet.create({
     fontSize: hp(1.9),
     fontFamily: theme.fonts.bold,
     color: theme.colors.primary,
+  },
+  negotiable: {
+    fontSize: hp(1.3),
+    color: theme.colors.textLight,
+    marginTop: hp(0.2),
   },
   features: {
     flexDirection: 'row',
